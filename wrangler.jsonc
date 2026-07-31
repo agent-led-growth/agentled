@@ -10,7 +10,11 @@
   },
   "observability": {
     "enabled": true
-  }
+  },
+
+  // Custom domain. Cloudflare manages the DNS record and certificate for this
+  // hostname automatically; the zone must already exist on the account.
+  "routes": [{ "pattern": "agentled.co", "custom_domain": true }]
 
   // Secrets (NEXT_PUBLIC_* live in .env / CI; server-only values are set with
   // `wrangler secret put <NAME>`):
