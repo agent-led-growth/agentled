@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "agentled",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-07-31",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  }
+
+  // Secrets (NEXT_PUBLIC_* live in .env / CI; server-only values are set with
+  // `wrangler secret put <NAME>`):
+  //   SUPABASE_SERVICE_ROLE_KEY
+  //   RESEND_API_KEY
+}
