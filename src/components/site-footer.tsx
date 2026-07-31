@@ -12,25 +12,37 @@ export function SiteFooter() {
         </p>
 
         <nav aria-label="Social links">
-          <ul className="flex list-none flex-wrap items-center gap-x-[24px] gap-y-[14px] md:gap-x-[30px]">
+          {/*
+            Negative margins cancel the padding the square tap targets add
+            around each icon, so the row's optical edges line up with the
+            container padding rather than sitting ~8px inside it.
+          */}
+          <ul className="-mx-[8px] flex list-none items-center gap-[4px] md:gap-[6px]">
             {SOCIALS.map((social) => (
               <li key={social.name}>
+                {/*
+                  Icon-only, so the link needs an accessible name of its own —
+                  without it a screen reader announces the bare URL. The square
+                  target matches the theme toggle and keeps the tap area at a
+                  comfortable size without the hit areas overlapping.
+                */}
                 <a
                   href={social.href}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="group inline-flex items-center gap-[9px] text-[14px] text-[var(--text-muted)] no-underline transition-colors hover:text-[var(--text-primary)] md:text-[15px]"
+                  aria-label={social.name}
+                  title={social.name}
+                  className="grid size-[32px] place-items-center text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)] md:size-[34px]"
                 >
                   <svg
                     viewBox={social.viewBox}
-                    className="h-[15px] w-auto shrink-0 md:h-[16px]"
+                    className="h-[17px] w-auto shrink-0 md:h-[18px]"
                     fill="currentColor"
                     aria-hidden="true"
                     focusable="false"
                   >
                     <path d={social.path} />
                   </svg>
-                  {social.name}
                 </a>
               </li>
             ))}
