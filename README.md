@@ -120,6 +120,17 @@ follows the rule the design already applies to the CTA chip.
 Worth a second look before launch: "Read by people at" alongside corporate
 logos can imply endorsement by those companies.
 
+## FAQ and footer
+
+`src/components/faq.tsx` — **placeholder copy, pending a rewrite.** Built on
+native `<details>`/`<summary>`, so it is keyboard- and screen-reader-accessible
+with no JavaScript and works even if hydration never happens.
+
+`src/components/socials.ts` is **generated** — do not hand-edit the paths. X,
+YouTube and Substack come from Simple Icons; LinkedIn comes from Font Awesome's
+free brand set (Simple Icons dropped it), which is why it carries a different
+viewBox.
+
 ## Subscribe flow
 
 Double opt-in, owned end to end — no Substack dependency.

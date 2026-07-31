@@ -73,6 +73,11 @@ export function SubscribeForm() {
       noValidate
       className="flex w-full max-w-[580px] flex-col gap-[10px]"
     >
+      {/*
+        The input is `md:flex-1`, not `flex-1`. In the stacked mobile layout the
+        flex axis is vertical, so `flex: 1 1 0%` overrides h-[54px] and collapses
+        the field to its content height (22px).
+      */}
       <div className="flex flex-col gap-[10px] md:flex-row">
         <input
           type="email"
@@ -91,7 +96,7 @@ export function SubscribeForm() {
           aria-invalid={invalid}
           aria-describedby={invalid ? errorId : undefined}
           disabled={status === "submitting"}
-          className="h-[54px] flex-1 border border-[var(--border-hairline)] bg-[var(--field-bg)] px-[18px] text-[16px] text-[var(--text-primary)] placeholder:text-[var(--text-faint)] disabled:opacity-60 md:h-[62px] md:px-[20px] md:text-[18px]"
+          className="h-[54px] w-full border border-[var(--border-hairline)] bg-[var(--field-bg)] px-[18px] text-[16px] text-[var(--text-primary)] placeholder:text-[var(--text-faint)] disabled:opacity-60 md:h-[62px] md:flex-1 md:px-[20px] md:text-[18px]"
         />
         <button
           type="submit"
