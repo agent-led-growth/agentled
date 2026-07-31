@@ -104,14 +104,18 @@ not stretch it.
 
 ### Social-proof logos
 
-`src/components/hero/brands.ts` is **generated** — do not hand-edit the paths.
-`USE_BRAND_LOGOS` is `false`, so all five tiles render monograms.
+Each company's square **icon mark** (not its wordmark), as PNGs in
+`public/logos`, listed in `src/components/hero/brands.ts`.
 
-Only 3 of 5 brands have a usable mark: Microsoft and Gartner restrict
-redistribution and ship in no icon set, and Siemens is a wordmark that is
-illegible at 20px. Mixing three logo styles with two monograms looks broken, so
-monograms are the coherent option until official cleared assets arrive. Drop
-real SVGs into `brands.ts` and flip the flag.
+Source resolution is capped by what each company publishes: Microsoft and
+Siemens ship 128px icons; Gartner, HP and CrewAI only publish 32px favicons.
+Those three are therefore slightly soft on 2× displays — replace them if better
+assets turn up (Brandfetch has them, but blocks automated fetches).
+
+The tiles are **light in both themes**, departing from 4A's transparent tiles.
+Real marks carry their own colours and baked-in backgrounds (Gartner white,
+Siemens teal), so a uniform light tile is the only way all five read, and it
+follows the rule the design already applies to the CTA chip.
 
 Worth a second look before launch: "Read by people at" alongside corporate
 logos can imply endorsement by those companies.

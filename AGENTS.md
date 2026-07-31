@@ -33,6 +33,7 @@ for email. Package manager is **pnpm**.
 - Theme is `data-theme` on `<html>`, never a class, and the next/font variables
   must stay on `<html>` or `--font-display` resolves to empty at `:root` and the
   whole site silently falls back to the system font.
-- `src/components/hero/brands.ts` is generated — never hand-edit SVG paths.
+- Social-proof logos are real brand marks in `public/logos`, listed in
+  `src/components/hero/brands.ts`. Their tiles stay light in both themes.
 - Design tokens live in `globals.css`. Use the semantic `--text-*`/`--surface`
   vars so components work in both themes instead of duplicating colours.

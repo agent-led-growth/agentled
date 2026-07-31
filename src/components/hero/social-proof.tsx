@@ -1,10 +1,18 @@
-import { BRANDS, USE_BRAND_LOGOS } from "./brands";
+import Image from "next/image";
+
+import { BRANDS } from "./brands";
 
 /**
- * "Read by people at" tiles. Each brand renders either a monochrome logo or a
- * monogram fallback, so swapping one in is a data change (see `brands.ts`)
- * rather than a markup change. Logos are tinted with `currentColor` and sized
- * to ~20px optical height inside the tile, per the handoff.
+ * "Read by people at" tiles.
+ *
+ * Tiles stay light in both themes, following the same rule the design applies
+ * to the CTA chip. Real brand marks carry their own colours and baked-in
+ * backgrounds (Gartner is white, Siemens teal), so a consistent light tile is
+ * the only way all five read — and it keeps the row visually even.
+ *
+ * Logos are `unoptimized` on purpose: they are tiny static PNGs already at
+ * their target size, so running them through the image optimizer on Workers
+ * would add cost and a cold-start dependency for no gain.
  */
 export function SocialProof() {
   return (
@@ -17,26 +25,16 @@ export function SocialProof() {
           <li
             key={brand.name}
             title={brand.name}
-            className="grid size-[36px] place-items-center border border-[var(--border-hairline)] bg-[var(--tile-bg)] text-[var(--text-muted)] md:size-[38px]"
+            className="grid size-[36px] place-items-center border border-border-light bg-white md:size-[38px]"
           >
-            {USE_BRAND_LOGOS && brand.logo ? (
-              <svg
-                viewBox="0 0 24 24"
-                className="size-[20px]"
-                fill="currentColor"
-                role="img"
-                aria-label={brand.name}
-              >
-                <path d={brand.logo} />
-              </svg>
-            ) : (
-              <span
-                aria-label={brand.name}
-                className="font-mono text-[11px] font-bold md:text-[11.5px]"
-              >
-                {brand.monogram}
-              </span>
-            )}
+            <Image
+              src={brand.logo}
+              alt={brand.name}
+              width={brand.size}
+              height={brand.size}
+              unoptimized
+              className="size-[20px] object-contain"
+            />
           </li>
         ))}
       </ul>
