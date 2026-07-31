@@ -1,26 +1,154 @@
 @import "tailwindcss";
 
+/*
+ * Theme is an attribute on <html> so the toggle can override the system
+ * preference. Deliberately not a class: React owns className on <html> for the
+ * next/font variables and would overwrite a class during hydration.
+ */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  /* Brand palette — see README "Design Tokens". */
+  --color-ink: #0b0d0c;
+  --color-ink-2: #14170f;
+  --color-paper: #fafafa;
+  --color-lime: #c8f04a;
+  --color-lime-hot: #dcff6b;
+  --color-olive: #4f7a12;
+
+  --color-text-dark-primary: #eef1ec;
+  --color-text-dark-muted: #9aa097;
+  --color-text-dark-faint: #6e746c;
+
+  --color-text-light-primary: #14170f;
+  --color-text-light-muted: #5c6358;
+  --color-text-light-faint: #8b9184;
+
+  --color-border-dark: #2c332d;
+  --color-border-light: #d8dcd2;
+
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+
+  /* Brand rule: square corners everywhere. */
+  --radius-none: 0;
+}
+
+/*
+ * Semantic surface/text vars flip with the theme so components can be written
+ * once instead of duplicating every colour for 4A and 4B.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --surface: var(--color-paper);
+  --text-primary: var(--color-text-light-primary);
+  --text-muted: var(--color-text-light-muted);
+  --text-faint: var(--color-text-light-faint);
+  --border-hairline: var(--color-border-light);
+  --field-bg: #ffffff;
+  --tile-bg: #ffffff;
+  --accent: var(--color-olive);
+  --btn-bg: var(--color-ink-2);
+  --btn-fg: var(--color-paper);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root[data-theme="dark"] {
+  --surface: var(--color-ink);
+  --text-primary: var(--color-text-dark-primary);
+  --text-muted: var(--color-text-dark-muted);
+  --text-faint: var(--color-text-dark-faint);
+  --border-hairline: var(--color-border-dark);
+  --field-bg: rgb(255 255 255 / 0.05);
+  --tile-bg: transparent;
+  --accent: var(--color-lime);
+  --btn-bg: var(--color-lime);
+  --btn-fg: var(--color-ink-2);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Canvas masks. Mobile is full-bleed and thinned through the middle band where
+ * the copy sits; light mobile needs a stronger mask because the dark traces on
+ * a pale background are higher contrast than lime on near-black.
+ */
+.traces-canvas {
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    #000 0%,
+    rgba(0, 0, 0, 0.42) 40%,
+    rgba(0, 0, 0, 0.12) 58%,
+    rgba(0, 0, 0, 0.5) 80%,
+    #000 100%
+  );
+  mask-image: linear-gradient(
+    180deg,
+    #000 0%,
+    rgba(0, 0, 0, 0.42) 40%,
+    rgba(0, 0, 0, 0.12) 58%,
+    rgba(0, 0, 0, 0.5) 80%,
+    #000 100%
+  );
+}
+
+:root:not([data-theme="dark"]) .traces-canvas {
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    #000 0%,
+    rgba(0, 0, 0, 0.6) 40%,
+    rgba(0, 0, 0, 0.35) 58%,
+    rgba(0, 0, 0, 0.7) 80%,
+    #000 100%
+  );
+  mask-image: linear-gradient(
+    180deg,
+    #000 0%,
+    rgba(0, 0, 0, 0.6) 40%,
+    rgba(0, 0, 0, 0.35) 58%,
+    rgba(0, 0, 0, 0.7) 80%,
+    #000 100%
+  );
+}
+
+/* Desktop: dissolve leftwards across the right two-thirds. Same for both themes. */
+@media (min-width: 768px) {
+  .traces-canvas,
+  :root:not([data-theme="dark"]) .traces-canvas {
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(0, 0, 0, 0.55) 30%,
+      #000 68%
+    );
+    mask-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(0, 0, 0, 0.55) 30%,
+      #000 68%
+    );
+  }
+}
+
+/* Focus rings: lime on dark, olive on light (README "Interactions"). */
+:where(a, button, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

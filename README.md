@@ -64,14 +64,68 @@ if OpenNext adds support.
 
 ```
 src/
-  app/                  routes (App Router)
+  app/
+    page.tsx                    landing hero (designs 4A/4B)
+    ai-search-monitor/          CTA target — placeholder, not yet designed
+    subscribed/                 confirm-link landing page
+    api/subscribe/              POST subscribe + GET confirm
+  components/
+    hero/                       hero composition + canvas wrapper
+      brands.ts                 social-proof data (GENERATED — see below)
+    theme-script.tsx            pre-paint theme, avoids flash
+    theme-toggle.tsx
   lib/
-    env.ts              validated env access
-    supabase/
-      client.ts         browser client
-      server.ts         server components / actions / route handlers
-      admin.ts          service-role client (bypasses RLS — server only)
-      proxy.ts          session refresh
-    email/resend.ts     Resend client + default sender
-  proxy.ts              wires session refresh into every request
+    env.ts                      validated env access
+    traces.ts                   canvas animation (framework-free)
+    use-theme.ts                theme store
+    supabase/{client,server,admin}.ts
+    email/resend.ts
+supabase/migrations/            SQL, apply via Supabase CLI or dashboard
 ```
+
+## The landing hero
+
+Built from `design_handoff_landing_hero`. Both approved themes ship, with a
+toggle in the top-right; the choice persists in `localStorage` and falls back to
+`prefers-color-scheme`.
+
+**Theme is a `data-theme` attribute on `<html>`, not a class.** React owns
+`className` there for the next/font variables and would overwrite a class during
+hydration. For the same reason the font variables *must* stay on `<html>`:
+Tailwind's `@theme` resolves `--font-display` at `:root`, and a `var()` it cannot
+resolve there computes to empty, silently falling back to the system font.
+
+**Canvas** (`src/lib/traces.ts`) is a direct port of the prototype's `traces`
+mode. It honours `prefers-reduced-motion`, pauses off-screen and on
+`document.hidden`, caps the backing buffer at 2× DPR, and always paints one
+static frame up front so a background tab never shows an empty canvas. Note it
+needs an explicit height — a canvas is a replaced element, so `inset-y-0` will
+not stretch it.
+
+### Social-proof logos
+
+`src/components/hero/brands.ts` is **generated** — do not hand-edit the paths.
+`USE_BRAND_LOGOS` is `false`, so all five tiles render monograms.
+
+Only 3 of 5 brands have a usable mark: Microsoft and Gartner restrict
+redistribution and ship in no icon set, and Siemens is a wordmark that is
+illegible at 20px. Mixing three logo styles with two monograms looks broken, so
+monograms are the coherent option until official cleared assets arrive. Drop
+real SVGs into `brands.ts` and flip the flag.
+
+Worth a second look before launch: "Read by people at" alongside corporate
+logos can imply endorsement by those companies.
+
+## Subscribe flow
+
+Double opt-in, owned end to end — no Substack dependency.
+
+1. `POST /api/subscribe` validates, upserts into `public.subscribers`
+   (idempotent on a normalised email), and sends a confirmation via Resend.
+2. `GET /api/subscribe/confirm?token=…` flips the row to `confirmed` and
+   redirects to `/subscribed`.
+
+`subscribers` has RLS enabled with **no policies**, so anon and authenticated
+have no access at all; writes go through the service-role client in the route
+handler. Apply the migration before going live, and verify `agentled.co` in
+Resend or the confirmation email will not send.
