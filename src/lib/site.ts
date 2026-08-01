@@ -8,8 +8,15 @@ export const SITE = {
   legalName: "Campo Base Labs SL",
   title: "Agent-led Growth — Grow in the Age of AI",
   tagline: "Grow in the Age of AI",
+  /**
+   * Search-engine meta description. Deliberately more specific than the social
+   * line: it carries the terms someone would actually search for.
+   */
   description:
     "Independent research on how AI is changing the way businesses grow. Research, experiments, frameworks, and tools for founders, marketers, and growth teams.",
+  /** The line shown when the link is unfurled on social, chat and messaging. */
+  socialDescription:
+    "Exploring the new playbooks for growth in a world shaped by AI agents.",
   shortDescription:
     "Get research, experiments, and tools for the next generation of growth.",
   founder: {

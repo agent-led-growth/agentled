@@ -37,7 +37,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
   openGraph: {
     title: SITE.title,
-    description: SITE.description,
+    description: SITE.socialDescription,
     url: SITE.url,
     siteName: SITE.name,
     locale: "en_US",
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: SITE.title,
-    description: SITE.description,
+    description: SITE.socialDescription,
     images: OG_IMAGES,
     creator: "@hsantana8",
   },
