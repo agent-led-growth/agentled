@@ -159,14 +159,34 @@ treated as a mismatch and can cost the rich result.
 
 ### Share image
 
-`public/og.png`, 1200×630. Regenerate by rendering the card with headless
-Chrome:
+`public/og.png`, 1200×630 — a **design asset, not generated**. Replace the file
+to change it; nothing in the repo rebuilds it.
+
+Constraints if you swap it:
+
+- 1200×630, PNG or JPG, **never SVG**, and **fully opaque** — transparency
+  composites unpredictably (some clients onto white, others onto black).
+- Under ~300KB. WhatsApp silently skips images larger than that.
+- Keep text inside the middle ~80%: WhatsApp and Telegram crop toward centre in
+  compact previews, and Slack and Discord overlay UI bottom-right.
+
+Every platform reads this one image — there is no per-platform variant.
+LinkedIn and Facebook cache aggressively, so after changing it, force a refresh
+via LinkedIn Post Inspector and the Facebook Sharing Debugger.
+
+### App icons
+
+Generated from the lockup mark via `scripts/icon-card.html`:
 
 ```bash
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new \
-  --disable-gpu --virtual-time-budget=4000 --window-size=1200,630 \
-  --screenshot=public/og.png "file://$PWD/scripts/og-card.html"
+CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+"$CHROME" --headless=new --disable-gpu --force-device-scale-factor=1 \
+  --screenshot=src/app/apple-icon.png --window-size=180,180 \
+  "file://$PWD/scripts/icon-card.html"
 ```
+
+`?safe=1` shrinks the glyph into the Android adaptive-icon safe zone, used for
+`public/icons/icon-maskable-512.png`.
 
 ### Favicon
 
