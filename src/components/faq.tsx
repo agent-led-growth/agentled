@@ -1,31 +1,113 @@
-/**
- * Placeholder copy — to be rewritten. Built on native <details>/<summary> so it
- * is keyboard- and screen-reader-accessible with no JavaScript, and still works
- * if hydration never happens.
- */
-const QUESTIONS = [
+import Link from "next/link";
+import type { ReactNode } from "react";
+
+const linkClass =
+  "underline decoration-[var(--text-faint)] underline-offset-[3px] transition-colors hover:text-[var(--accent)] hover:decoration-[var(--accent)]";
+
+function ExternalLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer noopener"
+      className={linkClass}
+    >
+      {children}
+    </a>
+  );
+}
+
+const QUESTIONS: { q: string; a: ReactNode }[] = [
   {
     q: "What is Agent-led Growth?",
-    a: "A research publication about how growth works when AI agents — not people — are doing the searching, comparing and buying. Essays, experiments and tools, published in the open.",
+    a: (
+      <p>
+        Agent-led Growth is an independent research publication about how AI is
+        changing the way businesses grow. We publish research, experiments,
+        frameworks, and tools to help founders, marketers, and growth teams
+        adapt to a world where AI increasingly influences discovery, evaluation,
+        buying, and customer interactions.
+      </p>
+    ),
   },
   {
-    q: "Who is it for?",
-    a: "Founders, growth and marketing teams who can feel that the old playbook is bending, and would rather run the experiments than wait for the case studies.",
-  },
-  {
-    q: "How often do you publish?",
-    a: "Roughly weekly. Every piece is either original research, a documented experiment with its numbers, or a tool you can use the same day.",
+    q: "Who is Agent-led Growth for?",
+    a: (
+      <p>
+        Agent-led Growth is for founders, marketers, product teams, and growth
+        leaders who want to understand how AI and agents are reshaping growth.
+        Whether you&rsquo;re exploring AI Search, agentic discovery, AI agents,
+        or new go-to-market strategies, our research and tools are designed to
+        help you stay ahead.
+      </p>
+    ),
   },
   {
     q: "What is the AI Search Monitor?",
-    a: "A tool that tracks how AI assistants find, cite and describe your brand — and tells you what to change when they get it wrong. It's in development now.",
+    a: (
+      <>
+        <p>
+          The{" "}
+          <Link href="/ai-search-monitor" className={linkClass}>
+            AI Search Monitor
+          </Link>{" "}
+          helps you understand how AI assistants present your brand.
+        </p>
+        <p>
+          Enter your company, brand, or product, and we&rsquo;ll analyze how AI
+          platforms like ChatGPT, Claude, Gemini, and others mention your
+          business, which competitors appear alongside you, and where you may be
+          underrepresented.
+        </p>
+        <p>
+          The goal is to help you measure, monitor, and improve your visibility
+          across AI-powered discovery platforms.
+        </p>
+      </>
+    ),
   },
   {
-    q: "What does it cost, and can I leave?",
-    a: "It's free, and every email has a one-click unsubscribe. We never sell or share your address.",
+    q: "Who is behind Agent-led Growth?",
+    a: (
+      <p>
+        Agent-led Growth was founded by{" "}
+        <ExternalLink href="https://www.linkedin.com/in/hugosantana8/">
+          Hugo Santana
+        </ExternalLink>
+        , a data scientist and entrepreneur with more than 10 years of
+        experience building AI, analytics, and technology companies.
+      </p>
+    ),
+  },
+  {
+    q: "Where can I read past issues?",
+    a: (
+      <p>
+        You can read our research, frameworks, and tools{" "}
+        <ExternalLink href="https://agentledco.substack.com">
+          on Substack
+        </ExternalLink>
+        .
+      </p>
+    ),
+  },
+  {
+    q: "How do I subscribe?",
+    a: (
+      <p>
+        Subscribe for free at agentled.co to receive new research, experiments,
+        tools, and practical insights about the future of growth in the age of
+        AI.
+      </p>
+    ),
   },
 ];
 
+/**
+ * Built on native <details>/<summary> so it is keyboard- and
+ * screen-reader-accessible with no JavaScript, and works even if hydration
+ * never happens.
+ */
 export function Faq() {
   return (
     <section
@@ -62,9 +144,9 @@ export function Faq() {
                     <span className="absolute top-0 left-1/2 h-full w-[2px] -translate-x-1/2 bg-current transition-transform duration-150 group-open:scale-y-0" />
                   </span>
                 </summary>
-                <p className="max-w-[62ch] pb-[22px] text-[15px] leading-[1.55] text-[var(--text-muted)] md:pb-[26px] md:text-[17px]">
+                <div className="flex max-w-[62ch] flex-col gap-[14px] pb-[22px] text-[15px] leading-[1.55] text-[var(--text-muted)] md:pb-[26px] md:text-[17px]">
                   {item.a}
-                </p>
+                </div>
               </details>
             </li>
           ))}
