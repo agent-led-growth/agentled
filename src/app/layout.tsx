@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
 
 import { ThemeScript } from "@/components/theme-script";
+import { SITE } from "@/lib/site";
 
 import "./globals.css";
 
@@ -21,22 +22,54 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
-const title = "Agent-led Growth — Grow in the Age of AI";
-const description =
-  "Get research, experiments, and tools for the next generation of growth.";
-
 export const metadata: Metadata = {
-  metadataBase: new URL("https://agentled.co"),
-  title,
-  description,
-  openGraph: {
-    title,
-    description,
-    url: "https://agentled.co",
-    siteName: "Agent-led Growth",
-    type: "website",
+  metadataBase: new URL(SITE.url),
+  title: {
+    default: SITE.title,
+    // Secondary pages get "<page> — Agent-led Growth" without repeating it.
+    template: `%s — ${SITE.name}`,
   },
-  twitter: { card: "summary_large_image", title, description },
+  description: SITE.description,
+  applicationName: SITE.name,
+  authors: [{ name: SITE.founder.name, url: SITE.founder.linkedin }],
+  creator: SITE.founder.name,
+  publisher: SITE.legalName,
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: SITE.title,
+    description: SITE.description,
+    url: SITE.url,
+    siteName: SITE.name,
+    locale: "en_US",
+    type: "website",
+    images: [
+      {
+        url: SITE.ogImage,
+        width: 1200,
+        height: 630,
+        alt: `${SITE.name} — ${SITE.tagline}`,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE.title,
+    description: SITE.description,
+    images: [SITE.ogImage],
+    creator: "@hsantana8",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  category: "technology",
 };
 
 export const viewport: Viewport = {

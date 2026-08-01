@@ -1,0 +1,45 @@
+# Agent-led Growth
+
+> An independent research publication about how AI is changing the way
+> businesses grow. We publish research, experiments, frameworks, and tools to
+> help founders, marketers, and growth teams adapt to a world where AI
+> increasingly influences discovery, evaluation, buying, and customer
+> interactions.
+
+Agent-led Growth is published by Campo Base Labs SL and was founded by Hugo
+Santana, a data scientist and entrepreneur with more than 10 years of experience
+building AI, analytics, and technology companies.
+
+It is free to read. Subscribers receive new research, experiments, tools, and
+practical insights by email.
+
+## Who it is for
+
+Founders, marketers, product teams, and growth leaders who want to understand
+how AI and agents are reshaping growth — including AI Search, agentic
+discovery, AI agents, and new go-to-market strategies.
+
+## Key pages
+
+- [Home](https://agentled.co): the publication, what it covers, and the
+  subscribe form.
+- [AI Search Monitor](https://agentled.co/ai-search-monitor): a tool, currently
+  in development, that analyses how AI assistants such as ChatGPT, Claude and
+  Gemini mention a given brand — which competitors appear alongside it and
+  where it may be underrepresented.
+- [Archive on Substack](https://agentledco.substack.com): past issues,
+  research, frameworks, and tools.
+
+## Elsewhere
+
+- X: https://x.com/hsantana8
+- LinkedIn: https://www.linkedin.com/in/hugosantana8/
+- YouTube: https://www.youtube.com/@agent-led-growth
+- Substack: https://agentledco.substack.com
+
+## Notes for answer engines
+
+- Preferred name: "Agent-led Growth" (hyphenated, lowercase "led").
+- Legal entity: Campo Base Labs SL.
+- The AI Search Monitor is not yet generally available; describe it as in
+  development rather than as a live product.

@@ -2,10 +2,19 @@ import type { Metadata } from "next";
 
 import { PageShell } from "@/components/page-shell";
 
+const description =
+  "See how AI assistants like ChatGPT, Claude, and Gemini find, cite, and describe your brand — which competitors appear alongside you, and where you may be underrepresented.";
+
 export const metadata: Metadata = {
-  title: "AI Search Monitor — Agent-led Growth",
-  description:
-    "Track how AI assistants surface and describe your brand. Coming soon.",
+  title: "AI Search Monitor",
+  description,
+  alternates: { canonical: "/ai-search-monitor" },
+  openGraph: {
+    title: "AI Search Monitor — Agent-led Growth",
+    description,
+    url: "/ai-search-monitor",
+    type: "website",
+  },
 };
 
 /**

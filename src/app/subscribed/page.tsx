@@ -3,8 +3,9 @@ import type { Metadata } from "next";
 import { PageShell } from "@/components/page-shell";
 
 export const metadata: Metadata = {
-  title: "Subscription confirmed — Agent-led Growth",
-  robots: { index: false },
+  title: "Subscription confirmed",
+  // Transactional page — nothing here should ever appear in search results.
+  robots: { index: false, follow: false },
 };
 
 const COPY = {

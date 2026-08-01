@@ -118,10 +118,11 @@ Two asset shapes, because not every brand has a vector mark:
   letterform in another typeface, `scripts/make-masks.js` extracts the real
   glyph from their favicon.
 
-To regenerate a mask:
+Source favicons are kept in `scripts/logo-sources/`. To regenerate a mask
+(needs `pngjs` available on `NODE_PATH`):
 
 ```bash
-node scripts/make-masks.js public/logos/source.png public/logos/out-mask.png
+node scripts/make-masks.js scripts/logo-sources/gartner.png public/logos/gartner-mask.png
 ```
 
 It takes the most common colour as the field (not a corner sample — Siemens has
@@ -131,6 +132,41 @@ letterform.
 
 Worth a second look before launch: "Read by people at" alongside corporate
 logos can imply endorsement by those companies.
+
+## SEO / AEO
+
+`src/lib/site.ts` is the single source of truth for site-level facts. Metadata,
+JSON-LD, the sitemap and llms.txt all read from it, so they cannot drift apart.
+
+| Artifact | Where |
+| --- | --- |
+| Metadata, OG, Twitter, canonical | `src/app/layout.tsx` + per-page `metadata` |
+| JSON-LD (Organization, WebSite, FAQPage) | `src/components/structured-data.tsx` |
+| `robots.txt` | `src/app/robots.ts` |
+| `sitemap.xml` | `src/app/sitemap.ts` |
+| `llms.txt` | `public/llms.txt` |
+| Share image | `public/og.png` |
+
+**AI crawlers are allowed on purpose.** Being cited by answer engines is the
+point, so GPTBot, ClaudeBot and PerplexityBot are welcome. Blocking them is the
+usual advice for publishers protecting paid content — the opposite of the goal
+here. Revisit only if gated material appears.
+
+**FAQ copy is shared.** `src/components/faq-content.tsx` holds each answer twice:
+as JSX for the page and as `plain` text for the FAQPage JSON-LD. Keep them
+saying the same thing — structured data that contradicts the visible page is
+treated as a mismatch and can cost the rich result.
+
+### Share image
+
+`public/og.png`, 1200×630. Regenerate by rendering the card with headless
+Chrome:
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new \
+  --disable-gpu --virtual-time-budget=4000 --window-size=1200,630 \
+  --screenshot=public/og.png "file://$PWD/scripts/og-card.html"
+```
 
 ### Favicon
 

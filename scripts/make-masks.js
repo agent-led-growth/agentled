@@ -60,7 +60,10 @@ if (!bgTransparent) {
   const push = (x, y) => {
     if (x < 0 || y < 0 || x >= width || y >= height) return;
     const p = width * y + x;
-    if (seen[p] || alpha[p] <= 128) return;
+    // Threshold is deliberately low: at a higher one the antialiased fringe of
+    // a corner cutout survives the fill, leaving a faint ring and defeating the
+    // bounding-box crop below.
+    if (seen[p] || alpha[p] <= 8) return;
     seen[p] = 1;
     stack.push(p);
   };
@@ -85,18 +88,40 @@ if (!bgTransparent) {
   }
 }
 
-const out = new PNG({ width, height });
+// Pass 3: crop to the ink bounding box. Source icons pad their glyph inside the
+// square differently, so without this the marks render at visibly different
+// optical sizes next to vector marks that fill their own viewBox.
+let minX = width, minY = height, maxX = -1, maxY = -1;
+for (let y = 0; y < height; y++) {
+  for (let x = 0; x < width; x++) {
+    if (alpha[width * y + x] > 8) {
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+  }
+}
+if (maxX < 0) throw new Error(`no ink found in ${SRC}`);
+
+const cw = maxX - minX + 1;
+const ch = maxY - minY + 1;
+
+const out = new PNG({ width: cw, height: ch });
 let ink = 0;
-for (let p = 0; p < width * height; p++) {
-  const i = p << 2;
-  out.data[i] = 255;
-  out.data[i + 1] = 255;
-  out.data[i + 2] = 255;
-  out.data[i + 3] = alpha[p];
-  if (alpha[p] > 128) ink++;
+for (let y = 0; y < ch; y++) {
+  for (let x = 0; x < cw; x++) {
+    const a = alpha[width * (y + minY) + (x + minX)];
+    const i = (cw * y + x) << 2;
+    out.data[i] = 255;
+    out.data[i + 1] = 255;
+    out.data[i + 2] = 255;
+    out.data[i + 3] = a;
+    if (a > 128) ink++;
+  }
 }
 
 fs.writeFileSync(OUT, PNG.sync.write(out));
 console.log(
-  `${path.basename(SRC)} -> ${path.basename(OUT)} | ${width}x${height} | field ${bgTransparent ? "transparent" : bg.slice(0, 3).join(",")} | edge-cleared ${cleared}px | ink ${((100 * ink) / (width * height)).toFixed(1)}%`,
+  `${path.basename(SRC)} -> ${path.basename(OUT)} | ${width}x${height} -> ${cw}x${ch} | field ${bgTransparent ? "transparent" : bg.slice(0, 3).join(",")} | edge-cleared ${cleared}px | ink ${((100 * ink) / (cw * ch)).toFixed(1)}%`,
 );
