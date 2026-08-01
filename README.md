@@ -104,21 +104,39 @@ not stretch it.
 
 ### Social-proof logos
 
-Each company's square **icon mark** (not its wordmark), as PNGs in
-`public/logos`, listed in `src/components/hero/brands.ts`.
+`src/components/hero/brands.ts` is **generated** — do not hand-edit path data.
+Every mark is monochrome and inherits `currentColor`, so the row follows the
+theme (light grey on dark, dark grey on light) on transparent tiles.
 
-Source resolution is capped by what each company publishes: Microsoft and
-Siemens ship 128px icons; Gartner, HP and CrewAI only publish 32px favicons.
-Those three are therefore slightly soft on 2× displays — replace them if better
-assets turn up (Brandfetch has them, but blocks automated fetches).
+Two asset shapes, because not every brand has a vector mark:
 
-The tiles are **light in both themes**, departing from 4A's transparent tiles.
-Real marks carry their own colours and baked-in backgrounds (Gartner white,
-Siemens teal), so a uniform light tile is the only way all five read, and it
-follows the rule the design already applies to the CTA chip.
+- **`logo`** — a 24×24 path. Microsoft is constructed from its published
+  four-square proportions; HP and CrewAI come from Simple Icons.
+- **`mask`** — a white-on-transparent PNG alpha mask, applied with CSS
+  `mask-image` over a `currentColor` background. Gartner and Siemens are
+  wordmark brands with no vector symbol, so rather than approximate their
+  letterform in another typeface, `scripts/make-masks.js` extracts the real
+  glyph from their favicon.
+
+To regenerate a mask:
+
+```bash
+node scripts/make-masks.js public/logos/source.png public/logos/out-mask.png
+```
+
+It takes the most common colour as the field (not a corner sample — Siemens has
+white rounded-corner cutouts that would be mistaken for the background) and
+discards ink touching the border, which removes those cutouts while keeping the
+letterform.
 
 Worth a second look before launch: "Read by people at" alongside corporate
 logos can imply endorsement by those companies.
+
+### Favicon
+
+`src/app/icon.svg` — the lockup's plus mark, picked up automatically by the App
+Router. There is deliberately no `favicon.ico`; it would take priority over the
+SVG.
 
 ## FAQ and footer
 

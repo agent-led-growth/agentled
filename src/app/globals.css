@@ -45,7 +45,6 @@
   --text-faint: var(--color-text-light-faint);
   --border-hairline: var(--color-border-light);
   --field-bg: #ffffff;
-  --tile-bg: #ffffff;
   --accent: var(--color-olive);
   --btn-bg: var(--color-ink-2);
   --btn-fg: var(--color-paper);
@@ -58,7 +57,6 @@
   --text-faint: var(--color-text-dark-faint);
   --border-hairline: var(--color-border-dark);
   --field-bg: rgb(255 255 255 / 0.05);
-  --tile-bg: transparent;
   --accent: var(--color-lime);
   --btn-bg: var(--color-lime);
   --btn-fg: var(--color-ink-2);

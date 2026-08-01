@@ -1,18 +1,13 @@
-import Image from "next/image";
-
 import { BRANDS } from "./brands";
 
 /**
  * "Read by people at" tiles.
  *
- * Tiles stay light in both themes, following the same rule the design applies
- * to the CTA chip. Real brand marks carry their own colours and baked-in
- * backgrounds (Gartner is white, Siemens teal), so a consistent light tile is
- * the only way all five read — and it keeps the row visually even.
- *
- * Logos are `unoptimized` on purpose: they are tiny static PNGs already at
- * their target size, so running them through the image optimizer on Workers
- * would add cost and a cold-start dependency for no gain.
+ * Marks are monochrome and inherit `currentColor` from the tile, so they follow
+ * the theme — light grey on dark, dark grey on light — rather than carrying
+ * their own brand colours. Vector marks render as inline SVG; the two
+ * wordmark-only brands render their real letterform through a CSS mask over a
+ * currentColor background (see `brands.ts`).
  */
 export function SocialProof() {
   return (
@@ -25,16 +20,42 @@ export function SocialProof() {
           <li
             key={brand.name}
             title={brand.name}
-            className="grid size-[36px] place-items-center border border-border-light bg-white md:size-[38px]"
+            className="grid size-[36px] place-items-center border border-[var(--border-hairline)] text-[var(--text-muted)] md:size-[38px]"
           >
-            <Image
-              src={brand.logo}
-              alt={brand.name}
-              width={brand.size}
-              height={brand.size}
-              unoptimized
-              className="size-[20px] object-contain"
-            />
+            {brand.logo ? (
+              <svg
+                viewBox="0 0 24 24"
+                className="size-[20px]"
+                fill="currentColor"
+                role="img"
+                aria-label={brand.name}
+              >
+                <path d={brand.logo} />
+              </svg>
+            ) : brand.mask ? (
+              <span
+                role="img"
+                aria-label={brand.name}
+                className="size-[20px] bg-current"
+                style={{
+                  maskImage: `url(${brand.mask})`,
+                  WebkitMaskImage: `url(${brand.mask})`,
+                  maskSize: "contain",
+                  WebkitMaskSize: "contain",
+                  maskRepeat: "no-repeat",
+                  WebkitMaskRepeat: "no-repeat",
+                  maskPosition: "center",
+                  WebkitMaskPosition: "center",
+                }}
+              />
+            ) : (
+              <span
+                aria-label={brand.name}
+                className="font-mono text-[11px] font-bold md:text-[11.5px]"
+              >
+                {brand.monogram}
+              </span>
+            )}
           </li>
         ))}
       </ul>

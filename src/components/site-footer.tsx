@@ -34,9 +34,12 @@ export function SiteFooter() {
                   title={social.name}
                   className="grid size-[32px] place-items-center text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)] md:size-[34px]"
                 >
+                  {/* Height is per-icon (see socials.ts) so the glyphs match
+                      optically rather than sharing one nominal size. */}
                   <svg
                     viewBox={social.viewBox}
-                    className="h-[17px] w-auto shrink-0 md:h-[18px]"
+                    style={{ height: social.height }}
+                    className="w-auto shrink-0"
                     fill="currentColor"
                     aria-hidden="true"
                     focusable="false"

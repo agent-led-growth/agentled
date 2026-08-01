@@ -16,6 +16,8 @@ const eslintConfig = defineConfig([
     ".open-next/**",
     ".wrangler/**",
     "cloudflare-env.d.ts",
+    // Standalone Node tooling, run by hand and never bundled.
+    "scripts/**",
   ]),
 ]);
 
