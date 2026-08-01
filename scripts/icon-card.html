@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      * { margin: 0; padding: 0; }
+      html, body { width: 100%; height: 100%; }
+      body { background: #c8f04a; display: grid; place-items: center; }
+      .plus { position: relative; }
+      .plus i { position: absolute; background: #14170f; }
+    </style>
+  </head>
+  <body>
+    <div class="plus" id="plus"><i class="h"></i><i class="v"></i></div>
+    <script>
+      /*
+       * The lockup mark, scaled to the viewport so one file renders every size.
+       * ?safe=1 shrinks the glyph into the maskable safe zone (Android crops
+       * adaptive icons to a circle inscribed in the middle ~80%).
+       */
+      const safe = new URLSearchParams(location.search).has("safe");
+      const S = Math.min(window.innerWidth, window.innerHeight);
+      // 50% of the tile normally; 36% inside the maskable safe zone.
+      const len = S * (safe ? 0.36 : 0.5);
+      const thick = len * 0.29;
+      const el = document.getElementById("plus");
+      el.style.width = len + "px";
+      el.style.height = len + "px";
+      const h = el.querySelector(".h");
+      const v = el.querySelector(".v");
+      h.style.cssText = `width:${len}px;height:${thick}px;left:0;top:${(len - thick) / 2}px;`;
+      v.style.cssText = `width:${thick}px;height:${len}px;left:${(len - thick) / 2}px;top:0;`;
+    </script>
+  </body>
+</html>

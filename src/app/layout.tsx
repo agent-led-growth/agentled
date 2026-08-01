@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
 
 import { ThemeScript } from "@/components/theme-script";
-import { SITE } from "@/lib/site";
+import { OG_IMAGES, SITE } from "@/lib/site";
 
 import "./globals.css";
 
@@ -42,20 +42,13 @@ export const metadata: Metadata = {
     siteName: SITE.name,
     locale: "en_US",
     type: "website",
-    images: [
-      {
-        url: SITE.ogImage,
-        width: 1200,
-        height: 630,
-        alt: `${SITE.name} — ${SITE.tagline}`,
-      },
-    ],
+    images: OG_IMAGES,
   },
   twitter: {
     card: "summary_large_image",
     title: SITE.title,
     description: SITE.description,
-    images: [SITE.ogImage],
+    images: OG_IMAGES,
     creator: "@hsantana8",
   },
   robots: {
@@ -74,6 +67,9 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
+    // Unconditional entry first: Discord and some scrapers read the plain
+    // theme-color for their embed accent and ignore media-scoped ones.
+    { color: "#0b0d0c" },
     { media: "(prefers-color-scheme: dark)", color: "#0b0d0c" },
     { media: "(prefers-color-scheme: light)", color: "#fafafa" },
   ],

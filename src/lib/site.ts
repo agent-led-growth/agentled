@@ -25,6 +25,23 @@ export const SITE = {
   ogImage: "/og.png",
 } as const;
 
+/**
+ * Shared OG/Twitter image set.
+ *
+ * Must be spread into every page that declares its own `openGraph` block: Next
+ * replaces the parent block rather than merging it, so a page defining
+ * openGraph without images ships with no preview image at all.
+ */
+export const OG_IMAGES = [
+  {
+    url: SITE.ogImage,
+    width: 1200,
+    height: 630,
+    alt: `${SITE.name} — ${SITE.tagline}`,
+    type: "image/png",
+  },
+];
+
 /** Routes that should appear in the sitemap. */
 export const ROUTES = [
   { path: "/", priority: 1, changeFrequency: "weekly" as const },
