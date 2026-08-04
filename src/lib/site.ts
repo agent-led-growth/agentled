@@ -52,5 +52,5 @@ export const OG_IMAGES = [
 /** Routes that should appear in the sitemap. */
 export const ROUTES = [
   { path: "/", priority: 1, changeFrequency: "weekly" as const },
-  { path: "/ai-search-monitor", priority: 0.8, changeFrequency: "monthly" as const },
+  { path: "/ai-search", priority: 0.8, changeFrequency: "monthly" as const },
 ];

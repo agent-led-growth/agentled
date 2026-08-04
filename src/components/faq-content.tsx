@@ -62,7 +62,7 @@ export const FAQ_ITEMS: FaqItem[] = [
       <>
         <p>
           The{" "}
-          <Link href="/ai-search-monitor" className={linkClass}>
+          <Link href="/ai-search" className={linkClass}>
             AI Search Monitor
           </Link>{" "}
           helps you understand how AI assistants present your brand.

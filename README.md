@@ -54,11 +54,14 @@ disallowed. `@opennextjs/cloudflare` hard-fails the build on Node-runtime
 middleware. So the usual Supabase "refresh the session in middleware" pattern is
 unavailable here.
 
-Consequence for auth, when we add it: the browser client refreshes its own
-tokens and writes cookies client-side, and the OAuth/magic-link callback needs a
-Route Handler (`src/app/auth/callback/route.ts`) to exchange the code and set
-cookies. Server Components can read the session but cannot refresh it. Revisit
-if OpenNext adds support.
+Consequence for auth: the browser client refreshes its own tokens and writes
+cookies client-side, and every operation that must set cookies runs in a Route
+Handler. Email-OTP sign-in lives at `src/app/api/auth/otp` (request code) and
+`src/app/api/auth/otp/verify` (verify + set session), with sign-out at
+`src/app/api/auth/signout`. Server Components read the session through
+`getUser()` (`src/lib/supabase/session.ts`) but cannot refresh it — an expired
+token there redirects to `/login`, where the browser client re-establishes it.
+Revisit if OpenNext adds Proxy support.
 
 ## Layout
 
@@ -68,18 +71,23 @@ src/
     page.tsx                    landing hero (designs 4A/4B)
     ai-search-monitor/          CTA target — placeholder, not yet designed
     subscribed/                 confirm-link landing page
+    login/                      email-OTP sign-in page
+    account/                    protected page (redirects to /login)
     api/subscribe/              POST subscribe + GET confirm
+    api/auth/otp/               POST request code + POST verify (sets session)
+    api/auth/signout/           POST sign out
   components/
     hero/                       hero composition + canvas wrapper
       brands.ts                 social-proof data (GENERATED — see below)
+    auth/otp-form.tsx           two-step email → code sign-in form
     theme-script.tsx            pre-paint theme, avoids flash
     theme-toggle.tsx
   lib/
     env.ts                      validated env access
     traces.ts                   canvas animation (framework-free)
     use-theme.ts                theme store
-    supabase/{client,server,admin}.ts
-    email/resend.ts
+    supabase/{client,server,admin,session}.ts
+    email/{resend,welcome}.ts
 supabase/migrations/            SQL, apply via Supabase CLI or dashboard
 ```
 

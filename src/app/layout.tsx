@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
 
-import { ThemeScript } from "@/components/theme-script";
 import { OG_IMAGES, SITE } from "@/lib/site";
 
 import "./globals.css";
@@ -82,16 +81,15 @@ export default function RootLayout({
 }>) {
   return (
     // Font variables must live on <html> so @theme's --font-display can resolve
-    // them at :root. The theme itself is a data attribute rather than a class,
-    // so React owning className here cannot clobber it on hydration.
+    // them at :root. Theme is dark-only: data-theme is fixed here (a data
+    // attribute, not a class, so React owning className cannot clobber it), and
+    // colorScheme keeps native controls/scrollbars dark.
     <html
       lang="en"
+      data-theme="dark"
       className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full antialiased`}
-      suppressHydrationWarning
+      style={{ colorScheme: "dark" }}
     >
-      <head>
-        <ThemeScript />
-      </head>
       <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );

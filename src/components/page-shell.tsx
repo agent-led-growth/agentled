@@ -2,7 +2,6 @@ import Link from "next/link";
 
 import { Lockup } from "@/components/hero/lockup";
 import { SiteFooter } from "@/components/site-footer";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 /** Minimal on-brand frame for the secondary routes. */
 export function PageShell({
@@ -17,11 +16,10 @@ export function PageShell({
   return (
     <>
       <main className="flex min-h-[100svh] flex-col bg-[var(--surface)] px-[26px] pt-[26px] pb-[34px] md:px-[64px] md:pt-[44px] md:pb-[64px]">
-        <div className="flex items-center justify-between gap-[16px]">
+        <div className="flex items-center gap-[16px]">
           <Link href="/" aria-label="Agent-led Growth — home">
             <Lockup />
           </Link>
-          <ThemeToggle />
         </div>
 
         <div className="my-auto flex max-w-[700px] flex-col gap-[20px] md:gap-[26px]">

@@ -25,7 +25,7 @@ export function SocialProof() {
             {brand.logo ? (
               <svg
                 viewBox="0 0 24 24"
-                className="size-[22px]"
+                className="size-[21px] md:size-[22px]"
                 fill="currentColor"
                 role="img"
                 aria-label={brand.name}
@@ -36,7 +36,7 @@ export function SocialProof() {
               <span
                 role="img"
                 aria-label={brand.name}
-                className="size-[22px] bg-current"
+                className="size-[21px] bg-current md:size-[22px]"
                 style={{
                   maskImage: `url(${brand.mask})`,
                   WebkitMaskImage: `url(${brand.mask})`,
@@ -51,7 +51,7 @@ export function SocialProof() {
             ) : (
               <span
                 aria-label={brand.name}
-                className="font-mono text-[11px] font-bold md:text-[11.5px]"
+                className="font-mono text-[10.5px] font-bold md:text-[11.5px]"
               >
                 {brand.monogram}
               </span>

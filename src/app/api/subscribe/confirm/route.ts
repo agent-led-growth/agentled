@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   try {
     const supabase = createAdminClient();
     const { data, error } = await supabase
-      .from("subscribers")
+      .from("users")
       .update({ status: "confirmed", confirmed_at: new Date().toISOString() })
       .eq("token", token)
       .select("id")

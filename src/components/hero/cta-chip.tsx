@@ -9,7 +9,7 @@ import { AntennaMark } from "./marks";
 export function CtaChip({ className = "" }: { className?: string }) {
   return (
     <Link
-      href="/ai-search-monitor"
+      href="/ai-search"
       className={`inline-flex items-center gap-[11px] border border-border-light bg-white py-[9px] pr-[14px] pl-[9px] text-ink-2 no-underline transition-colors hover:border-[#b9bfb0] md:gap-[13px] md:pr-[20px] ${className}`}
     >
       <AntennaMark className="size-[26px] shrink-0 md:size-[30px]" />

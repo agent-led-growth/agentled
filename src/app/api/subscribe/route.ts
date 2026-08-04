@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     // Upsert so a repeat subscribe is idempotent rather than a duplicate-key
     // error the user would see as a failure.
     const { data, error } = await supabase
-      .from("subscribers")
+      .from("users")
       .upsert(
         { email: normalized, source: "landing-hero" },
         { onConflict: "email_normalized", ignoreDuplicates: false },

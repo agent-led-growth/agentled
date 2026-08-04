@@ -1,12 +1,12 @@
-import { FAQ_ITEMS } from "./faq-content";
+import { FAQ_ITEMS, type FaqItem } from "./faq-content";
 
 /**
  * Built on native <details>/<summary> so it is keyboard- and
  * screen-reader-accessible with no JavaScript, and works even if hydration
- * never happens. Copy lives in `faq-content.tsx`, shared with the FAQPage
- * JSON-LD.
+ * never happens. Defaults to the root copy in `faq-content.tsx` (shared with
+ * the FAQPage JSON-LD); pass `items` to reuse the same style on other pages.
  */
-export function Faq() {
+export function Faq({ items = FAQ_ITEMS }: { items?: FaqItem[] }) {
   return (
     <section
       id="faq"
@@ -25,7 +25,7 @@ export function Faq() {
         </div>
 
         <ul className="flex max-w-[760px] list-none flex-col md:flex-1">
-          {FAQ_ITEMS.map((item) => (
+          {items.map((item) => (
             <li
               key={item.q}
               className="border-t border-[var(--border-hairline)] last:border-b"

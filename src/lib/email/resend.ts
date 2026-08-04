@@ -14,4 +14,4 @@ export function resend() {
 }
 
 /** Default sender. The domain must be verified in Resend before this works. */
-export const FROM = "Agentled <hello@agentled.co>";
+export const FROM = "Agent-led Growth <hello@notifications.agentled.co>";
