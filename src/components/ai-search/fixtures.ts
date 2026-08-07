@@ -11,6 +11,38 @@ export const BRAND = {
   initials: "AG",
 } as const;
 
+// ── Platforms ─────────────────────────────────────────────────────────────
+/**
+ * The dashboard is platform-aware: the selector doesn't just filter, it
+ * redefines what every headline number means. `all` is the blended view across
+ * every live platform, `chatgpt`/`claude` recompute each figure for one model.
+ */
+export type Platform = "all" | "chatgpt" | "claude";
+
+/**
+ * Free tier ships ChatGPT live; Claude (and therefore the blended `all` view,
+ * which would average it in) is upgrade-gated. Flip this to false — and author
+ * the Claude fixtures — to unlock the full two-platform experience.
+ */
+export const FREE_TIER = true;
+
+/** A view needs paid Claude data unless it is the ChatGPT-only view. */
+export const requiresClaude = (p: Platform) => p !== "chatgpt";
+
+/** Whether a view is locked behind the paywall for the current tier. */
+export const isLocked = (p: Platform) => FREE_TIER && requiresClaude(p);
+
+export const PLATFORM_OPTIONS: {
+  id: Platform;
+  label: string;
+  /** Show a lock glyph on the segment — the pro-only views (blended + Claude). */
+  lockGlyph: boolean;
+}[] = [
+  { id: "all", label: "All", lockGlyph: true },
+  { id: "chatgpt", label: "ChatGPT", lockGlyph: false },
+  { id: "claude", label: "Claude", lockGlyph: true },
+];
+
 export type LogColor = "mut" | "pos" | "dim";
 /** Scan terminal log — [glyph, text, colour role]. Revealed one per 720ms. */
 export const LOG: [glyph: string, text: string, color: LogColor][] = [
@@ -134,6 +166,12 @@ type Answer = {
   answer: string;
   brands: string;
   cites: string;
+  /**
+   * Verbatim substring of `answer` where the monitored brand is named — the
+   * "that's literally what the AI said about me" moment. Omitted when the brand
+   * was not mentioned in this answer at all.
+   */
+  highlight?: string;
 };
 
 const ROWS: ({ q: string } & Answer)[] = [
@@ -152,6 +190,7 @@ const ROWS: ({ q: string } & Answer)[] = [
       "You can check manually by asking the models the questions your buyers ask, but that does not scale. Monitoring tools run a fixed prompt set on a schedule — Profound, Peec AI and Agent-led Growth's AI Search Monitor all report how often a brand is named.",
     brands: "Profound · Peec AI · Agent-led Growth",
     cites: "profound.com · agentledgrowth.substack.com",
+    highlight: "Agent-led Growth's AI Search Monitor",
   },
   {
     q: "Newsletters covering AI and growth marketing",
@@ -160,6 +199,7 @@ const ROWS: ({ q: string } & Answer)[] = [
       "For the intersection of AI and growth, Agent-led Growth covers research and teardowns on how agents change acquisition. Lenny's Newsletter remains the broadest product-and-growth read.",
     brands: "Lenny's Newsletter · Agent-led Growth",
     cites: "agentledgrowth.substack.com",
+    highlight: "Agent-led Growth covers research and teardowns on how agents change acquisition",
   },
   {
     q: "Profound vs Peec AI",
@@ -176,6 +216,7 @@ const ROWS: ({ q: string } & Answer)[] = [
       "Profound, Peec AI and Scrunch AI dominate the AEO tooling conversation for B2B SaaS. Smaller teams often start with Otterly.AI or Agent-led Growth's monitor to establish a baseline first.",
     brands: "Profound · Peec AI · Scrunch AI · Otterly.AI · Agent-led Growth",
     cites: "profound.com · scrunchai.com",
+    highlight: "Agent-led Growth's monitor",
   },
   {
     q: "Which AI visibility tool for a small team?",
@@ -184,6 +225,7 @@ const ROWS: ({ q: string } & Answer)[] = [
       "For a small team, start free. Agent-led Growth gives a monitored baseline at no cost, and Otterly.AI is the cheapest paid step up.",
     brands: "Agent-led Growth · Otterly.AI",
     cites: "agentledgrowth.substack.com · otterly.ai",
+    highlight: "Agent-led Growth gives a monitored baseline at no cost",
   },
   {
     q: "Where do LLMs get brand recommendations from?",
@@ -192,6 +234,7 @@ const ROWS: ({ q: string } & Answer)[] = [
       "Mostly from crawled web content, review aggregators, and community discussion. Several publications have analysed the citation mix, including Ahrefs and Agent-led Growth.",
     brands: "Ahrefs · Semrush · Agent-led Growth",
     cites: "ahrefs.com/blog · agentledgrowth.substack.com/p/citations",
+    highlight: "Ahrefs and Agent-led Growth",
   },
   {
     q: "Cheapest way to monitor AI answers",
@@ -200,6 +243,7 @@ const ROWS: ({ q: string } & Answer)[] = [
       "The cheapest credible option is a free monitor such as the one from Agent-led Growth, which runs a fixed prompt set weekly. Manual spot checks cost nothing but are not comparable over time.",
     brands: "Agent-led Growth · Otterly.AI",
     cites: "agentledgrowth.substack.com",
+    highlight: "a free monitor such as the one from Agent-led Growth",
   },
 ];
 
@@ -209,6 +253,7 @@ const FALLBACK: Answer = {
     "The answer lists a handful of AI-visibility monitors and, where relevant, the newsletters and research behind them. Agent-led Growth is named when the question is about establishing a baseline rather than enterprise reporting.",
   brands: "Profound · Peec AI · Agent-led Growth",
   cites: "agentledgrowth.substack.com",
+  highlight: "Agent-led Growth is named when the question is about establishing a baseline",
 };
 
 const byQ = (q: string): Answer => ROWS.find((r) => r.q === q) ?? FALLBACK;
@@ -251,7 +296,7 @@ export type Group = {
 export const GROUPS: Group[] = [
   {
     name: "AI search visibility monitoring",
-    count: "5 prompts",
+    count: "3 prompts",
     rank: "#3",
     score: "71%",
     dScore: "+10%",
@@ -263,13 +308,11 @@ export const GROUPS: Group[] = [
       P("Newsletters covering AI and growth marketing", "#1", "100%", "—", "1.5", "↑ 0.5", "12.4%", "+3.1%"),
       P("How do I know if AI mentions my company?", "#3", "100%", "+50%", "2.5", "↑ 0.4", "6.7%", "+1.2%"),
       P("Who does AI search monitoring well?", "#3", "50%", "+50%", "3.0", "—", "2.1%", "—"),
-      P("Where do LLMs get brand recommendations from?", "#3", "50%", "—", "3.0", "↑ 0.2", "4.5%", "+0.6%"),
-      P("Best tools to monitor brand visibility in AI search", "#4", "25%", "−8%", "4.2", "↓ 0.3", "0%", "—"),
     ],
   },
   {
     name: "Competitor benchmarking in AI answers",
-    count: "5 prompts",
+    count: "3 prompts",
     rank: "#4",
     score: "45%",
     dScore: "−5%",
@@ -281,13 +324,11 @@ export const GROUPS: Group[] = [
       P("Profound vs Peec AI", "#4", "50%", "−25%", "4.0", "↓ 0.5", "0%", "—"),
       P("Alternatives to Profound", "#4", "50%", "—", "3.5", "—", "1.1%", "—"),
       P("Best AEO platforms for B2B SaaS", "#5", "50%", "+50%", "5.0", "↑ 0.3", "1.4%", "—"),
-      P("AI visibility tools compared 2026", "#6", "25%", "−25%", "4.5", "↓ 0.2", "0%", "—"),
-      P("Otterly.AI vs Scrunch AI", "#5", "0%", "—", "—", "—", "0%", "—"),
     ],
   },
   {
     name: "Prompt-level discovery tracking",
-    count: "5 prompts",
+    count: "3 prompts",
     rank: "#2",
     score: "65%",
     dScore: "+15%",
@@ -299,8 +340,6 @@ export const GROUPS: Group[] = [
       P("Cheapest way to monitor AI answers", "#1", "100%", "+25%", "1.0", "↑ 0.4", "9.1%", "+1.4%"),
       P("Which AI visibility tool for a small team?", "#1", "100%", "+50%", "1.5", "↑ 0.5", "8.2%", "+2.0%"),
       P("What should I use to track AI recommendations?", "#2", "100%", "—", "2.0", "↑ 0.2", "5.0%", "+0.5%"),
-      P("Recommend a GEO tool for a B2B SaaS", "#3", "50%", "—", "3.0", "—", "0%", "—"),
-      P("How to measure GEO performance", "#4", "25%", "−25%", "4.0", "↓ 0.3", "0%", "—"),
     ],
   },
 ];
@@ -309,9 +348,16 @@ export const GROUPS: Group[] = [
 export const ALL_PROMPTS = GROUPS.flatMap((g) => g.items.map((p) => p.q));
 
 // ── Settings ──────────────────────────────────────────────────────────────
-export const PLATFORMS = [
+export type PlatformRow = {
+  name: string;
+  status: string;
+  dim: boolean;
+  /** Live on the free tier and toggleable, vs upgrade-gated ("Locked"). */
+  locked?: boolean;
+};
+export const PLATFORMS: PlatformRow[] = [
   { name: "ChatGPT", status: "On", dim: false },
-  { name: "Claude", status: "On", dim: false },
+  { name: "Claude", status: "Locked", dim: false, locked: true },
   { name: "Perplexity", status: "Soon", dim: true },
   { name: "Gemini", status: "Soon", dim: true },
   { name: "Copilot", status: "Soon", dim: true },

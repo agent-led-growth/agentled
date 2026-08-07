@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 
@@ -12,15 +12,17 @@ import {
   CITATION,
   CITATION_RANK,
   GROUPS,
+  isLocked,
+  PLATFORM_OPTIONS,
   PLATFORMS,
   RANK,
-  SCHEDULE,
   VISIBILITY,
   tone,
   type ChartInput,
   type CitationDomain,
   type CitationPage,
   type Group,
+  type Platform,
   type Prompt,
 } from "./fixtures";
 import { AI_MODELS, MODEL_COLOR } from "./model-marks";
@@ -29,6 +31,7 @@ import { MONO, appTokens, toneVar } from "./tokens";
 
 type Tab = "overview" | "prompts" | "settings";
 const TABS: Tab[] = ["overview", "prompts", "settings"];
+const PLATFORM_IDS = PLATFORM_OPTIONS.map((p) => p.id);
 
 const COLS =
   "md:grid md:grid-cols-[1fr_130px_170px_160px_130px] md:items-center md:gap-[16px]";
@@ -38,6 +41,9 @@ export function Dashboard() {
   const params = useSearchParams();
   const raw = params.get("tab") as Tab | null;
   const tab: Tab = raw && TABS.includes(raw) ? raw : "overview";
+  const rawPlat = params.get("platform") as Platform | null;
+  const platform: Platform =
+    rawPlat && PLATFORM_IDS.includes(rawPlat) ? rawPlat : "chatgpt";
   // The gate is only for first-time account creation. Already-signed-in users
   // skip it. `checked` avoids flashing the modal before the session resolves.
   const [gated, setGated] = useState(true);
@@ -52,8 +58,15 @@ export function Dashboard() {
       });
   }, []);
 
-  const setTab = (t: Tab) =>
-    router.replace(`/ai-search/dashboard?tab=${t}`, { scroll: false });
+  // Both tab and platform live in the URL, so a reload keeps the view and a
+  // link is shareable. Each setter preserves the other's value.
+  const go = (next: { tab?: Tab; platform?: Platform }) =>
+    router.replace(
+      `/ai-search/dashboard?tab=${next.tab ?? tab}&platform=${next.platform ?? platform}`,
+      { scroll: false },
+    );
+  const setTab = (t: Tab) => go({ tab: t });
+  const setPlatform = (p: Platform) => go({ platform: p });
   const reset = () => router.push("/ai-search");
 
   return (
@@ -75,11 +88,17 @@ export function Dashboard() {
           <Sidebar tab={tab} setTab={setTab} />
           <div className="min-w-0 flex-1 pb-[84px] md:overflow-y-auto md:pb-0">
             <TitleRow />
-            <FilterBar />
+            <FilterBar tab={tab} platform={platform} setPlatform={setPlatform} />
             <div className="px-[20px] py-[24px] md:px-[28px]">
-              {tab === "overview" && <Overview />}
-              {tab === "prompts" && <Prompts />}
-              {tab === "settings" && <Settings />}
+              {tab === "overview" && (
+                <Overview platform={platform} onUpgrade={() => setPlatform("claude")} />
+              )}
+              {tab === "prompts" && (
+                <Prompts platform={platform} onUpgrade={() => setPlatform("claude")} />
+              )}
+              {tab === "settings" && (
+                <Settings platform={platform} onUpgrade={() => setPlatform("claude")} />
+              )}
             </div>
           </div>
         </div>
@@ -183,222 +202,151 @@ function TitleRow() {
   );
 }
 
-function FilterBar() {
+function FilterBar({
+  tab,
+  platform,
+  setPlatform,
+}: {
+  tab: Tab;
+  platform: Platform;
+  setPlatform: (p: Platform) => void;
+}) {
+  // Date range rides on the analytics tabs; frequency (pro-only, always Daily)
+  // only belongs on Overview. The platform selector is global — it redefines
+  // what every headline number means, so it shows on Settings too.
+  const showDates = tab !== "settings";
+  const showFrequency = tab === "overview";
   return (
     <div
       className="flex flex-wrap items-center gap-[8px] px-[20px] py-[14px] md:px-[28px]"
       style={{ borderBottom: "1px solid var(--line)" }}
     >
-      <Chip>Last 7 days ⌄</Chip>
-      <span style={{ fontSize: 13, color: "var(--dim)" }}>vs.</span>
-      <Chip>Previous period ⌄</Chip>
+      {showDates && (
+        <>
+          <Chip>Last 7 days ⌄</Chip>
+          <span style={{ fontSize: 13, color: "var(--dim)" }}>vs.</span>
+          <Chip>Previous period ⌄</Chip>
+        </>
+      )}
       <div className="ml-auto flex items-center gap-[8px]">
-        <FrequencySelect />
-        <PlatformsSelect />
+        {showFrequency && <FrequencyLock />}
+        <PlatformSegmented platform={platform} setPlatform={setPlatform} />
       </div>
     </div>
   );
 }
 
-const FREQUENCIES = ["Weekly", "72 hours", "Daily"];
-
-/** Frequency selector — single choice, default Weekly. */
-function FrequencySelect() {
-  const [value, setValue] = useState("Weekly");
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
+/** Scan frequency is fixed at Daily and gated to pro members — a plain label. */
+function FrequencyLock() {
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center whitespace-nowrap text-[13px]"
-        style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "7px 12px" }}
-      >
-        {value} ⌄
-      </button>
-
-      {open && (
-        <div
-          className="absolute right-0 z-20 mt-[6px] w-[160px]"
-          style={{ background: "var(--panel)", border: "1px solid var(--line)" }}
-        >
-          {FREQUENCIES.map((f, i) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => {
-                setValue(f);
-                setOpen(false);
-              }}
-              className="flex w-full items-center justify-between px-[12px] py-[10px] text-left text-[13px]"
-              style={{
-                borderBottom: i < FREQUENCIES.length - 1 ? "1px solid var(--line)" : undefined,
-                background: value === f ? "var(--panel2)" : undefined,
-                color: "var(--ink)",
-              }}
-            >
-              {f}
-              {value === f && <span>✓</span>}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    <span
+      className="inline-flex items-center gap-[7px] whitespace-nowrap text-[13px]"
+      style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "7px 12px", color: "var(--mut)" }}
+    >
+      Frequency: <span style={{ color: "var(--ink)" }}>Daily</span>
+      <Lock size={11} color="var(--dim)" />
+    </span>
   );
 }
 
 /**
- * Platforms selector. ChatGPT and Claude are live and toggleable; the rest are
- * shown as "Soon" and are not selectable.
+ * Single-select platform control. This is not a filter — the active choice
+ * redefines the headline numbers on every tab. `All` blends the live platforms;
+ * `ChatGPT`/`Claude` recompute for one model. Claude (and the blend that needs
+ * it) are upgrade-gated on the free tier, so those views render a paywall.
  */
-function PlatformsSelect() {
-  const [selected, setSelected] = useState<string[]>(
-    PLATFORMS.filter((p) => !p.dim).map((p) => p.name),
-  );
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  const toggle = (name: string) =>
-    setSelected((s) =>
-      s.includes(name) ? s.filter((n) => n !== name) : [...s, name],
-    );
-
+function PlatformSegmented({
+  platform,
+  setPlatform,
+}: {
+  platform: Platform;
+  setPlatform: (p: Platform) => void;
+}) {
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center whitespace-nowrap text-[13px]"
-        style={{
-          background: "var(--panel)",
-          border: "1px solid var(--line)",
-          padding: "7px 12px",
-        }}
+    <div className="inline-flex items-center gap-[8px]">
+      <span
+        className="hidden uppercase sm:inline"
+        style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.14em", color: "var(--dim)" }}
       >
-        Platforms · {selected.length} ⌄
-      </button>
-
-      {open && (
-        <div
-          className="absolute right-0 z-20 mt-[6px] w-[220px]"
-          style={{ background: "var(--panel)", border: "1px solid var(--line)" }}
-        >
-          {PLATFORMS.map((p, i) => {
-            const border =
-              i < PLATFORMS.length - 1 ? "1px solid var(--line)" : undefined;
-            if (p.dim) {
-              return (
-                <div
-                  key={p.name}
-                  className="flex items-center gap-[10px] px-[12px] py-[10px]"
-                  style={{ borderBottom: border }}
-                >
-                  <PlatformLogo name={p.name} dim />
-                  <span className="flex-1 text-[13px]" style={{ color: "var(--dim)" }}>
-                    {p.name}
-                  </span>
-                  <span
-                    className="uppercase"
-                    style={{
-                      fontFamily: MONO,
-                      fontSize: 9.5,
-                      letterSpacing: "0.1em",
-                      border: "1px solid var(--line)",
-                      padding: "2px 6px",
-                      color: "var(--dim)",
-                    }}
-                  >
-                    Soon
-                  </span>
-                </div>
-              );
-            }
-            const on = selected.includes(p.name);
-            return (
-              <button
-                key={p.name}
-                type="button"
-                onClick={() => toggle(p.name)}
-                className="flex w-full items-center gap-[10px] px-[12px] py-[10px] text-left"
-                style={{ borderBottom: border }}
-              >
-                <PlatformLogo name={p.name} />
-                <span className="flex-1 text-[13px]" style={{ color: "var(--ink)" }}>
-                  {p.name}
-                </span>
-                <span
-                  aria-hidden="true"
-                  style={{
-                    width: 15,
-                    height: 15,
-                    flex: "none",
-                    display: "grid",
-                    placeItems: "center",
-                    border: `1px solid ${on ? "var(--ink)" : "var(--dim)"}`,
-                    background: on ? "var(--ink)" : "transparent",
-                    color: "var(--panel)",
-                    fontSize: 10,
-                    lineHeight: 1,
-                  }}
-                >
-                  {on ? "✓" : ""}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+        Platform
+      </span>
+      <div
+        className="inline-flex"
+        style={{ border: "1px solid var(--line)", background: "var(--panel)" }}
+      >
+        {PLATFORM_OPTIONS.map((opt, i) => {
+          const active = platform === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setPlatform(opt.id)}
+              aria-pressed={active}
+              className="inline-flex items-center gap-[6px] whitespace-nowrap text-[13px]"
+              style={{
+                padding: "7px 12px",
+                borderLeft: i > 0 ? "1px solid var(--line)" : undefined,
+                background: active ? "var(--ink)" : "transparent",
+                color: active ? "var(--panel)" : "var(--mut)",
+                fontWeight: active ? 600 : 400,
+              }}
+            >
+              {opt.id !== "all" && (
+                <PlatformLogo name={opt.label} color={active ? "var(--panel)" : undefined} />
+              )}
+              {opt.label}
+              {opt.lockGlyph && (
+                <Lock size={11} color={active ? "var(--panel)" : "var(--dim)"} />
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function PlatformLogo({ name, dim }: { name: string; dim?: boolean }) {
+function PlatformLogo({
+  name,
+  color,
+  size = 16,
+}: {
+  name: string;
+  /** Override the brand colour — e.g. to stay legible on an active segment. */
+  color?: string;
+  size?: number;
+}) {
   const m = AI_MODELS.find((x) => x.name === name);
   if (!m) return null;
   return (
     <svg
       viewBox="0 0 24 24"
-      width="16"
-      height="16"
-      fill={MODEL_COLOR[name] ?? "var(--ink)"}
-      style={{ flex: "none", opacity: dim ? 0.5 : 1 }}
+      width={size}
+      height={size}
+      fill={color ?? MODEL_COLOR[name] ?? "var(--ink)"}
+      style={{ flex: "none" }}
       aria-hidden="true"
     >
       <path d={m.path} />
+    </svg>
+  );
+}
+
+/** Padlock glyph, tinted with the given colour. Used on gated affordances. */
+function Lock({ size = 12, color = "var(--dim)" }: { size?: number; color?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      style={{ flex: "none" }}
+      aria-hidden="true"
+    >
+      <rect x="5" y="11" width="14" height="10" rx="1" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
     </svg>
   );
 }
@@ -465,8 +413,156 @@ function Card({ children, className = "" }: { children: React.ReactNode; classNa
   );
 }
 
+// ── Paywall ──────────────────────────────────────────────────────────────────
+/**
+ * Free tier ships ChatGPT live. Selecting Claude (or the blended All view that
+ * would average it in) swaps the whole section for this panel — the paywall is
+ * meant to be obvious, never a silently-blended number. Copy differs by intent:
+ * `claude` sells the second platform, `blend` sells the cross-platform view.
+ */
+const UPGRADE_COPY = {
+  claude: {
+    label: "Claude · locked",
+    title: "See how you show up in Claude",
+    body: "ChatGPT is live on your free plan. Unlock Claude for its own visibility score, competitor rank and citation share — plus the exact prompts where Claude names you or leaves you out.",
+    cta: "Upgrade to unlock Claude",
+    bullets: [
+      "Claude visibility score, rank and citations",
+      "Per-prompt answers, straight from Claude",
+      "See where ChatGPT and Claude disagree",
+    ],
+  },
+  blend: {
+    label: "Blended view · locked",
+    title: "Blend every platform into one score",
+    body: "The All view averages your live platforms into a single cross-platform visibility score. Add Claude to blend it with ChatGPT — and watch where the two diverge over time.",
+    cta: "Upgrade to add Claude",
+    bullets: [
+      "One blended score across ChatGPT + Claude",
+      "Competitor ranks that combine both platforms",
+      "Divergence over time, ChatGPT vs Claude",
+    ],
+  },
+} as const;
+
+const tileStyle: React.CSSProperties = {
+  width: 48,
+  height: 48,
+  display: "grid",
+  placeItems: "center",
+  border: "1px solid var(--line)",
+  background: "var(--panel2)",
+};
+
+function PlatformPair() {
+  return (
+    <span className="inline-flex items-center gap-[14px]">
+      <span style={tileStyle}>
+        <PlatformLogo name="ChatGPT" size={22} />
+      </span>
+      <span style={{ fontFamily: MONO, fontSize: 16, color: "var(--dim)" }}>+</span>
+      <span style={{ ...tileStyle, position: "relative" }}>
+        <PlatformLogo name="Claude" size={22} />
+        <span
+          style={{
+            position: "absolute",
+            right: -7,
+            bottom: -7,
+            background: "var(--panel)",
+            border: "1px solid var(--line)",
+            borderRadius: 999,
+            padding: 3,
+            display: "grid",
+            placeItems: "center",
+          }}
+        >
+          <Lock size={10} color="var(--ink)" />
+        </span>
+      </span>
+    </span>
+  );
+}
+
+function UpgradePanel({ variant }: { variant: "claude" | "blend" }) {
+  const c = UPGRADE_COPY[variant];
+  return (
+    <Card className="mx-auto flex max-w-[640px] flex-col items-center gap-[22px] p-[40px_28px_44px] text-center md:p-[56px_48px]">
+      <PlatformPair />
+      <div className="flex flex-col items-center gap-[10px]">
+        <span className="inline-flex items-center gap-[7px]">
+          <Lock size={11} color="var(--dim)" />
+          <MonoLabel>{c.label}</MonoLabel>
+        </span>
+        <h2
+          className="max-w-[18ch]"
+          style={{ fontSize: 27, fontWeight: 700, letterSpacing: "-0.035em", lineHeight: 1.12 }}
+        >
+          {c.title}
+        </h2>
+        <p className="max-w-[46ch] text-[15px]" style={{ color: "var(--mut)", lineHeight: 1.55 }}>
+          {c.body}
+        </p>
+      </div>
+      <ul className="flex flex-col gap-[9px] text-left">
+        {c.bullets.map((b) => (
+          <li
+            key={b}
+            className="flex items-start gap-[10px] text-[14px]"
+            style={{ color: "var(--ink)" }}
+          >
+            <span aria-hidden="true" style={{ color: "var(--pos)", flex: "none", fontWeight: 700 }}>
+              ✓
+            </span>
+            {b}
+          </li>
+        ))}
+      </ul>
+      <button
+        type="button"
+        className="mt-[4px] h-[50px] px-[28px] text-[15px]"
+        style={{ background: "var(--ink)", color: "var(--panel)", fontWeight: 700 }}
+      >
+        {c.cta}
+      </button>
+    </Card>
+  );
+}
+
+/**
+ * Compact inline lock used where a Claude row/column/line would otherwise sit
+ * inside an otherwise-live ChatGPT view. Clicking it jumps to the Claude view,
+ * i.e. the full upgrade panel.
+ */
+function ClaudeLockRow({ text, onUpgrade }: { text: string; onUpgrade: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onUpgrade}
+      className="flex w-full items-center gap-[12px] py-[10px] text-left"
+    >
+      <span style={{ fontFamily: MONO, fontSize: 11, color: "var(--dim)", width: 14 }} aria-hidden="true">
+        <Lock size={12} color="var(--dim)" />
+      </span>
+      <span className="flex flex-1 items-center gap-[8px] text-[14px]" style={{ color: "var(--dim)" }}>
+        <PlatformLogo name="Claude" size={15} />
+        {text}
+      </span>
+      <span
+        className="inline-flex items-center gap-[6px] whitespace-nowrap"
+        style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: "0.04em", color: "var(--ink)" }}
+      >
+        Unlock →
+      </span>
+    </button>
+  );
+}
+
 // ── Overview ─────────────────────────────────────────────────────────────────
-function Overview() {
+function Overview({ platform, onUpgrade }: { platform: Platform; onUpgrade: () => void }) {
+  // The blended `all` view and the Claude view both need paid Claude data.
+  if (isLocked(platform)) {
+    return <UpgradePanel variant={platform === "all" ? "blend" : "claude"} />;
+  }
   return (
     <div className="flex flex-col gap-[30px]">
       <section className="flex flex-col gap-[14px]">
@@ -487,7 +583,7 @@ function Overview() {
             <Chart v={VISIBILITY} />
             <div className="flex items-center gap-[22px] pt-[4px]">
               <Legend color="var(--pos)" label="Current period" />
-              <Legend color="var(--dim)" label="Previous period" />
+              <Legend color="var(--dim)" label="Previous period" dashed />
             </div>
           </div>
           <div className="flex flex-col gap-[16px] p-[22px_24px] md:border-l" style={{ borderColor: "var(--line)" }}>
@@ -530,20 +626,36 @@ function Overview() {
                   </span>
                 </div>
               ))}
+              <ClaudeLockRow text="Claude ranks these competitors differently" onUpgrade={onUpgrade} />
             </div>
           </div>
         </Card>
       </section>
 
-      <CitationSection />
+      <CitationSection onUpgrade={onUpgrade} />
     </div>
   );
 }
 
-function Legend({ color, label }: { color: string; label: string }) {
+function Legend({
+  color,
+  label,
+  dashed = false,
+}: {
+  color: string;
+  label: string;
+  /** Match the chart: the previous-period line is drawn dashed. */
+  dashed?: boolean;
+}) {
   return (
     <span className="flex items-center gap-[8px]" style={{ fontSize: 12.5, color: "var(--mut)" }}>
-      <span style={{ width: 12, height: 2, background: color, display: "block" }} />
+      <span
+        style={
+          dashed
+            ? { width: 14, height: 0, borderTop: `2px dashed ${color}`, display: "block" }
+            : { width: 14, height: 2, background: color, display: "block" }
+        }
+      />
       {label}
     </span>
   );
@@ -581,7 +693,7 @@ function Chart({ v }: { v: ChartInput }) {
 }
 
 // ── Citations ────────────────────────────────────────────────────────────────
-function CitationSection() {
+function CitationSection({ onUpgrade }: { onUpgrade: () => void }) {
   const [open, setOpen] = useState<number>(-1);
   return (
     <section className="flex flex-col gap-[14px]">
@@ -602,7 +714,7 @@ function CitationSection() {
             <Chart v={CITATION} />
             <div className="flex items-center gap-[22px] pt-[4px]">
               <Legend color="var(--pos)" label="Current period" />
-              <Legend color="var(--dim)" label="Previous period" />
+              <Legend color="var(--dim)" label="Previous period" dashed />
             </div>
           </div>
 
@@ -630,6 +742,7 @@ function CitationSection() {
                   onToggle={() => setOpen(open === d.i ? -1 : d.i)}
                 />
               ))}
+              <ClaudeLockRow text="Claude cites a different mix of sources" onUpgrade={onUpgrade} />
             </div>
           </div>
         </Card>
@@ -711,13 +824,48 @@ function DomainPages({ pages }: { pages: CitationPage[] }) {
 }
 
 // ── Prompts ──────────────────────────────────────────────────────────────────
-function Prompts() {
+/** Resolve a `gi:pi` prompt id from the URL to its prompt + owning topic. */
+function resolvePrompt(id: string | null): { p: Prompt; groupName: string } | null {
+  if (!id) return null;
+  const [gi, pi] = id.split(":").map(Number);
+  const g = GROUPS[gi];
+  const p = g?.items[pi];
+  if (!g || !p) return null;
+  return { p, groupName: g.name };
+}
+
+function Prompts({ platform, onUpgrade }: { platform: Platform; onUpgrade: () => void }) {
+  const router = useRouter();
+  const params = useSearchParams();
   const [openGroups, setOpenGroups] = useState<number[]>([0]);
-  const [open, setOpen] = useState<string>("-1");
 
   const toggleGroup = (gi: number) =>
     setOpenGroups((g) => (g.includes(gi) ? g.filter((x) => x !== gi) : [...g, gi]));
-  const togglePrompt = (id: string) => setOpen((o) => (o === id ? "-1" : id));
+
+  // Claude / blended views are gated; the per-platform side-by-side lives in the
+  // (unlocked) ChatGPT view, where a prompt opens its own detail page.
+  if (isLocked(platform)) {
+    return <UpgradePanel variant={platform === "all" ? "blend" : "claude"} />;
+  }
+
+  // The selected prompt lives in the URL (`&prompt=gi:pi`) so the Prompts tab
+  // stays highlighted and the detail view is shareable / survives reload.
+  const base = `/ai-search/dashboard?tab=prompts&platform=${platform}`;
+  const selected = resolvePrompt(params.get("prompt"));
+  const openPrompt = (id: string) =>
+    router.replace(`${base}&prompt=${id}`, { scroll: false });
+  const backToList = () => router.replace(base, { scroll: false });
+
+  if (selected) {
+    return (
+      <PromptDetailView
+        p={selected.p}
+        groupName={selected.groupName}
+        onBack={backToList}
+        onUpgrade={onUpgrade}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col gap-[16px]">
@@ -741,8 +889,7 @@ function Prompts() {
             gi={gi}
             openGroup={openGroups.includes(gi)}
             toggleGroup={() => toggleGroup(gi)}
-            open={open}
-            togglePrompt={togglePrompt}
+            onSelectPrompt={openPrompt}
           />
         ))}
       </Card>
@@ -755,15 +902,13 @@ function GroupBlock({
   gi,
   openGroup,
   toggleGroup,
-  open,
-  togglePrompt,
+  onSelectPrompt,
 }: {
   g: Group;
   gi: number;
   openGroup: boolean;
   toggleGroup: () => void;
-  open: string;
-  togglePrompt: (id: string) => void;
+  onSelectPrompt: (id: string) => void;
 }) {
   return (
     <div>
@@ -786,20 +931,20 @@ function GroupBlock({
       {openGroup &&
         g.items.map((p, pi) => {
           const id = `${gi}:${pi}`;
-          const isOpen = open === id;
           return (
-            <div key={id}>
-              <button
-                type="button"
-                onClick={() => togglePrompt(id)}
-                className={`w-full px-[24px] py-[14px] text-left md:pl-[58px] ${COLS}`}
-                style={{ background: "var(--panel2)", borderBottom: "1px solid var(--line)" }}
-              >
-                <span className="text-[14px]">{p.q}</span>
-                <MetricCells rank={p.rank} score={p.score} dScore={p.dScore} pos={p.pos} dPos={p.dPos} cite={p.cite} dCite={p.dCite} />
-              </button>
-              {isOpen && <PromptDetail p={p} />}
-            </div>
+            <button
+              key={id}
+              type="button"
+              onClick={() => onSelectPrompt(id)}
+              className={`w-full px-[24px] py-[14px] text-left md:pl-[58px] ${COLS}`}
+              style={{ background: "var(--panel2)", borderBottom: "1px solid var(--line)" }}
+            >
+              <span className="flex items-center gap-[8px] text-[14px]">
+                {p.q}
+                <span style={{ fontFamily: MONO, fontSize: 12, color: "var(--dim)" }} aria-hidden="true">›</span>
+              </span>
+              <MetricCells rank={p.rank} score={p.score} dScore={p.dScore} pos={p.pos} dPos={p.dPos} cite={p.cite} dCite={p.dCite} />
+            </button>
           );
         })}
     </div>
@@ -857,34 +1002,158 @@ function Cell({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-function PromptDetail({ p }: { p: Prompt }) {
+/**
+ * Full detail page for one prompt — replaces the list while the Prompts tab
+ * stays selected. Leads with the per-platform scores (ChatGPT live, Claude
+ * locked), then the verbatim answer with the brand mention highlighted.
+ */
+function PromptDetailView({
+  p,
+  groupName,
+  onBack,
+  onUpgrade,
+}: {
+  p: Prompt;
+  groupName: string;
+  onBack: () => void;
+  onUpgrade: () => void;
+}) {
   return (
-    <div
-      className="grid gap-[30px] p-[22px_24px_26px] md:grid-cols-[1fr_280px] md:pl-[58px]"
-      style={{ background: "var(--panel)", borderBottom: "1px solid var(--line)" }}
-    >
-      <div className="flex flex-col gap-[10px]">
-        <MonoLabel>Answer · {p.platform}</MonoLabel>
-        <p className="max-w-[80ch] text-[14.5px]" style={{ lineHeight: 1.65, color: "var(--ink)" }}>
-          {p.answer}
-        </p>
+    <div className="flex flex-col gap-[22px]">
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex items-center gap-[7px] self-start text-[13px]"
+        style={{ color: "var(--mut)" }}
+      >
+        ← Back to prompts
+      </button>
+
+      <div className="flex flex-col gap-[8px]">
+        <MonoLabel>{groupName}</MonoLabel>
+        <h2
+          className="max-w-[40ch]"
+          style={{ fontSize: 25, fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1.15 }}
+        >
+          {p.q}
+        </h2>
       </div>
-      <div className="flex flex-col gap-[18px]">
-        <div className="flex flex-col gap-[6px]">
-          <MonoLabel>Brands mentioned</MonoLabel>
-          <span style={{ fontFamily: MONO, fontSize: 12, lineHeight: 1.7, color: "var(--mut)" }}>{p.brands}</span>
+
+      {/* Per-platform scores, side by side — not just the combined figure. */}
+      <div>
+        <MonoLabel>Score by platform</MonoLabel>
+        <div className="mt-[10px] grid gap-[12px] sm:grid-cols-2 lg:max-w-[560px]">
+          <PlatformScoreCard p={p} />
+          <ClaudeScoreLock onUpgrade={onUpgrade} />
         </div>
-        <div className="flex flex-col gap-[6px]">
-          <MonoLabel>Cited sources</MonoLabel>
-          <span style={{ fontFamily: MONO, fontSize: 12, lineHeight: 1.7, color: "var(--mut)" }}>{p.cites}</span>
+      </div>
+
+      <Card className="grid gap-[30px] p-[22px_24px_26px] md:grid-cols-[1fr_280px]">
+        <div className="flex flex-col gap-[10px]">
+          <MonoLabel>Answer · {p.platform}</MonoLabel>
+          <p className="max-w-[80ch] text-[14.5px]" style={{ lineHeight: 1.65, color: "var(--ink)" }}>
+            <HighlightedAnswer text={p.answer} highlight={p.highlight} />
+          </p>
+          {!p.highlight && (
+            <span style={{ fontFamily: MONO, fontSize: 11.5, color: "var(--dim)" }}>
+              {BRAND.name} was not named in this answer.
+            </span>
+          )}
         </div>
+        <div className="flex flex-col gap-[18px]">
+          <div className="flex flex-col gap-[6px]">
+            <MonoLabel>Brands mentioned</MonoLabel>
+            <span style={{ fontFamily: MONO, fontSize: 12, lineHeight: 1.7, color: "var(--mut)" }}>{p.brands}</span>
+          </div>
+          <div className="flex flex-col gap-[6px]">
+            <MonoLabel>Cited sources</MonoLabel>
+            <span style={{ fontFamily: MONO, fontSize: 12, lineHeight: 1.7, color: "var(--mut)" }}>{p.cites}</span>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/** Renders the answer text with the monitored brand's mention highlighted. */
+function HighlightedAnswer({ text, highlight }: { text: string; highlight?: string }) {
+  const idx = highlight ? text.indexOf(highlight) : -1;
+  if (!highlight || idx === -1) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark
+        style={{ background: "var(--grn)", color: "#14170f", padding: "1px 4px", fontWeight: 600 }}
+      >
+        {highlight}
+      </mark>
+      {text.slice(idx + highlight.length)}
+    </>
+  );
+}
+
+/** ChatGPT's per-prompt metrics — the live, unlocked platform. */
+function PlatformScoreCard({ p }: { p: Prompt }) {
+  const cells: [string, React.ReactNode][] = [
+    ["Rank", <span key="r" style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700 }}>{p.rank}</span>],
+    ["Score", <span key="s"><span style={{ fontFamily: MONO, fontSize: 13 }}>{p.score}</span> <Delta v={p.dScore} size={11} /></span>],
+    ["Pos", <span key="p"><span style={{ fontFamily: MONO, fontSize: 13 }}>{p.pos}</span> <Delta v={p.dPos} size={11} /></span>],
+    ["Cites", <span key="c"><span style={{ fontFamily: MONO, fontSize: 13 }}>{p.cite}</span> <Delta v={p.dCite} size={11} /></span>],
+  ];
+  return (
+    <div style={{ border: "1px solid var(--line)", background: "var(--panel2)" }}>
+      <div
+        className="flex items-center gap-[8px] px-[14px] py-[10px]"
+        style={{ borderBottom: "1px solid var(--line)" }}
+      >
+        <PlatformLogo name="ChatGPT" size={15} />
+        <span className="text-[13px] font-bold">ChatGPT</span>
+      </div>
+      <div className="grid grid-cols-2 gap-[10px] p-[12px_14px]">
+        {cells.map(([label, node]) => (
+          <span key={label} className="flex flex-col gap-[3px]">
+            <span className="uppercase" style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.14em", color: "var(--dim)" }}>
+              {label}
+            </span>
+            {node}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Locked Claude column — the paywall, in-context next to ChatGPT's scores. */
+function ClaudeScoreLock({ onUpgrade }: { onUpgrade: () => void }) {
+  return (
+    <div style={{ border: "1px solid var(--line)", background: "var(--panel2)" }}>
+      <div
+        className="flex items-center gap-[8px] px-[14px] py-[10px]"
+        style={{ borderBottom: "1px solid var(--line)" }}
+      >
+        <PlatformLogo name="Claude" size={15} />
+        <span className="text-[13px] font-bold" style={{ color: "var(--mut)" }}>Claude</span>
+        <Lock size={12} color="var(--dim)" />
+      </div>
+      <div className="flex flex-col items-start gap-[8px] p-[12px_14px]">
+        <span className="text-[12.5px]" style={{ color: "var(--mut)", lineHeight: 1.5 }}>
+          Unlock Claude to see its answer to this prompt and how it scores you.
+        </span>
+        <button
+          type="button"
+          onClick={onUpgrade}
+          className="inline-flex items-center gap-[6px] text-[12px]"
+          style={{ fontFamily: MONO, color: "var(--ink)", borderBottom: "1px solid var(--ink)", paddingBottom: 1 }}
+        >
+          Unlock Claude →
+        </button>
       </div>
     </div>
   );
 }
 
 // ── Settings ─────────────────────────────────────────────────────────────────
-function Settings() {
+function Settings({ onUpgrade }: { platform: Platform; onUpgrade: () => void }) {
   return (
     <div className="flex flex-col gap-[20px]">
       <div className="grid gap-[20px] md:grid-cols-2">
@@ -901,16 +1170,29 @@ function Settings() {
             {PLATFORMS.map((pl) => (
               <div
                 key={pl.name}
-                className="flex items-center justify-between py-[12px]"
-                style={{ borderBottom: "1px solid var(--line)", color: pl.dim ? "var(--dim)" : "var(--ink)" }}
+                className="flex items-center justify-between gap-[12px] py-[12px]"
+                style={{
+                  borderBottom: "1px solid var(--line)",
+                  color: pl.dim ? "var(--dim)" : pl.locked ? "var(--mut)" : "var(--ink)",
+                }}
               >
-                <span className="text-[14px]">{pl.name}</span>
-                <StatusChip>{pl.status}</StatusChip>
+                <span className="flex items-center gap-[9px] text-[14px]">
+                  {!pl.dim && <PlatformLogo name={pl.name} size={15} />}
+                  {pl.name}
+                </span>
+                {pl.locked ? (
+                  <UpgradeButton onUpgrade={onUpgrade} />
+                ) : (
+                  <StatusChip>{pl.status}</StatusChip>
+                )}
               </div>
             ))}
-            <div className="flex items-center justify-between py-[12px]">
-              <span className="text-[14px]">Scan schedule</span>
-              <StatusChip>{SCHEDULE}</StatusChip>
+            <div className="flex items-center justify-between gap-[12px] py-[12px]">
+              <span className="text-[14px]">Scan cadence</span>
+              <span className="flex items-center gap-[10px]">
+                <span className="text-[14px]" style={{ color: "var(--mut)" }}>Daily</span>
+                <UpgradeButton onUpgrade={onUpgrade} />
+              </span>
             </div>
           </div>
         </Card>
@@ -918,7 +1200,7 @@ function Settings() {
 
       <Card className="flex flex-col gap-[16px] p-[22px_24px]">
         <div className="flex flex-wrap items-start justify-between gap-[12px]">
-          <SectionHead title="Monitored prompts" sub="15 prompts, run on every platform each week" />
+          <SectionHead title="Monitored prompts" sub="Add, remove or edit your prompts." />
           <span
             className="inline-flex items-center whitespace-nowrap text-[13px]"
             style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "7px 12px" }}
@@ -949,6 +1231,21 @@ function ReadonlyField({ label, value }: { label: string; value: string }) {
         {value}
       </div>
     </div>
+  );
+}
+
+/** Pro-only upgrade CTA — shared by the Claude and scan-cadence rows. */
+function UpgradeButton({ onUpgrade }: { onUpgrade: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onUpgrade}
+      className="inline-flex items-center gap-[6px] whitespace-nowrap"
+      style={{ fontFamily: MONO, fontSize: 11, background: "var(--ink)", color: "var(--panel)", padding: "5px 10px" }}
+    >
+      <Lock size={11} color="var(--panel)" />
+      Upgrade
+    </button>
   );
 }
 
