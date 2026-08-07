@@ -24,5 +24,6 @@ export const env = {
       process.env.SUPABASE_SERVICE_ROLE_KEY,
     ),
   resendApiKey: () => required("RESEND_API_KEY", process.env.RESEND_API_KEY),
+  openaiApiKey: () => required("OPENAI_API_KEY", process.env.OPENAI_API_KEY),
   siteUrl: () => process.env.NEXT_PUBLIC_SITE_URL ?? "https://agentled.co",
 };

@@ -1,0 +1,27 @@
+import "server-only";
+
+/**
+ * Reader (step 2): fetch a site as clean markdown via Jina Reader — prepend
+ * `r.jina.ai/` to the URL, no key needed at this volume. Swappable slot: point
+ * this at Firecrawl if JS-heavy sites need real rendering.
+ */
+
+const MAX_CHARS = 12_000; // enough context for enrichment without blowing tokens
+const TIMEOUT_MS = 12_000;
+
+/** Clean text content for `host`, or null if the site can't be read. */
+export async function readSiteContent(host: string): Promise<string | null> {
+  const target = `https://${host}`;
+  try {
+    const res = await fetch(`https://r.jina.ai/${target}`, {
+      headers: { Accept: "text/plain" },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!res.ok) return null;
+    const text = (await res.text()).trim();
+    return text ? text.slice(0, MAX_CHARS) : null;
+  } catch {
+    // Timeout, DNS failure, unreachable — enrichment falls back to domain-only.
+    return null;
+  }
+}
