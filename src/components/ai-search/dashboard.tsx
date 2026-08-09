@@ -67,7 +67,13 @@ export function Dashboard() {
     );
   const setTab = (t: Tab) => go({ tab: t });
   const setPlatform = (p: Platform) => go({ platform: p });
-  const reset = () => router.push("/ai-search");
+  // Real sign-out: clear the Supabase session first, then leave the (gated)
+  // dashboard. Previously this only navigated, so the user stayed signed in.
+  const signOut = async () => {
+    await createClient().auth.signOut();
+    router.replace("/ai-search");
+    router.refresh();
+  };
 
   return (
     <main
@@ -83,7 +89,7 @@ export function Dashboard() {
         }}
         aria-hidden={gated}
       >
-        <Header onReset={reset} />
+        <Header onSignOut={signOut} />
         <div className="flex md:min-h-0 md:flex-1">
           <Sidebar tab={tab} setTab={setTab} />
           <div className="min-w-0 flex-1 pb-[84px] md:overflow-y-auto md:pb-0">
@@ -111,7 +117,7 @@ export function Dashboard() {
 }
 
 // ── Shell ────────────────────────────────────────────────────────────────────
-function Header({ onReset }: { onReset: () => void }) {
+function Header({ onSignOut }: { onSignOut: () => void }) {
   return (
     <header
       className="flex items-center justify-between px-[20px] py-[14px] md:px-[28px] md:py-[16px]"
@@ -123,7 +129,7 @@ function Header({ onReset }: { onReset: () => void }) {
       </span>
       <button
         type="button"
-        onClick={onReset}
+        onClick={onSignOut}
         className="px-[16px] py-[9px] text-[14px]"
         style={{
           border: "1px solid var(--line)",
