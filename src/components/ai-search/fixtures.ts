@@ -11,6 +11,9 @@ export const BRAND = {
   initials: "AG",
 } as const;
 
+/** Generic example domain pre-filled in the scan inputs (not a real brand). */
+export const EXAMPLE_URL = "coca-cola.com";
+
 // ── Platforms ─────────────────────────────────────────────────────────────
 /**
  * The dashboard is platform-aware: the selector doesn't just filter, it

@@ -5,16 +5,16 @@ import { useState } from "react";
 
 import { capture } from "@/lib/analytics";
 
-import { BRAND } from "./fixtures";
+import { EXAMPLE_URL } from "./fixtures";
 
 /** Landing URL capture → onboarding, carrying the URL as a query param. */
 export function ScanForm() {
   const router = useRouter();
-  const [url, setUrl] = useState<string>(BRAND.url);
+  const [url, setUrl] = useState<string>(EXAMPLE_URL);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    const v = url.trim() || BRAND.url;
+    const v = url.trim() || EXAMPLE_URL;
     capture("scan_started", { domain: v, source: "ai-search" });
     router.push(`/ai-search/onboarding?url=${encodeURIComponent(v)}`);
   }
