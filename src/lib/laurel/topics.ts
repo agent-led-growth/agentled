@@ -30,6 +30,22 @@ export async function insertSuggestedTopics(
   return (data ?? []) as Topic[];
 }
 
+/**
+ * Replace a brand's suggested topics wholesale: clear what's there, then seed
+ * the new suggestions (unselected). Used on (re-)enrichment so refreshed
+ * suggestions supersede stale ones instead of piling up when a URL is
+ * re-onboarded.
+ */
+export async function resetSuggestedTopics(
+  brandId: string,
+  labels: string[],
+): Promise<Topic[]> {
+  const admin = createAdminClient();
+  const { error } = await admin.from("topics").delete().eq("brand_id", brandId);
+  if (error) throw error;
+  return insertSuggestedTopics(brandId, labels);
+}
+
 export async function listTopics(brandId: string): Promise<Topic[]> {
   const admin = createAdminClient();
   const { data, error } = await admin

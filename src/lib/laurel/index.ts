@@ -9,3 +9,4 @@ export * from "./brands";
 export * from "./topics";
 export * from "./prompts";
 export * from "./enrichment";
+export * from "./claim";

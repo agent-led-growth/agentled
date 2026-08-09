@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 
 import {
-  createActiveBrandForUser,
   createAnonymousBrand,
   enrichBrand,
+  getOrCreateActiveBrandForUser,
   getUserIdByAuthId,
-  insertSuggestedTopics,
+  resetSuggestedTopics,
   updateBrandEnrichment,
   type Brand,
 } from "@/lib/laurel";
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     if (user) {
       const userId = await getUserIdByAuthId(user.id);
       brand = userId
-        ? await createActiveBrandForUser(website, userId)
+        ? await getOrCreateActiveBrandForUser(website, userId)
         : await createAnonymousBrand(website);
     } else {
       brand = await createAnonymousBrand(website);
@@ -65,10 +65,8 @@ export async function POST(request: Request) {
       description: enrichment.description,
       logoUrl: enrichment.logoUrl,
     });
-    const topics =
-      enrichment.topics.length > 0
-        ? await insertSuggestedTopics(brand.id, enrichment.topics)
-        : [];
+    // Reset (not append): on a reused brand this replaces stale suggestions.
+    const topics = await resetSuggestedTopics(brand.id, enrichment.topics);
 
     return NextResponse.json({
       brandId: brand.id,

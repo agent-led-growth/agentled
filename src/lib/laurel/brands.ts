@@ -58,6 +58,62 @@ export async function createActiveBrandForUser(
 }
 
 /**
+ * Reuse-or-create for a signed-in visitor: if this member already has a brand
+ * for `domain`, return it (we update its enrichment/topics rather than spawn a
+ * duplicate); otherwise create a fresh active + owned brand. Enforces the
+ * (member, domain) uniqueness the onboarding relies on.
+ */
+export async function getOrCreateActiveBrandForUser(
+  domain: string,
+  userId: string,
+  role: BrandRole = "owner",
+): Promise<Brand> {
+  const existing = await getMemberBrandByDomain(userId, domain);
+  if (existing) return existing;
+  return createActiveBrandForUser(domain, userId, role);
+}
+
+/**
+ * The brand this member already has for `domain`, or null. A member is linked to
+ * a given domain at most once; this is the lookup that keeps re-onboarding from
+ * creating a second connection. Oldest wins if data ever diverged.
+ */
+export async function getMemberBrandByDomain(
+  userId: string,
+  domain: string,
+): Promise<Brand | null> {
+  const admin = createAdminClient();
+  const host = normalizeDomain(domain);
+
+  const { data: memberships, error } = await admin
+    .from("brand_users")
+    .select("brand_id")
+    .eq("user_id", userId);
+  if (error) throw error;
+
+  const ids = (memberships ?? []).map((m) => (m as { brand_id: string }).brand_id);
+  if (ids.length === 0) return null;
+
+  const { data, error: brandsError } = await admin
+    .from("brands")
+    .select("*")
+    .in("id", ids)
+    .eq("domain", host)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (brandsError) throw brandsError;
+  return (data as Brand | null) ?? null;
+}
+
+/** Delete a brand; topics, memberships and prompts cascade (see 0005). */
+export async function deleteBrand(brandId: string): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin.from("brands").delete().eq("id", brandId);
+  if (error) throw error;
+}
+
+/**
  * The gate claim: attach a user to a brand they onboarded anonymously, and flip
  * it `active`. Idempotent — safe if they're already a member, and `claimed_at`
  * is only stamped on the first claim.

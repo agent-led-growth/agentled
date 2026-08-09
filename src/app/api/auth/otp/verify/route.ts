@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { onboard, type OnboardSource } from "@/lib/email/onboarding";
-import { attachUserToBrand, setSelectedTopics } from "@/lib/laurel";
+import { claimBrandForMember } from "@/lib/laurel";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -127,18 +127,16 @@ async function linkUserAndOnboard(
     .single();
   if (upsertError) throw upsertError;
 
-  // Attach the user to the Laurel brand they onboarded anonymously (flips it
-  // active + owned) and persist their topic selection. Best effort: a failure
+  // Claim the Laurel brand they onboarded: attach the member (flipping it active
+  // + owned) and persist their topic selection, reusing an existing brand for
+  // this domain instead of duplicating the connection. Best effort: a failure
   // here must not block the sign-in or, via a claim rollback, re-fire the
   // automation. `row.id` is this user's public.users id.
   if (source === "ai-search" && site.brandId) {
     try {
-      await attachUserToBrand(site.brandId, row.id);
-      if (site.topics.length > 0) {
-        await setSelectedTopics(site.brandId, site.topics);
-      }
+      await claimBrandForMember(site.brandId, row.id, site.topics);
     } catch (err) {
-      console.error("otp verify: brand attach failed", err);
+      console.error("otp verify: brand claim failed", err);
     }
   }
 
