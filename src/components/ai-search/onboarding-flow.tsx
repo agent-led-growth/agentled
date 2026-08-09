@@ -100,7 +100,7 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
     <span
       style={{
         fontFamily: SANS,
-        fontSize: 12,
+        fontSize: 17,
         fontWeight: 600,
         color: "var(--dim)",
       }}
@@ -253,7 +253,7 @@ function Scan({ ready, onDone }: { ready: boolean; onDone: () => void }) {
             <span
               style={{
                 fontFamily: SANS,
-                fontSize: 11,
+                fontSize: 16,
                 color: "var(--dim)",
               }}
             >
