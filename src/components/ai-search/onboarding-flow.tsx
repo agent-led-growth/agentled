@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { BrandTile, Lockup } from "./brand";
-import { BRAND, EXAMPLE_URL, LOG, type LogColor } from "./fixtures";
+import { BRAND, EXAMPLE_URL, type LogColor } from "./fixtures";
 import { saveOnboarding } from "./onboarding-store";
 import { MONO, SANS, appTokens } from "./tokens";
 
@@ -74,7 +74,12 @@ export function OnboardingFlow({ initialUrl }: { initialUrl: string }) {
         />
       )}
       {step === "scan" && (
-        <Scan ready={result !== null || failed} onDone={() => setStep("topics")} />
+        <Scan
+          domain={url}
+          result={result}
+          ready={result !== null || failed}
+          onDone={() => setStep("topics")}
+        />
       )}
       {step === "topics" && (
         <Topics
@@ -224,7 +229,52 @@ function Brief({
 }
 
 // ── 2. Scan ──────────────────────────────────────────────────────────────────
-function Scan({ ready, onDone }: { ready: boolean; onDone: () => void }) {
+/**
+ * The scan log, built from the actual domain and (once it resolves) the real
+ * enrichment result — never hardcoded to a demo brand. Result-dependent lines
+ * are appended when the pre-scan returns.
+ */
+function buildScanLog(
+  domain: string,
+  result: PrescanResult | null,
+): [glyph: string, text: string, color: LogColor][] {
+  const host =
+    domain
+      .replace(/^https?:\/\//, "")
+      .replace(/^www\./, "")
+      .replace(/\/+$/, "")
+      .trim() || "your site";
+  const lines: [string, string, LogColor][] = [
+    ["→", `fetching ${host}`, "mut"],
+    ["✓", "reading site content", "pos"],
+    ["→", "analyzing positioning and offers", "mut"],
+    ["→", "clustering topics", "mut"],
+  ];
+  if (result) {
+    const name = result.brand.name?.trim();
+    if (name) lines.push(["✓", `brand detected — ${name}`, "pos"]);
+    const n = result.topics.length;
+    lines.push([
+      "✓",
+      n > 0 ? `${n} topics suggested` : "site read — add your topics next",
+      "pos",
+    ]);
+  }
+  return lines;
+}
+
+function Scan({
+  domain,
+  result,
+  ready,
+  onDone,
+}: {
+  domain: string;
+  result: PrescanResult | null;
+  ready: boolean;
+  onDone: () => void;
+}) {
+  const lines = buildScanLog(domain, result);
   const [revealed, setRevealed] = useState(0);
   const firedRef = useRef(false);
   const doneRef = useRef(onDone);
@@ -232,28 +282,26 @@ function Scan({ ready, onDone }: { ready: boolean; onDone: () => void }) {
     doneRef.current = onDone;
   });
 
+  // Re-created when the log grows (result lines land) so it reveals them too.
   useEffect(() => {
     const iv = setInterval(() => {
-      setRevealed((n) => {
-        if (n >= LOG.length) return n;
-        return n + 1;
-      });
-    }, 720);
+      setRevealed((n) => (n >= lines.length ? n : n + 1));
+    }, 700);
     return () => clearInterval(iv);
-  }, []);
+  }, [lines.length]);
 
-  // Advance only once the log has fully revealed AND the real pre-scan has
-  // resolved (or failed). If enrichment outruns the animation we wait for the
-  // animation to finish; if it lags, we hold at 100% until it's done.
+  // Advance once every line has revealed AND the real pre-scan has resolved (or
+  // failed). Result lines are appended as they arrive, so we wait for both the
+  // animation and the data.
   useEffect(() => {
-    if (revealed >= LOG.length && ready && !firedRef.current) {
+    if (revealed >= lines.length && ready && !firedRef.current) {
       firedRef.current = true;
       const t = setTimeout(() => doneRef.current(), 700);
       return () => clearTimeout(t);
     }
-  }, [revealed, ready]);
+  }, [revealed, ready, lines.length]);
 
-  const pct = Math.round((revealed / LOG.length) * 100);
+  const pct = Math.min(100, Math.round((revealed / lines.length) * 100));
 
   return (
     <div className="flex min-h-[100svh] flex-col px-[20px] py-[20px] md:px-[40px] md:py-[28px]">
@@ -306,7 +354,7 @@ function Scan({ ready, onDone }: { ready: boolean; onDone: () => void }) {
             style={{ fontFamily: MONO, fontSize: 14, lineHeight: 1.5 }}
           >
             <div className="flex flex-col gap-[9px]">
-              {LOG.slice(0, revealed).map(([glyph, text, color], i) => (
+              {lines.slice(0, revealed).map(([glyph, text, color], i) => (
                 <div key={i} className="flex gap-[12px]">
                   <span style={{ color: logColor[color], width: 14, flex: "none" }}>
                     {glyph}

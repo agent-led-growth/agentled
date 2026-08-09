@@ -281,7 +281,8 @@ function BrandSwitcher({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-[10px]"
+        title="Switch brand"
+        className="flex items-center gap-[12px] transition-opacity hover:opacity-80"
         style={{ color: "var(--ink)" }}
       >
         <h1 className="text-[22px]" style={{ letterSpacing: "-0.035em" }}>
@@ -290,7 +291,22 @@ function BrandSwitcher({
         <span style={{ fontFamily: MONO, fontSize: 11, color: "var(--dim)" }}>
           {current.domain}
         </span>
-        <span style={{ fontSize: 12, color: "var(--dim)" }}>{open ? "▴" : "▾"}</span>
+        <span
+          aria-hidden="true"
+          className="grid place-items-center"
+          style={{
+            width: 28,
+            height: 28,
+            flex: "none",
+            border: "1px solid var(--line)",
+            background: open ? "var(--hov)" : "var(--panel2)",
+            color: "var(--ink)",
+            fontSize: 13,
+            lineHeight: 1,
+          }}
+        >
+          {open ? "▴" : "▾"}
+        </span>
       </button>
       {open && (
         <>
