@@ -22,3 +22,20 @@ export function resetUser() {
   if (!enabled()) return;
   posthog.reset();
 }
+
+/**
+ * The single source of truth for custom event names — keeps PostHog free of
+ * typo'd duplicates and makes the taxonomy reviewable in one place. Tier 2
+ * (onboarding / dashboard / post-signin) events get appended here once that
+ * flow's architecture is finalized.
+ */
+export type AnalyticsEvent =
+  | "scan_started" // domain submitted to scan (home hero + ai-search)
+  | "signin_code_requested" // OTP email submitted, code sent
+  | "signin_completed"; // OTP verified, session established
+
+/** Capture a custom event. The union type rejects unregistered names. */
+export function capture(event: AnalyticsEvent, props?: Record<string, unknown>) {
+  if (!enabled()) return;
+  posthog.capture(event, props);
+}

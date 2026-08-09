@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { capture } from "@/lib/analytics";
+
 /** Home scan CTA → the same onboarding flow as the /ai-search landing. */
 export function HomeScanForm() {
   const router = useRouter();
@@ -10,7 +12,9 @@ export function HomeScanForm() {
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    router.push(`/ai-search/onboarding?url=${encodeURIComponent(url.trim())}`);
+    const domain = url.trim();
+    capture("scan_started", { domain, source: "home" });
+    router.push(`/ai-search/onboarding?url=${encodeURIComponent(domain)}`);
   }
 
   return (

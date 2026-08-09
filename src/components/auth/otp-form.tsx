@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 
-import { identifyUser } from "@/lib/analytics";
+import { capture, identifyUser } from "@/lib/analytics";
 import { createClient } from "@/lib/supabase/client";
 
 type Step = "email" | "code" | "done";
@@ -30,11 +30,14 @@ export function OtpForm({
   redirectTo,
   submitLabel = "Send code",
   onSuccess,
+  source = "landing",
 }: {
   redirectTo?: string;
   submitLabel?: string;
   /** Fired after a successful verify (session cookies are set by then). */
   onSuccess?: () => void;
+  /** Where this form is mounted — attached to the sign-in analytics events. */
+  source?: string;
 }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("email");
@@ -69,6 +72,7 @@ export function OtpForm({
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) return fail(data.error ?? "Something went wrong. Try again.");
 
+      capture("signin_code_requested", { source });
       setEmail(value);
       setStep("code");
       setStatus("idle");
@@ -107,6 +111,7 @@ export function OtpForm({
       } catch {
         /* ignore */
       }
+      capture("signin_completed", { source });
 
       // Cookies are set on the response above; make the server re-read them.
       onSuccess?.();

@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { capture } from "@/lib/analytics";
+
 import { BRAND } from "./fixtures";
 
 /** Landing URL capture → onboarding, carrying the URL as a query param. */
@@ -13,6 +15,7 @@ export function ScanForm() {
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const v = url.trim() || BRAND.url;
+    capture("scan_started", { domain: v, source: "ai-search" });
     router.push(`/ai-search/onboarding?url=${encodeURIComponent(v)}`);
   }
 

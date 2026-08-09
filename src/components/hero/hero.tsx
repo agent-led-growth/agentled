@@ -32,7 +32,7 @@ export function Hero() {
               Get research, experiments, and tools for the next generation of
               growth.
             </p>
-            <OtpForm submitLabel="Subscribe" redirectTo="/home" />
+            <OtpForm submitLabel="Subscribe" redirectTo="/home" source="hero" />
             <SocialProof />
           </div>
         </div>

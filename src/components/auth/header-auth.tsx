@@ -156,6 +156,7 @@ function AuthModal({
             submitLabel="Subscribe"
             onSuccess={onSuccess}
             redirectTo="/home"
+            source="header"
           />
         </div>
       </div>
