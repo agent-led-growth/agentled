@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import Script from "next/script";
 
 import { OG_IMAGES, SITE } from "@/lib/site";
 
@@ -91,6 +92,13 @@ export default function RootLayout({
       style={{ colorScheme: "dark" }}
     >
       <body className="flex min-h-full flex-col">{children}</body>
+      {/* Ahrefs Web Analytics — loads once across all routes. next/script
+          forwards data-key to the emitted <script> tag verbatim. */}
+      <Script
+        src="https://analytics.ahrefs.com/analytics.js"
+        data-key="x5ZyneiLaXtn4o4wQ7/Zkw"
+        strategy="afterInteractive"
+      />
     </html>
   );
 }
