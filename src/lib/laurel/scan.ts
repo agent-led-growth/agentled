@@ -1,0 +1,141 @@
+import "server-only";
+
+import { env } from "@/lib/env";
+
+import { normalizeDomain } from "./domain";
+import { registry } from "./registry";
+
+/**
+ * The scan call (pipeline step 6) — the measurement itself. Ask one prompt with
+ * live web search, exactly as a user would, and record the natural answer plus
+ * its cited sources. OpenAI-locked (the platform being measured), and NO system
+ * prompt / no JSON steering — anything that shapes the answer corrupts the data.
+ * This is why it lives outside the structured-output adapter.
+ */
+
+const RESPONSES_URL = "https://api.openai.com/v1/responses";
+const TIMEOUT_MS = 60_000; // web search is slow; give it room
+
+export interface ScanCitation {
+  url: string;
+  title: string | null;
+}
+
+export interface ScanResult {
+  answerText: string;
+  /** From the response's url_citation annotations. */
+  citations: ScanCitation[];
+  model: string;
+  raw: unknown;
+}
+
+export async function runWebSearch(prompt: string): Promise<ScanResult> {
+  const config = registry.scan;
+  const res = await fetch(RESPONSES_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.openaiApiKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: config.model,
+      input: prompt,
+      tools: [{ type: "web_search" }],
+    }),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+
+  const raw = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) {
+    const err = asRecord(raw.error);
+    const msg = err && typeof err.message === "string" ? err.message : res.statusText;
+    throw new Error(`OpenAI web_search ${res.status}: ${msg}`);
+  }
+
+  const answerText = extractAnswerText(raw);
+  if (!answerText) throw new Error("OpenAI web_search: empty answer");
+  return { answerText, citations: extractAnnotationCitations(raw), model: config.model, raw };
+}
+
+/** A citation ready to persist: normalized host + own-domain flag + order. */
+export interface CollectedCitation {
+  url: string;
+  domain: string;
+  title: string | null;
+  isOwnDomain: boolean;
+  position: number;
+}
+
+/**
+ * Merge the structured url_citation annotations with any inline-cited URLs in
+ * the answer text (annotations are occasionally incomplete), dedupe by URL, and
+ * flag own-domain via normalized host comparison.
+ */
+export function collectCitations(
+  answerText: string,
+  annotations: ScanCitation[],
+  ownDomain: string,
+): CollectedCitation[] {
+  const own = normalizeDomain(ownDomain);
+  const seen = new Set<string>();
+  const out: CollectedCitation[] = [];
+
+  const add = (url: string, title: string | null) => {
+    const clean = url.trim().replace(/[).,]+$/, "");
+    if (!/^https?:\/\//i.test(clean) || seen.has(clean)) return;
+    seen.add(clean);
+    const domain = normalizeDomain(clean);
+    out.push({
+      url: clean,
+      domain,
+      title,
+      isOwnDomain: domain === own,
+      position: out.length + 1,
+    });
+  };
+
+  for (const c of annotations) add(c.url, c.title);
+  for (const url of answerText.match(/https?:\/\/[^\s)\]]+/gi) ?? []) add(url, null);
+  return out;
+}
+
+function extractAnswerText(raw: Record<string, unknown>): string {
+  if (typeof raw.output_text === "string" && raw.output_text.trim()) {
+    return raw.output_text.trim();
+  }
+  const parts: string[] = [];
+  for (const item of asArray(raw.output)) {
+    const rec = asRecord(item);
+    if (rec?.type !== "message") continue;
+    for (const c of asArray(rec.content)) {
+      const cr = asRecord(c);
+      if (cr?.type === "output_text" && typeof cr.text === "string") parts.push(cr.text);
+    }
+  }
+  return parts.join("\n").trim();
+}
+
+function extractAnnotationCitations(raw: Record<string, unknown>): ScanCitation[] {
+  const out: ScanCitation[] = [];
+  for (const item of asArray(raw.output)) {
+    const rec = asRecord(item);
+    if (rec?.type !== "message") continue;
+    for (const c of asArray(rec.content)) {
+      const cr = asRecord(c);
+      for (const a of asArray(cr?.annotations)) {
+        const ar = asRecord(a);
+        if (ar?.type === "url_citation" && typeof ar.url === "string") {
+          out.push({ url: ar.url, title: typeof ar.title === "string" ? ar.title : null });
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function asRecord(v: unknown): Record<string, unknown> | null {
+  return v && typeof v === "object" ? (v as Record<string, unknown>) : null;
+}
+function asArray(v: unknown): unknown[] {
+  return Array.isArray(v) ? v : [];
+}
