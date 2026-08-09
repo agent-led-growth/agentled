@@ -1,12 +1,20 @@
 import Link from "next/link";
 
+import { getDictionary } from "@/lib/i18n";
+
 import { AntennaMark } from "./marks";
 
 /**
  * Deliberately light-themed in BOTH hero themes — it is the one element that
  * stays white on dark, which is what makes it read as the primary product CTA.
  */
-export function CtaChip({ className = "" }: { className?: string }) {
+export function CtaChip({
+  className = "",
+  label = getDictionary("en").hero.ctaChip,
+}: {
+  className?: string;
+  label?: string;
+}) {
   return (
     <Link
       href="/ai-search"
@@ -14,7 +22,7 @@ export function CtaChip({ className = "" }: { className?: string }) {
     >
       <AntennaMark className="size-[26px] shrink-0 md:size-[30px]" />
       <span className="text-[14px] font-medium tracking-[-0.01em] md:text-[16px]">
-        Try the AI Search Monitor
+        {label}
       </span>
       <span
         aria-hidden="true"

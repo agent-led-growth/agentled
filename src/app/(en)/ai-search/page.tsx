@@ -9,6 +9,9 @@ import { WaveCanvas } from "@/components/ai-search/wave-canvas";
 import { Faq } from "@/components/faq";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { getDictionary } from "@/lib/i18n";
+
+const t = getDictionary("en").aiSearch;
 
 export const metadata: Metadata = {
   title: "AI Search Monitor",
@@ -49,14 +52,13 @@ export default function AiSearchLanding() {
                   textWrap: "pretty",
                 }}
               >
-                Does AI recommend your brand?
+                {t.headline}
               </h1>
               <p
                 className="max-w-[40ch] text-[17px] md:text-[21px]"
                 style={{ lineHeight: 1.45, color: "var(--muted)" }}
               >
-                Master AI visibility, win more recommendations, traffic and
-                leads.
+                {t.subhead}
               </p>
 
               <ScanForm />
@@ -71,7 +73,7 @@ export default function AiSearchLanding() {
                     color: "var(--dim)",
                   }}
                 >
-                  Monitor top AI models &amp; assistants
+                  {t.modelsEyebrow}
                 </span>
                 <ModelMarks />
               </div>
@@ -91,7 +93,7 @@ export default function AiSearchLanding() {
                   color: "var(--signal)",
                 }}
               >
-                Your brand
+                {t.brandMarker}
               </span>
             </div>
           </div>

@@ -1,3 +1,5 @@
+import { getDictionary, type Locale } from "@/lib/i18n";
+
 import { FAQ_ITEMS, type FaqItem } from "./faq-content";
 
 /**
@@ -6,7 +8,15 @@ import { FAQ_ITEMS, type FaqItem } from "./faq-content";
  * never happens. Defaults to the root copy in `faq-content.tsx` (shared with
  * the FAQPage JSON-LD); pass `items` to reuse the same style on other pages.
  */
-export function Faq({ items = FAQ_ITEMS }: { items?: FaqItem[] }) {
+export function Faq({
+  items = FAQ_ITEMS,
+  locale = "en",
+}: {
+  items?: FaqItem[];
+  locale?: Locale;
+}) {
+  const t = getDictionary(locale).faq;
+  const [headingLine1, headingLine2] = t.heading;
   return (
     <section
       id="faq"
@@ -15,12 +25,12 @@ export function Faq({ items = FAQ_ITEMS }: { items?: FaqItem[] }) {
       <div className="flex flex-col gap-[30px] md:flex-row md:gap-[80px]">
         <div className="md:w-[300px] md:shrink-0">
           <p className="font-mono text-[10.5px] tracking-[0.2em] text-[var(--text-faint)] uppercase md:text-[12px]">
-            FAQ
+            {t.eyebrow}
           </p>
           <h2 className="mt-[14px] text-[34px] leading-[0.95] font-bold tracking-[-0.045em] text-[var(--text-primary)] md:text-[44px]">
-            Questions,
+            {headingLine1}
             <br />
-            answered
+            {headingLine2}
           </h2>
         </div>
 
