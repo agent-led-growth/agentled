@@ -301,7 +301,10 @@ function Scan({
     }
   }, [revealed, ready, lines.length]);
 
-  const pct = Math.min(100, Math.round((revealed / lines.length) * 100));
+  // Only hit 100% once the real scan has actually resolved; while it's still in
+  // flight (revealed can outrun the data), hold below full.
+  const raw = Math.round((revealed / lines.length) * 100);
+  const pct = ready ? Math.min(100, raw) : Math.min(90, raw);
 
   return (
     <div className="flex min-h-[100svh] flex-col px-[20px] py-[20px] md:px-[40px] md:py-[28px]">
