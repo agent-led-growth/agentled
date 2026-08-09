@@ -10,11 +10,12 @@ import { EXAMPLE_URL } from "./fixtures";
 /** Landing URL capture → onboarding, carrying the URL as a query param. */
 export function ScanForm() {
   const router = useRouter();
-  const [url, setUrl] = useState<string>(EXAMPLE_URL);
+  const [url, setUrl] = useState("");
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    const v = url.trim() || EXAMPLE_URL;
+    const v = url.trim();
+    if (!v) return;
     capture("scan_started", { domain: v, source: "ai-search" });
     router.push(`/ai-search/onboarding?url=${encodeURIComponent(v)}`);
   }
@@ -27,7 +28,7 @@ export function ScanForm() {
       <input
         value={url}
         onChange={(e) => setUrl(e.target.value)}
-        placeholder="yourcompany.com"
+        placeholder={EXAMPLE_URL}
         aria-label="Your website"
         inputMode="url"
         autoCapitalize="off"
@@ -42,7 +43,8 @@ export function ScanForm() {
       />
       <button
         type="submit"
-        className="grid h-[56px] shrink-0 place-items-center px-[30px] text-[17px] font-bold transition-opacity hover:opacity-90 md:h-[64px] md:text-[18px]"
+        disabled={!url.trim()}
+        className="grid h-[56px] shrink-0 place-items-center px-[30px] text-[17px] font-bold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 md:h-[64px] md:text-[18px]"
         style={{ background: "var(--signal)", color: "var(--on-signal)" }}
       >
         Scan my brand

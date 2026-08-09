@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { EXAMPLE_URL } from "@/components/ai-search/fixtures";
 import { OnboardingFlow } from "@/components/ai-search/onboarding-flow";
 
 export const metadata: Metadata = {
@@ -14,5 +13,7 @@ export default async function OnboardingPage({
   searchParams: Promise<{ url?: string }>;
 }) {
   const { url } = await searchParams;
-  return <OnboardingFlow initialUrl={url?.trim() || EXAMPLE_URL} />;
+  // No url (direct visit / "+ New brand") → empty field with a placeholder; the
+  // Brief step won't let you continue until you enter one.
+  return <OnboardingFlow initialUrl={url?.trim() || ""} />;
 }

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { BrandTile, Lockup } from "./brand";
-import { BRAND, LOG, type LogColor } from "./fixtures";
+import { BRAND, EXAMPLE_URL, LOG, type LogColor } from "./fixtures";
 import { saveOnboarding } from "./onboarding-store";
 import { MONO, SANS, appTokens } from "./tokens";
 
@@ -145,6 +145,7 @@ function Brief({
       <form
         onSubmit={(e) => {
           e.preventDefault();
+          if (!url.trim()) return;
           onContinue();
         }}
         className="mx-auto flex max-w-[620px] flex-col gap-[30px]"
@@ -164,11 +165,12 @@ function Brief({
           <input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
+            placeholder={EXAMPLE_URL}
             inputMode="url"
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck={false}
-            className="h-[52px] w-full px-[16px] text-[17px] md:h-[58px]"
+            className="h-[52px] w-full px-[16px] text-[17px] placeholder:text-[var(--dim)] md:h-[58px]"
             style={{
               background: "var(--panel)",
               border: "1px solid var(--line)",
@@ -206,8 +208,13 @@ function Brief({
 
         <button
           type="submit"
+          disabled={!url.trim()}
           className="h-[58px] w-full text-[17px]"
-          style={primaryBtn}
+          style={{
+            ...primaryBtn,
+            opacity: url.trim() ? 1 : 0.45,
+            cursor: url.trim() ? "pointer" : "not-allowed",
+          }}
         >
           Continue
         </button>
