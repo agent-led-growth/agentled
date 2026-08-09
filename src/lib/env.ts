@@ -25,5 +25,13 @@ export const env = {
     ),
   resendApiKey: () => required("RESEND_API_KEY", process.env.RESEND_API_KEY),
   openaiApiKey: () => required("OPENAI_API_KEY", process.env.OPENAI_API_KEY),
+  // Optional: authenticates the Jina Reader. Keyless works from residential IPs
+  // (local dev) but is refused from Cloudflare's egress; set it in production.
+  jinaApiKey: (): string | undefined => process.env.JINA_API_KEY,
   siteUrl: () => process.env.NEXT_PUBLIC_SITE_URL ?? "https://agentled.co",
+  // Optional: analytics init is skipped when the key is absent, so a missing
+  // value degrades to "no tracking" rather than taking down the client bundle.
+  posthogKey: (): string | undefined => process.env.NEXT_PUBLIC_POSTHOG_KEY,
+  posthogHost: () =>
+    process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://eu.i.posthog.com",
 };

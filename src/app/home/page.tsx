@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { HomeScanForm } from "@/components/home/home-scan-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { hasScanned } from "@/lib/ai-search";
+import { hasActiveBrand } from "@/lib/laurel";
 import { SUBSTACK_URL, getSubstackPosts } from "@/lib/substack";
 import { getUser } from "@/lib/supabase/session";
 
@@ -25,8 +25,8 @@ export default async function HomePage() {
   const user = await getUser();
   // Signed-out visitors go back to the root landing (Sign in modal lives there).
   if (!user) redirect("/");
-  // Already scanned → straight to the dashboard; not scanned → the home scan CTA.
-  if (await hasScanned(user.id)) redirect("/ai-search/dashboard");
+  // Has an active brand → straight to the dashboard; otherwise the scan CTA.
+  if (await hasActiveBrand(user.id)) redirect("/ai-search/dashboard");
   const posts = await getSubstackPosts(5);
 
   return (

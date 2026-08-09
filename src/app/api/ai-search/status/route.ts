@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 
-import { hasScanned } from "@/lib/ai-search";
+import { hasActiveBrand } from "@/lib/laurel";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Whether the current user has already run an AI-search scan. Used to bounce
- * returning, already-set-up users from the /ai-search landing to their home.
+ * Whether the current user has an active (claimed) brand — i.e. has completed
+ * onboarding. Used to bounce returning, already-set-up users from the
+ * /ai-search landing to their home. The response key stays `hasScanned` so the
+ * existing redirect components need no change.
  */
 export async function GET() {
   const supabase = await createClient();
@@ -14,6 +16,6 @@ export async function GET() {
   } = await supabase.auth.getUser();
 
   return NextResponse.json({
-    hasScanned: user ? await hasScanned(user.id) : false,
+    hasScanned: user ? await hasActiveBrand(user.id) : false,
   });
 }

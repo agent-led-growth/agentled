@@ -6,6 +6,8 @@
 const KEY = "ai-search-onboarding";
 
 export type OnboardingData = {
+  /** The pre-scan brand this onboarding created; the gate attaches the user to it. */
+  brandId?: string;
   website: string;
   description: string;
   topics: string[];

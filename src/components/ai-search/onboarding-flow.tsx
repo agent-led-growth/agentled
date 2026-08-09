@@ -15,11 +15,46 @@ const logColor: Record<LogColor, string> = {
   dim: "var(--dim)",
 };
 
+type PrescanResult = {
+  brandId: string;
+  brand: {
+    id: string;
+    domain: string;
+    name: string | null;
+    description: string | null;
+    logoUrl: string | null;
+    status: string;
+  };
+  topics: { id: string; label: string; selected: boolean }[];
+};
+
 export function OnboardingFlow({ initialUrl }: { initialUrl: string }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("brief");
   const [url, setUrl] = useState(initialUrl);
   const [about, setAbout] = useState("");
+  const [result, setResult] = useState<PrescanResult | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  // Kick off the real pre-scan (brand create + enrichment) the moment the brief
+  // is submitted. The scan step animates while this is in flight and only
+  // advances once it resolves; a failure degrades to the fallback topics rather
+  // than trapping the visitor mid-onboarding.
+  async function runPrescan() {
+    setResult(null);
+    setFailed(false);
+    try {
+      const res = await fetch("/api/ai-search/prescan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ website: url, about: about.trim() || undefined }),
+      });
+      if (!res.ok) throw new Error(`prescan ${res.status}`);
+      setResult((await res.json()) as PrescanResult);
+    } catch {
+      setFailed(true);
+    }
+  }
 
   return (
     <main
@@ -32,14 +67,26 @@ export function OnboardingFlow({ initialUrl }: { initialUrl: string }) {
           setUrl={setUrl}
           about={about}
           setAbout={setAbout}
-          onContinue={() => setStep("scan")}
+          onContinue={() => {
+            setStep("scan");
+            void runPrescan();
+          }}
         />
       )}
-      {step === "scan" && <Scan onDone={() => setStep("topics")} />}
+      {step === "scan" && (
+        <Scan ready={result !== null || failed} onDone={() => setStep("topics")} />
+      )}
       {step === "topics" && (
         <Topics
+          result={result}
+          fallbackUrl={url}
           onDone={(topics) => {
-            saveOnboarding({ website: url, description: about, topics });
+            saveOnboarding({
+              brandId: result?.brandId,
+              website: url,
+              description: about,
+              topics,
+            });
             router.push("/ai-search/dashboard");
           }}
         />
@@ -161,8 +208,9 @@ function Brief({
 }
 
 // ── 2. Scan ──────────────────────────────────────────────────────────────────
-function Scan({ onDone }: { onDone: () => void }) {
+function Scan({ ready, onDone }: { ready: boolean; onDone: () => void }) {
   const [revealed, setRevealed] = useState(0);
+  const firedRef = useRef(false);
   const doneRef = useRef(onDone);
   useEffect(() => {
     doneRef.current = onDone;
@@ -178,12 +226,16 @@ function Scan({ onDone }: { onDone: () => void }) {
     return () => clearInterval(iv);
   }, []);
 
+  // Advance only once the log has fully revealed AND the real pre-scan has
+  // resolved (or failed). If enrichment outruns the animation we wait for the
+  // animation to finish; if it lags, we hold at 100% until it's done.
   useEffect(() => {
-    if (revealed >= LOG.length) {
-      const t = setTimeout(() => doneRef.current(), 1400);
+    if (revealed >= LOG.length && ready && !firedRef.current) {
+      firedRef.current = true;
+      const t = setTimeout(() => doneRef.current(), 700);
       return () => clearTimeout(t);
     }
-  }, [revealed]);
+  }, [revealed, ready]);
 
   const pct = Math.round((revealed / LOG.length) * 100);
 
@@ -266,11 +318,41 @@ function Scan({ onDone }: { onDone: () => void }) {
 }
 
 // ── 3. Topics ────────────────────────────────────────────────────────────────
-function Topics({ onDone }: { onDone: (topics: string[]) => void }) {
-  const [topics, setTopics] = useState(DEFAULT_TOPICS);
+/** First-two-word initials for the brand tile, falling back to a bullet. */
+function initialsOf(name: string): string {
+  const words = name
+    .replace(/[^\p{L}\p{N} ]/gu, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length === 0) return "•";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+
+function Topics({
+  result,
+  fallbackUrl,
+  onDone,
+}: {
+  result: PrescanResult | null;
+  fallbackUrl: string;
+  onDone: (topics: string[]) => void;
+}) {
+  // Real suggested topics arrive unselected — pre-select the first three so the
+  // "up to 3" quota starts full. If enrichment failed, fall back to the demo set.
+  const [topics, setTopics] = useState(() =>
+    result && result.topics.length > 0
+      ? result.topics.map((t, i) => ({ label: t.label, on: i < 3 }))
+      : DEFAULT_TOPICS,
+  );
   const [adding, setAdding] = useState(false);
   const [custom, setCustom] = useState("");
   const chosen = topics.filter((t) => t.on).length;
+
+  const brandName = result?.brand.name?.trim() || BRAND.name;
+  const brandUrl = result?.brand.domain || fallbackUrl;
+  const brandInitials = initialsOf(brandName);
 
   function toggle(i: number) {
     setTopics((ts) =>
@@ -299,13 +381,13 @@ function Topics({ onDone }: { onDone: (topics: string[]) => void }) {
       <div className="mx-auto flex max-w-[760px] flex-col gap-[26px]">
 
         <div className="flex items-center gap-[10px]">
-          <BrandTile size={26} label={BRAND.initials} />
-          <span className="text-[15px] font-bold">{BRAND.name}</span>
+          <BrandTile size={26} label={brandInitials} />
+          <span className="text-[15px] font-bold">{brandName}</span>
           <span
             className="hidden md:inline"
             style={{ fontFamily: MONO, fontSize: 12, color: "var(--dim)" }}
           >
-            {BRAND.url}
+            {brandUrl}
           </span>
         </div>
 

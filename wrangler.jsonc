@@ -16,8 +16,9 @@
   // hostname automatically; the zone must already exist on the account.
   "routes": [{ "pattern": "agentled.co", "custom_domain": true }]
 
-  // Secrets (NEXT_PUBLIC_* live in .env / CI; server-only values are set with
-  // `wrangler secret put <NAME>`):
+  // Secrets (NEXT_PUBLIC_* live in .env / CI and are inlined at build time;
+  // server-only values are set with `wrangler secret put <NAME>`):
+  //   NEXT_PUBLIC_POSTHOG_KEY   (build-time, public)
   //   SUPABASE_SERVICE_ROLE_KEY
   //   RESEND_API_KEY
 }

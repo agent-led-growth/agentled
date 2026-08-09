@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { onboard, type OnboardSource } from "@/lib/email/onboarding";
+import { attachUserToBrand, setSelectedTopics } from "@/lib/laurel";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -8,7 +9,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Supabase email OTP codes are 6 digits by default.
 const CODE_RE = /^\d{6}$/;
 
-type Site = { website?: string; description?: string; topics: string[] };
+type Site = { brandId?: string; topics: string[] };
 
 /**
  * Step 2 of email-OTP sign-in: verify the code and establish the session.
@@ -17,8 +18,8 @@ type Site = { website?: string; description?: string; topics: string[] };
  * browser is signed in. We then make sure a public.users row exists and run
  * onboarding for the request's `source` (landing | ai-search). A user only ever
  * runs one automation — the first they hit — because both are gated by the same
- * single claim (welcome_email_sent_at). For the ai-search source we also store
- * the site/description/topics regardless of new vs returning.
+ * single claim (welcome_email_sent_at). For the ai-search source we also attach
+ * the user to the pre-scan brand and persist their topic selection.
  */
 export async function POST(request: Request) {
   let body: Record<string, unknown> = {};
@@ -82,13 +83,9 @@ export async function POST(request: Request) {
 }
 
 function sanitizeSite(body: Record<string, unknown>): Site {
-  const website =
-    typeof body.website === "string" && body.website.trim()
-      ? body.website.trim().slice(0, 2048)
-      : undefined;
-  const description =
-    typeof body.description === "string" && body.description.trim()
-      ? body.description.trim().slice(0, 5000)
+  const brandId =
+    typeof body.brandId === "string" && body.brandId.trim()
+      ? body.brandId.trim()
       : undefined;
   const topics = Array.isArray(body.topics)
     ? body.topics
@@ -96,11 +93,11 @@ function sanitizeSite(body: Record<string, unknown>): Site {
         .map((t) => t.trim().slice(0, 200))
         .slice(0, 50)
     : [];
-  return { website, description, topics };
+  return { brandId, topics };
 }
 
 /**
- * Link the auth user to their row, store the ai-search site if present, then
+ * Link the auth user to their row, attach the ai-search brand if present, then
  * atomically claim onboarding so a user runs exactly one automation ever
  * (whichever source comes first).
  */
@@ -130,22 +127,18 @@ async function linkUserAndOnboard(
     .single();
   if (upsertError) throw upsertError;
 
-  // Store / refresh the site for ai-search signups — always, even for returning
-  // users (they may enter a new site). Best effort: a failure here shouldn't
-  // block the sign-in or, via a claim rollback, re-fire the automation.
-  if (source === "ai-search" && site.website) {
-    const { error: siteError } = await admin.from("ai_search_sites").upsert(
-      {
-        user_id: row.id,
-        website: site.website,
-        description: site.description ?? null,
-        topics: site.topics,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" },
-    );
-    if (siteError) {
-      console.error("otp verify: ai_search_sites upsert failed", siteError);
+  // Attach the user to the Laurel brand they onboarded anonymously (flips it
+  // active + owned) and persist their topic selection. Best effort: a failure
+  // here must not block the sign-in or, via a claim rollback, re-fire the
+  // automation. `row.id` is this user's public.users id.
+  if (source === "ai-search" && site.brandId) {
+    try {
+      await attachUserToBrand(site.brandId, row.id);
+      if (site.topics.length > 0) {
+        await setSelectedTopics(site.brandId, site.topics);
+      }
+    } catch (err) {
+      console.error("otp verify: brand attach failed", err);
     }
   }
 

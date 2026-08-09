@@ -1435,8 +1435,7 @@ function Gate({ onEnter }: { onEnter: () => void }) {
           email: email.trim(),
           token: value,
           source: "ai-search",
-          website: site.website,
-          description: site.description,
+          brandId: site.brandId,
           topics: site.topics,
         }),
       });
