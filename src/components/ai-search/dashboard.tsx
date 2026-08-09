@@ -34,6 +34,9 @@ type Tab = "overview" | "prompts" | "settings";
 const TABS: Tab[] = ["overview", "prompts", "settings"];
 const PLATFORM_IDS = PLATFORM_OPTIONS.map((p) => p.id);
 
+/** A brand on the current account, as the header switcher needs it. */
+type BrandLite = { id: string; domain: string; name: string | null };
+
 const COLS =
   "md:grid md:grid-cols-[1fr_130px_170px_160px_130px] md:items-center md:gap-[16px]";
 
@@ -45,10 +48,12 @@ export function Dashboard() {
   const rawPlat = params.get("platform") as Platform | null;
   const platform: Platform =
     rawPlat && PLATFORM_IDS.includes(rawPlat) ? rawPlat : "chatgpt";
+  const brandId = params.get("brand");
   // The gate is only for first-time account creation. Already-signed-in users
   // skip it. `checked` avoids flashing the modal before the session resolves.
   const [gated, setGated] = useState(true);
   const [checked, setChecked] = useState(false);
+  const [brands, setBrands] = useState<BrandLite[]>([]);
 
   useEffect(() => {
     createClient()
@@ -59,15 +64,32 @@ export function Dashboard() {
       });
   }, []);
 
+  // Once signed in, load the account's brands for the header switcher.
+  useEffect(() => {
+    if (!checked || gated) return;
+    fetch("/api/ai-search/brands")
+      .then((r) => r.json())
+      .then((d: { brands?: BrandLite[] }) => setBrands(d.brands ?? []))
+      .catch(() => {});
+  }, [checked, gated]);
+
+  const currentBrand = brands.find((b) => b.id === brandId) ?? brands[0] ?? null;
+
   // Both tab and platform live in the URL, so a reload keeps the view and a
   // link is shareable. Each setter preserves the other's value.
-  const go = (next: { tab?: Tab; platform?: Platform }) =>
+  const go = (next: { tab?: Tab; platform?: Platform; brand?: string }) => {
+    const b = next.brand ?? brandId;
     router.replace(
-      `/ai-search/dashboard?tab=${next.tab ?? tab}&platform=${next.platform ?? platform}`,
+      `/ai-search/dashboard?tab=${next.tab ?? tab}&platform=${
+        next.platform ?? platform
+      }${b ? `&brand=${b}` : ""}`,
       { scroll: false },
     );
+  };
   const setTab = (t: Tab) => go({ tab: t });
   const setPlatform = (p: Platform) => go({ platform: p });
+  const setBrand = (id: string) => go({ brand: id });
+  const goNewBrand = () => router.push("/ai-search/onboarding");
   // Real sign-out: clear the Supabase session first, then leave the (gated)
   // dashboard. Previously this only navigated, so the user stayed signed in.
   const signOut = async () => {
@@ -90,11 +112,11 @@ export function Dashboard() {
         }}
         aria-hidden={gated}
       >
-        <Header onSignOut={signOut} />
+        <Header onSignOut={signOut} onNew={goNewBrand} />
         <div className="flex md:min-h-0 md:flex-1">
           <Sidebar tab={tab} setTab={setTab} />
           <div className="min-w-0 flex-1 pb-[84px] md:overflow-y-auto md:pb-0">
-            <TitleRow />
+            <TitleRow current={currentBrand} brands={brands} onSwitch={setBrand} />
             <FilterBar tab={tab} platform={platform} setPlatform={setPlatform} />
             <div className="px-[20px] py-[24px] md:px-[28px]">
               {tab === "overview" && (
@@ -118,7 +140,7 @@ export function Dashboard() {
 }
 
 // ── Shell ────────────────────────────────────────────────────────────────────
-function Header({ onSignOut }: { onSignOut: () => void }) {
+function Header({ onSignOut, onNew }: { onSignOut: () => void; onNew: () => void }) {
   return (
     <header
       className="flex items-center justify-between px-[20px] py-[14px] md:px-[28px] md:py-[16px]"
@@ -128,19 +150,36 @@ function Header({ onSignOut }: { onSignOut: () => void }) {
         <Mark size={34} />
         <Wordmark size={16} />
       </span>
-      <button
-        type="button"
-        onClick={onSignOut}
-        className="px-[16px] py-[9px] text-[14px]"
-        style={{
-          border: "1px solid var(--line)",
-          color: "var(--ink)",
-          flex: "none",
-          whiteSpace: "nowrap",
-        }}
-      >
-        Sign out
-      </button>
+      <div className="flex items-center gap-[10px]">
+        <button
+          type="button"
+          onClick={onNew}
+          title="Add a new brand"
+          className="px-[16px] py-[9px] text-[14px]"
+          style={{
+            background: "var(--ink)",
+            color: "var(--panel)",
+            fontWeight: 600,
+            flex: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          + New
+        </button>
+        <button
+          type="button"
+          onClick={onSignOut}
+          className="px-[16px] py-[9px] text-[14px]"
+          style={{
+            border: "1px solid var(--line)",
+            color: "var(--ink)",
+            flex: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          Sign out
+        </button>
+      </div>
     </header>
   );
 }
@@ -196,15 +235,114 @@ function NavItem({
   );
 }
 
-function TitleRow() {
+function TitleRow({
+  current,
+  brands,
+  onSwitch,
+}: {
+  current: BrandLite | null;
+  brands: BrandLite[];
+  onSwitch: (id: string) => void;
+}) {
+  const name = current?.name?.trim() || current?.domain || BRAND.name;
+  const url = current?.domain || BRAND.url;
   return (
-    <div className="flex items-baseline gap-[12px] px-[20px] pt-[18px] md:px-[28px]">
-      <h1 className="text-[22px]" style={{ letterSpacing: "-0.035em" }}>
-        {BRAND.name}
-      </h1>
-      <span style={{ fontFamily: MONO, fontSize: 11, color: "var(--dim)" }}>
-        {BRAND.url}
-      </span>
+    <div className="flex items-center gap-[12px] px-[20px] pt-[18px] md:px-[28px]">
+      {brands.length > 1 && current ? (
+        <BrandSwitcher current={current} brands={brands} onSwitch={onSwitch} />
+      ) : (
+        <>
+          <h1 className="text-[22px]" style={{ letterSpacing: "-0.035em" }}>
+            {name}
+          </h1>
+          <span style={{ fontFamily: MONO, fontSize: 11, color: "var(--dim)" }}>
+            {url}
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Header brand name/URL as a dropdown when the account has more than one brand. */
+function BrandSwitcher({
+  current,
+  brands,
+  onSwitch,
+}: {
+  current: BrandLite;
+  brands: BrandLite[];
+  onSwitch: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const label = (b: BrandLite) => b.name?.trim() || b.domain;
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-[10px]"
+        style={{ color: "var(--ink)" }}
+      >
+        <h1 className="text-[22px]" style={{ letterSpacing: "-0.035em" }}>
+          {label(current)}
+        </h1>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: "var(--dim)" }}>
+          {current.domain}
+        </span>
+        <span style={{ fontSize: 12, color: "var(--dim)" }}>{open ? "▴" : "▾"}</span>
+      </button>
+      {open && (
+        <>
+          <button
+            type="button"
+            aria-label="Close"
+            tabIndex={-1}
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-10"
+            style={{ background: "transparent", cursor: "default" }}
+          />
+          <div
+            className="absolute left-0 top-[calc(100%+6px)] z-20 min-w-[260px]"
+            style={{ background: "var(--panel)", border: "1px solid var(--line)" }}
+          >
+            {brands.map((b) => {
+              const active = b.id === current.id;
+              return (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => {
+                    onSwitch(b.id);
+                    setOpen(false);
+                  }}
+                  className="flex w-full items-center justify-between gap-[12px] px-[14px] py-[10px] text-left"
+                  style={{
+                    background: active ? "var(--hov)" : "transparent",
+                    borderBottom: "1px solid var(--line)",
+                  }}
+                >
+                  <span className="flex min-w-0 flex-col gap-[2px]">
+                    <span
+                      className="truncate text-[14px]"
+                      style={{ fontWeight: active ? 600 : 400 }}
+                    >
+                      {label(b)}
+                    </span>
+                    <span
+                      className="truncate"
+                      style={{ fontFamily: MONO, fontSize: 10.5, color: "var(--dim)" }}
+                    >
+                      {b.domain}
+                    </span>
+                  </span>
+                  {active && <span style={{ color: "var(--ink)", fontSize: 13 }}>✓</span>}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -80,13 +80,23 @@ export function OnboardingFlow({ initialUrl }: { initialUrl: string }) {
         <Topics
           result={result}
           fallbackUrl={url}
-          onDone={(topics) => {
-            saveOnboarding({
-              brandId: result?.brandId,
-              website: url,
-              description: about,
-              topics,
-            });
+          onDone={async (topics) => {
+            const brandId = result?.brandId;
+            saveOnboarding({ brandId, website: url, description: about, topics });
+            // Signed-in onboarding (e.g. dashboard "+ New brand") skips the OTP
+            // gate, so persist the selection here; the endpoint no-ops when
+            // signed out (the gate saves it then).
+            if (brandId) {
+              try {
+                await fetch("/api/ai-search/onboarding/complete", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ brandId, topics }),
+                });
+              } catch {
+                // best-effort
+              }
+            }
             router.push("/ai-search/dashboard");
           }}
         />
