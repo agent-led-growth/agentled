@@ -53,3 +53,10 @@ export const toneVar = (t: "pos" | "neg" | "dim") =>
   t === "pos" ? "var(--pos)" : t === "neg" ? "var(--neg)" : "var(--dim)";
 
 export const MONO = "var(--font-jetbrains-mono), ui-monospace, monospace";
+
+/**
+ * Readable display/body font (Space Grotesk) — for labels that used to be small
+ * all-caps mono and were hard to read. Numeric metrics and the scan-log terminal
+ * stay on MONO.
+ */
+export const SANS = font;

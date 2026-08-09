@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { BrandTile, Lockup } from "./brand";
 import { BRAND, DEFAULT_TOPICS, LOG, type LogColor } from "./fixtures";
 import { saveOnboarding } from "./onboarding-store";
-import { MONO, appTokens } from "./tokens";
+import { MONO, SANS, appTokens } from "./tokens";
 
 type Step = "brief" | "scan" | "topics";
 const logColor: Record<LogColor, string> = {
@@ -98,11 +98,10 @@ export function OnboardingFlow({ initialUrl }: { initialUrl: string }) {
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
     <span
-      className="uppercase"
       style={{
-        fontFamily: MONO,
-        fontSize: 10,
-        letterSpacing: "0.16em",
+        fontFamily: SANS,
+        fontSize: 12,
+        fontWeight: 600,
         color: "var(--dim)",
       }}
     >
@@ -252,11 +251,9 @@ function Scan({ ready, onDone }: { ready: boolean; onDone: () => void }) {
             style={{ borderBottom: "1px solid var(--line)" }}
           >
             <span
-              className="uppercase"
               style={{
-                fontFamily: MONO,
-                fontSize: 10.5,
-                letterSpacing: "0.16em",
+                fontFamily: SANS,
+                fontSize: 11,
                 color: "var(--dim)",
               }}
             >

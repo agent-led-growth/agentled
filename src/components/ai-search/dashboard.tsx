@@ -27,7 +27,7 @@ import {
 } from "./fixtures";
 import { AI_MODELS, MODEL_COLOR } from "./model-marks";
 import { clearOnboarding, readOnboarding } from "./onboarding-store";
-import { MONO, appTokens, toneVar } from "./tokens";
+import { MONO, SANS, appTokens, toneVar } from "./tokens";
 
 type Tab = "overview" | "prompts" | "settings";
 const TABS: Tab[] = ["overview", "prompts", "settings"];
@@ -271,8 +271,8 @@ function PlatformSegmented({
   return (
     <div className="inline-flex items-center gap-[8px]">
       <span
-        className="hidden uppercase sm:inline"
-        style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.14em", color: "var(--dim)" }}
+        className="hidden sm:inline"
+        style={{ fontFamily: SANS, fontSize: 11, color: "var(--dim)" }}
       >
         Platform
       </span>
@@ -384,11 +384,10 @@ function Delta({ v, size = 12 }: { v: string; size?: number }) {
 function MonoLabel({ children }: { children: React.ReactNode }) {
   return (
     <span
-      className="uppercase"
       style={{
-        fontFamily: MONO,
-        fontSize: 10.5,
-        letterSpacing: "0.16em",
+        fontFamily: SANS,
+        fontSize: 12,
+        fontWeight: 600,
         color: "var(--dim)",
       }}
     >
@@ -601,8 +600,8 @@ function Overview({ platform, onUpgrade }: { platform: Platform; onUpgrade: () =
               <Delta v={RANK.delta} size={14} />
             </div>
             <div
-              className="flex items-center justify-between pb-[8px] uppercase"
-              style={{ borderBottom: "1px solid var(--line)", fontFamily: MONO, fontSize: 10, letterSpacing: "0.14em", color: "var(--dim)" }}
+              className="flex items-center justify-between pb-[8px]"
+              style={{ borderBottom: "1px solid var(--line)", fontFamily: SANS, fontSize: 11, color: "var(--dim)" }}
             >
               <span>Brand</span>
               <span>Visibility</span>
@@ -619,8 +618,7 @@ function Overview({ platform, onUpgrade }: { platform: Platform; onUpgrade: () =
                     {r.name}
                     {r.you && (
                       <span
-                        className="uppercase"
-                        style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", background: "var(--grn)", color: "#14170f", padding: "3px 7px" }}
+                        style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, background: "var(--grn)", color: "#14170f", padding: "3px 7px" }}
                       >
                         You
                       </span>
@@ -733,8 +731,8 @@ function CitationSection({ onUpgrade }: { onUpgrade: () => void }) {
               <Delta v={CITATION_RANK.delta} size={14} />
             </div>
             <div
-              className="flex items-center justify-between pb-[8px] uppercase"
-              style={{ borderBottom: "1px solid var(--line)", fontFamily: MONO, fontSize: 10, letterSpacing: "0.14em", color: "var(--dim)" }}
+              className="flex items-center justify-between pb-[8px]"
+              style={{ borderBottom: "1px solid var(--line)", fontFamily: SANS, fontSize: 11, color: "var(--dim)" }}
             >
               <span>Domain</span>
               <span>Share</span>
@@ -777,8 +775,7 @@ function CitationRow({
           <span className="truncate">{d.domain}</span>
           {d.owned && (
             <span
-              className="uppercase"
-              style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", background: "var(--grn)", color: "#14170f", padding: "3px 7px", flex: "none" }}
+              style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, background: "var(--grn)", color: "#14170f", padding: "3px 7px", flex: "none" }}
             >
               Owned
             </span>
@@ -801,8 +798,8 @@ function DomainPages({ pages }: { pages: CitationPage[] }) {
   return (
     <div className="mb-[10px] flex flex-col" style={{ background: "var(--panel2)", border: "1px solid var(--line)" }}>
       <div
-        className="grid grid-cols-[1fr_100px_90px] gap-[10px] px-[14px] py-[8px] uppercase"
-        style={{ borderBottom: "1px solid var(--line)", fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.12em", color: "var(--dim)" }}
+        className="grid grid-cols-[1fr_100px_90px] gap-[10px] px-[14px] py-[8px]"
+        style={{ borderBottom: "1px solid var(--line)", fontFamily: SANS, fontSize: 11, color: "var(--dim)" }}
       >
         <span>Page</span>
         <span className="text-right">Share</span>
@@ -878,8 +875,8 @@ function Prompts({ platform, onUpgrade }: { platform: Platform; onUpgrade: () =>
       <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.02em" }}>Monitored prompts</h2>
       <Card>
         <div
-          className={`hidden px-[24px] py-[12px] uppercase md:grid ${COLS}`}
-          style={{ background: "var(--panel2)", borderBottom: "1px solid var(--line)", fontFamily: MONO, fontSize: 10, letterSpacing: "0.1em", color: "var(--dim)" }}
+          className={`hidden px-[24px] py-[12px] md:grid ${COLS}`}
+          style={{ background: "var(--panel2)", borderBottom: "1px solid var(--line)", fontFamily: SANS, fontSize: 11, color: "var(--dim)" }}
         >
           <span>Topic</span>
           <span>Visibility rank</span>
@@ -998,8 +995,8 @@ function Cell({ label, children }: { label: string; children: React.ReactNode })
   return (
     <span className="flex flex-col gap-[2px] md:block">
       <span
-        className="uppercase md:hidden"
-        style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.14em", color: "var(--dim)" }}
+        className="md:hidden"
+        style={{ fontFamily: SANS, fontSize: 11, color: "var(--dim)" }}
       >
         {label}
       </span>
@@ -1118,7 +1115,7 @@ function PlatformScoreCard({ p }: { p: Prompt }) {
       <div className="grid grid-cols-2 gap-[10px] p-[12px_14px]">
         {cells.map(([label, node]) => (
           <span key={label} className="flex flex-col gap-[3px]">
-            <span className="uppercase" style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.14em", color: "var(--dim)" }}>
+            <span style={{ fontFamily: SANS, fontSize: 11, color: "var(--dim)" }}>
               {label}
             </span>
             {node}
