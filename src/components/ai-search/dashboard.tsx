@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { capture, identifyUser } from "@/lib/analytics";
 import { createClient } from "@/lib/supabase/client";
 
 import { Mark, Wordmark } from "./brand";
@@ -1407,6 +1408,7 @@ function Gate({ onEnter }: { onEnter: () => void }) {
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) return fail(data.error ?? "Something went wrong. Try again.");
+      capture("signin_code_requested", { source: "ai-search" });
       setEmail(value);
       setStep("code");
       setStatus("idle");
@@ -1438,6 +1440,18 @@ function Gate({ onEnter }: { onEnter: () => void }) {
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) return fail(data.error ?? "Something went wrong. Try again.");
+
+      // Identify at signup, matching the landing OtpForm — this sign-in runs
+      // server-side, so PostHogAuth won't catch it until the next page load.
+      // Analytics must never block entry, so failures here are swallowed.
+      try {
+        const { data: auth } = await createClient().auth.getUser();
+        if (auth.user) identifyUser(auth.user.id, auth.user.email ?? email.trim());
+      } catch {
+        /* ignore */
+      }
+      capture("signin_completed", { source: "ai-search" });
+
       clearOnboarding();
       onEnter();
     } catch {
