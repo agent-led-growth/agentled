@@ -65,8 +65,10 @@ export async function enrichBrand(
     detectLogo(host).catch(() => null),
   ]);
 
-  // Dead / unfetchable site: domain-only shell, user types topics.
-  if (!content) {
+  // Unreadable or bot-walled site: return a domain-only shell (no invented
+  // topics) so onboarding falls through to the manual topic step. Guessing ~10
+  // topics from the bare domain name is worse than asking the user.
+  if (!usableContent(content)) {
     return { name: null, description: null, topics: [], logoUrl };
   }
 
@@ -89,6 +91,29 @@ export async function enrichBrand(
     console.error("laurel enrichment: generation failed", err);
     return { name: null, description: null, topics: [], logoUrl };
   }
+}
+
+// Bot walls and JS-gated pages come back as short challenge/login shells. Treat
+// those (and anything too thin to describe a brand) as unreadable rather than
+// feeding noise to the model.
+const BLOCK_MARKERS = [
+  "requiring captcha",
+  "verify you are human",
+  "are you a robot",
+  "just a moment",
+  "attention required",
+  "access denied",
+  "enable javascript",
+  "please enable js",
+  "something went wrong",
+];
+
+function usableContent(content: string | null): content is string {
+  if (!content) return false;
+  const text = content.trim();
+  const low = text.toLowerCase();
+  if (BLOCK_MARKERS.some((m) => low.includes(m)) && text.length < 2000) return false;
+  return text.length >= 500;
 }
 
 function parseEnrichment(data: unknown): Omit<EnrichmentResult, "logoUrl"> {

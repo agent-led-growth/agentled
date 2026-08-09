@@ -21,10 +21,11 @@ export interface ModelConfig {
 }
 
 export const registry: Record<LaurelRole, ModelConfig> = {
-  // Steps 2 & 5 (generation). Short structured generation, not hard reasoning.
+  // Steps 2 & 5 (generation). Inferring buyer-intent topics from crawled content
+  // is nuanced synthesis, not just extraction — terra over luna earns its keep.
   enrichment: {
     provider: "openai",
-    model: "gpt-5.6-luna",
+    model: "gpt-5.6-terra",
     reasoningEffort: "low",
     maxOutputTokens: 3000,
   },

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { BrandTile, Lockup } from "./brand";
-import { BRAND, DEFAULT_TOPICS, LOG, type LogColor } from "./fixtures";
+import { BRAND, LOG, type LogColor } from "./fixtures";
 import { saveOnboarding } from "./onboarding-store";
 import { MONO, SANS, appTokens } from "./tokens";
 
@@ -337,11 +337,12 @@ function Topics({
   onDone: (topics: string[]) => void;
 }) {
   // Real suggested topics arrive unselected — pre-select the first three so the
-  // "up to 3" quota starts full. If enrichment failed, fall back to the demo set.
+  // "up to 3" quota starts full. When we couldn't confidently read the site,
+  // start empty and let the user add their own (a normal manual step, below).
   const [topics, setTopics] = useState(() =>
     result && result.topics.length > 0
       ? result.topics.map((t, i) => ({ label: t.label, on: i < 3 }))
-      : DEFAULT_TOPICS,
+      : [],
   );
   const [adding, setAdding] = useState(false);
   const [custom, setCustom] = useState("");
@@ -394,6 +395,13 @@ function Topics({
         >
           Which topics do you want to monitor?
         </h1>
+
+        {topics.length === 0 && (
+          <p className="text-[15px]" style={{ color: "var(--mut)", lineHeight: 1.5 }}>
+            Add the topics you want to track across AI answers — the questions your
+            customers ask where your brand should come up.
+          </p>
+        )}
 
         <div className="flex flex-col gap-[10px]">
           <span className="text-[14px]" style={{ color: "var(--mut)" }}>
