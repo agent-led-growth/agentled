@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import Script from "next/script";
 
+import { PostHogAuth } from "@/components/analytics/posthog-auth";
 import { OG_IMAGES, SITE } from "@/lib/site";
 
 import "./globals.css";
@@ -91,7 +92,11 @@ export default function RootLayout({
       className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full antialiased`}
       style={{ colorScheme: "dark" }}
     >
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        {children}
+        {/* Keeps PostHog identity in sync with the Supabase session. */}
+        <PostHogAuth />
+      </body>
       {/* Ahrefs Web Analytics — loads once across all routes. next/script
           forwards data-key to the emitted <script> tag verbatim. */}
       <Script

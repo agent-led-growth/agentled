@@ -3,6 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 
+import { identifyUser } from "@/lib/analytics";
+import { createClient } from "@/lib/supabase/client";
+
 type Step = "email" | "code" | "done";
 type Status = "idle" | "submitting" | "error";
 
@@ -93,6 +96,17 @@ export function OtpForm({
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) return fail(data.error ?? "Something went wrong. Try again.");
+
+      // Attribute this and prior anonymous events to the signed-in user. This
+      // sign-in runs server-side, so the browser client emits no auth event for
+      // PostHogAuth to catch — read the id from the now-set cookies ourselves.
+      // Analytics must never block sign-in, so failures here are swallowed.
+      try {
+        const { data: auth } = await createClient().auth.getUser();
+        if (auth.user) identifyUser(auth.user.id, auth.user.email ?? email.trim());
+      } catch {
+        /* ignore */
+      }
 
       // Cookies are set on the response above; make the server re-read them.
       onSuccess?.();
