@@ -100,7 +100,13 @@ export function Dashboard() {
           payload = await pollUntilScanned(currentBrandId, () => active);
           if (!active) return;
         }
-        if (payload.metrics && payload.metrics.answers > 0) {
+        if (!payload.scannedAt) {
+          // The scan didn't finish within the poll window. If a run is still in
+          // progress (lock held) it keeps running in the background (waitUntil),
+          // so surface "slow", not "empty" — "empty" means the scan finished
+          // with nothing to report. If no run is in progress, it's an error.
+          setScanState(payload.scanning ? "slow" : "error");
+        } else if (payload.metrics && payload.metrics.answers > 0) {
           setData(formatMetrics(payload.metrics));
           setScanState("ready");
         } else {
@@ -196,7 +202,7 @@ export function Dashboard() {
   );
 }
 
-type ScanState = "loading" | "scanning" | "ready" | "empty" | "error";
+type ScanState = "loading" | "scanning" | "slow" | "ready" | "empty" | "error";
 
 type MetricsPayload = {
   scannedAt: string | null;
@@ -225,7 +231,7 @@ async function pollUntilScanned(
   return payload;
 }
 
-/** Full-body notice for the non-ready states (loading / running / empty / error). */
+/** Full-body notice for the non-ready states (loading / running / slow / empty / error). */
 function ScanNotice({
   kind,
   brand,
@@ -240,6 +246,10 @@ function ScanNotice({
       title: "Running your scan…",
       body: `This can take several minutes. We're asking ChatGPT the questions your buyers ask about ${name}.`,
     },
+    slow: {
+      title: "Still working…",
+      body: "Your scan is taking longer than usual — it's still running in the background. Refresh in a moment to check again.",
+    },
     empty: {
       title: "No results yet",
       body: "The scan finished but didn't return anything to report. Try again shortly.",
@@ -252,7 +262,7 @@ function ScanNotice({
   const { title, body } = copy[kind];
   return (
     <div className="flex min-h-[300px] flex-col items-center justify-center gap-[10px] text-center">
-      {(kind === "scanning" || kind === "loading") && (
+      {(kind === "scanning" || kind === "loading" || kind === "slow") && (
         <span
           aria-hidden="true"
           className="mb-[6px] inline-block h-[26px] w-[26px] animate-spin"
