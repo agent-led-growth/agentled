@@ -53,6 +53,8 @@ export function Dashboard() {
   const [brands, setBrands] = useState<BrandLite[]>([]);
   const [scanState, setScanState] = useState<ScanState>("loading");
   const [data, setData] = useState<DashboardData | null>(null);
+  // Bumped by the "try again" action on a failed scan to re-run the effect.
+  const [retryNonce, setRetryNonce] = useState(0);
 
   useEffect(() => {
     createClient()
@@ -86,7 +88,9 @@ export function Dashboard() {
       try {
         let payload = await fetchMetrics(currentBrandId);
         if (!active) return;
-        if (!payload.scannedAt) {
+        // A previously-failed scan shows an error and waits for a manual retry —
+        // never auto-re-fires (that would loop on a brand that can't scan).
+        if (!payload.scannedAt && !payload.failed) {
           setScanState("scanning");
           // Start the scan only if one isn't already running (the lock keeps a
           // race from double-firing); then poll for whoever runs it to finish.
@@ -100,17 +104,15 @@ export function Dashboard() {
           payload = await pollUntilScanned(currentBrandId, () => active);
           if (!active) return;
         }
-        if (!payload.scannedAt) {
-          // The scan didn't finish within the poll window. If a run is still in
-          // progress (lock held) it keeps running in the background (waitUntil),
-          // so surface "slow", not "empty" — "empty" means the scan finished
-          // with nothing to report. If no run is in progress, it's an error.
-          setScanState(payload.scanning ? "slow" : "error");
-        } else if (payload.metrics && payload.metrics.answers > 0) {
+        if (payload.scannedAt && payload.metrics && payload.metrics.answers > 0) {
           setData(formatMetrics(payload.metrics));
           setScanState("ready");
+        } else if (payload.scannedAt) {
+          setScanState("empty"); // scan finished, nothing to report
+        } else if (payload.failed) {
+          setScanState("error"); // the run gave up (recorded in the DB)
         } else {
-          setScanState("empty");
+          setScanState("slow"); // still running past the poll window
         }
       } catch {
         if (active) setScanState("error");
@@ -119,7 +121,20 @@ export function Dashboard() {
     return () => {
       active = false;
     };
-  }, [checked, gated, currentBrandId]);
+  }, [checked, gated, currentBrandId, retryNonce]);
+
+  // "Try again" on a failed scan: re-run scan/run (claiming clears the failure
+  // and re-enqueues), then re-run the effect to poll the fresh attempt.
+  const retryScan = () => {
+    if (!currentBrandId) return;
+    void fetch("/api/ai-search/scan/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ brandId: currentBrandId }),
+    })
+      .catch(() => {})
+      .finally(() => setRetryNonce((n) => n + 1));
+  };
 
   // Both tab and platform live in the URL, so a reload keeps the view and a
   // link is shareable. Each setter preserves the other's value.
@@ -166,7 +181,11 @@ export function Dashboard() {
             <FilterBar tab={tab} platform={platform} setPlatform={setPlatform} />
             <div className="px-[20px] py-[24px] md:px-[28px]">
               {scanState !== "ready" || !data ? (
-                <ScanNotice kind={scanState === "ready" ? "loading" : scanState} brand={currentBrand} />
+                <ScanNotice
+                  kind={scanState === "ready" ? "loading" : scanState}
+                  brand={currentBrand}
+                  onRetry={retryScan}
+                />
               ) : (
                 <>
                   {tab === "overview" && (
@@ -207,6 +226,7 @@ type ScanState = "loading" | "scanning" | "slow" | "ready" | "empty" | "error";
 type MetricsPayload = {
   scannedAt: string | null;
   scanning: boolean;
+  failed: boolean;
   metrics: BrandMetrics | null;
 };
 
@@ -223,7 +243,7 @@ async function pollUntilScanned(
 ): Promise<MetricsPayload> {
   const deadline = Date.now() + 3 * 60_000;
   let payload = await fetchMetrics(brandId);
-  while (!payload.scannedAt && active() && Date.now() < deadline) {
+  while (!payload.scannedAt && !payload.failed && active() && Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 4000));
     if (!active()) break;
     payload = await fetchMetrics(brandId);
@@ -235,9 +255,11 @@ async function pollUntilScanned(
 function ScanNotice({
   kind,
   brand,
+  onRetry,
 }: {
   kind: Exclude<ScanState, "ready">;
   brand: BrandLite | null;
+  onRetry?: () => void;
 }) {
   const name = brand?.name?.trim() || brand?.domain || "your brand";
   const copy: Record<Exclude<ScanState, "ready">, { title: string; body: string }> = {
@@ -255,8 +277,8 @@ function ScanNotice({
       body: "The scan finished but didn't return anything to report. Try again shortly.",
     },
     error: {
-      title: "Something went wrong",
-      body: "We couldn't load your scan. Refresh to try again.",
+      title: "Scan didn't complete",
+      body: "Something went wrong running your scan. You can try again.",
     },
   };
   const { title, body } = copy[kind];
@@ -280,6 +302,16 @@ function ScanNotice({
       >
         {body}
       </span>
+      {kind === "error" && onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-[10px] px-[16px] py-[9px] text-[14px]"
+          style={{ background: "var(--ink)", color: "var(--panel)", fontWeight: 600 }}
+        >
+          Try again
+        </button>
+      )}
     </div>
   );
 }

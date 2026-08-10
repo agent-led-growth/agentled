@@ -26,8 +26,12 @@ import type { Prompt } from "./types";
 
 const PLATFORM: Platform = "chatgpt";
 const MAX_PROMPTS = 9; // free scan = 3 topics x 3; hard cap on metered calls
-const SEARCH_CONCURRENCY = 3;
-const EXTRACT_CONCURRENCY = 5;
+// Run all prompts at once (MAX_PROMPTS is small). The search phase is nearly the
+// whole wall-clock, so full concurrency collapses it from several serial rounds
+// to one — a slow prompt no longer serializes behind others, and the run fits
+// inside a single queue-consumer invocation.
+const SEARCH_CONCURRENCY = MAX_PROMPTS;
+const EXTRACT_CONCURRENCY = MAX_PROMPTS;
 
 export type ScanRunResult =
   | { skipped: true; reason: "already-scanned" | "no-prompts" }

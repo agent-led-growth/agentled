@@ -40,10 +40,12 @@ export async function GET(request: Request) {
   if (!brand) return NextResponse.json({ error: "Brand not found." }, { status: 404 });
 
   const scannedAt = brand.first_scan_completed_at;
+  const failed = !scannedAt && brand.scan_failed_at != null;
   const scanning =
     !scannedAt &&
+    !failed &&
     brand.scan_started_at != null &&
     Date.now() - new Date(brand.scan_started_at).getTime() < SCAN_STALE_MS;
   const metrics = scannedAt ? await getBrandMetrics(brandId) : null;
-  return NextResponse.json({ scannedAt, scanning, metrics });
+  return NextResponse.json({ scannedAt, scanning, failed, metrics });
 }

@@ -1,28 +1,16 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { NextResponse } from "next/server";
 
-import { sendScanReadyEmail } from "@/lib/email/scan-ready";
-import {
-  claimScan,
-  generatePrompts,
-  getBrandById,
-  getUserIdByAuthId,
-  insertPrompts,
-  listPrompts,
-  listSelectedTopics,
-  runScan,
-  type Brand,
-} from "@/lib/laurel";
+import { claimScan, getBrandById, getUserIdByAuthId, releaseScan } from "@/lib/laurel";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Kicks off the brand's one-time scan: generate prompts from the selected topics
- * if they don't exist yet, then search + extract + store across all active
- * prompts. Membership-guarded and idempotent — a brand with a completed first
- * scan is a no-op. The scan (~2 min for 9 prompts) runs detached via
- * ctx.waitUntil so it survives the user closing the tab; this handler returns as
- * soon as the run is claimed, and the client polls /metrics for completion.
+ * Enqueues the brand's one-time scan. Membership-guarded and idempotent — a
+ * brand with a completed first scan is a no-op. After claiming the lock it sends
+ * a job to the scan queue; the scan-consumer worker runs it durably, out of band
+ * from this request, so the scan survives the user closing the tab and a failed
+ * run is retried + recorded rather than lost. The client polls /metrics.
  */
 export async function POST(request: Request) {
   const { brandId } = (await request.json().catch(() => ({}))) as { brandId?: string };
@@ -52,55 +40,28 @@ export async function POST(request: Request) {
   if (brand.first_scan_completed_at) {
     return NextResponse.json({ ok: true, status: "already-scanned" });
   }
-  // Grab the execution context before claiming the lock: if it's unavailable,
-  // fail here rather than after claimScan, so we never leave the brand locked
-  // for 15 minutes with no scan actually running.
-  const { ctx } = getCloudflareContext();
 
   // In-progress lock: only one run per brand at a time (atomic — see claimScan).
-  if (!(await claimScan(brandId))) {
+  // A claim also clears any prior failure, so this doubles as the retry; the
+  // returned token identifies this run so a duplicate delivery can no-op.
+  const runToken = await claimScan(brandId);
+  if (!runToken) {
     return NextResponse.json({ ok: true, status: "already-running" });
   }
 
-  // Run the scan off the request so it isn't tied to the browser tab: waitUntil
-  // keeps the worker alive until the job settles, independent of the client
-  // connection. Errors can't return to the client from here, so the job logs
-  // them; per-prompt failures are recorded on their scan rows, and a run where
-  // nothing lands leaves first_scan_completed_at null so the 15-min lock lets it
-  // retry later.
-  // Pass the triggering user's own email into the job — the scan-ready email
-  // goes to whoever started this scan, never to the brand's other members (a
-  // brand can be added by many people and we don't verify ownership).
-  ctx.waitUntil(runScanJob(brand, user.email ?? null));
-  return NextResponse.json({ ok: true, status: "started" });
-}
-
-/**
- * The detached scan job: generate prompts if none exist yet, then run the scan.
- * When it finishes with results, email the person who triggered it — and only
- * them (see the note at the call site).
- */
-async function runScanJob(brand: Brand, triggerEmail: string | null): Promise<void> {
+  // Hand the run to the durable queue; the scan-consumer worker executes it via
+  // the internal /scan/execute route, with retries + dead-letter. (Typed locally
+  // — the full `wrangler types` runtime output overrides Response.json().)
+  const env = getCloudflareContext().env as unknown as {
+    SCAN_QUEUE: { send(body: unknown): Promise<void> };
+  };
   try {
-    const existing = (await listPrompts(brand.id)).filter((p) => p.active);
-    if (existing.length === 0) {
-      const topics = (await listSelectedTopics(brand.id)).map((t) => ({
-        id: t.id,
-        label: t.label,
-      }));
-      const generated = await generatePrompts(
-        { name: brand.name, description: brand.description, domain: brand.domain },
-        topics,
-      );
-      if (generated.length > 0) await insertPrompts(brand.id, generated);
-    }
-    const result = await runScan(brand.id);
-    // Notify only once the scan actually landed results (scanned > 0) — the
-    // safety net for a user who closed the tab before it finished.
-    if (!result.skipped && result.scanned > 0 && triggerEmail) {
-      await sendScanReadyEmail(triggerEmail, brand.name?.trim() || brand.domain);
-    }
+    await env.SCAN_QUEUE.send({ brandId, triggerEmail: user.email ?? null, runToken });
   } catch (err) {
-    console.error("scan/run: job failed", brand.id, err);
+    // Enqueue failed after the claim — release the lock so it isn't orphaned.
+    console.error("scan/run: enqueue failed", brandId, err);
+    await releaseScan(brandId);
+    return NextResponse.json({ error: "Could not queue the scan." }, { status: 500 });
   }
+  return NextResponse.json({ ok: true, status: "queued" });
 }
