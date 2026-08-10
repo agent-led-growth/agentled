@@ -20,6 +20,7 @@ export async function insertScan(row: {
   answerText: string | null;
   raw: unknown;
   status: ScanStatus;
+  error?: string | null;
 }): Promise<string> {
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -32,6 +33,7 @@ export async function insertScan(row: {
       answer_text: row.answerText,
       raw: row.raw ?? null,
       status: row.status,
+      error: row.error ?? null,
     })
     .select("id")
     .single();
