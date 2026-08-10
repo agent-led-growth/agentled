@@ -17,7 +17,6 @@ import {
   tone,
   type ChartInput,
   type CitationDomain,
-  type CitationPage,
   type Group,
   type Platform,
   type Prompt,
@@ -189,7 +188,12 @@ export function Dashboard() {
               ) : (
                 <>
                   {tab === "overview" && (
-                    <Overview data={data} brand={currentBrand} platform={platform} />
+                    <Overview
+                      data={data}
+                      brand={currentBrand}
+                      platform={platform}
+                      brandId={currentBrandId}
+                    />
                   )}
                   {tab === "prompts" && (
                     <Prompts
@@ -878,15 +882,32 @@ function Overview({
   data,
   brand,
   platform,
+  brandId,
 }: {
   data: DashboardData;
   brand: BrandLite | null;
   platform: Platform;
+  brandId: string | null;
 }) {
+  const router = useRouter();
+  const params = useSearchParams();
   // The blended `all` view and the Claude view both need paid Claude data.
   if (isLocked(platform)) {
     return <UpgradePanel variant={platform === "all" ? "blend" : "claude"} />;
   }
+  // A cited domain opens its own detail view (like a prompt). The selection rides
+  // the URL so it survives reload and keeps the current brand (&brand=).
+  const base = `/ai-search/dashboard?tab=overview&platform=${platform}${
+    brandId ? `&brand=${brandId}` : ""
+  }`;
+  const citation = resolveCitation(params.get("citation"), data.citationRank.rows);
+  if (citation) {
+    return (
+      <CitationDetailView d={citation} onBack={() => router.replace(base, { scroll: false })} />
+    );
+  }
+  const openCitation = (domain: string) =>
+    router.replace(`${base}&citation=${encodeURIComponent(domain)}`, { scroll: false });
   const brandName = brand?.name?.trim() || brand?.domain || BRAND.name;
   return (
     <div className="flex flex-col gap-[30px]">
@@ -955,7 +976,7 @@ function Overview({
         </Card>
       </section>
 
-      <CitationSection data={data} brand={brand} />
+      <CitationSection data={data} brand={brand} onOpen={openCitation} />
     </div>
   );
 }
@@ -1019,11 +1040,12 @@ function Chart({ v }: { v: ChartInput }) {
 function CitationSection({
   data,
   brand,
+  onOpen,
 }: {
   data: DashboardData;
   brand: BrandLite | null;
+  onOpen: (domain: string) => void;
 }) {
-  const [open, setOpen] = useState<number>(-1);
   const brandUrl = brand?.domain || BRAND.url;
   return (
     <section className="flex flex-col gap-[14px]">
@@ -1072,12 +1094,7 @@ function CitationSection({
             </div>
             <div className="flex flex-col">
               {data.citationRank.rows.map((d) => (
-                <CitationRow
-                  key={d.domain}
-                  d={d}
-                  open={open === d.i}
-                  onToggle={() => setOpen(open === d.i ? -1 : d.i)}
-                />
+                <CitationRow key={d.domain} d={d} onOpen={() => onOpen(d.domain)} />
               ))}
             </div>
           </div>
@@ -1086,69 +1103,116 @@ function CitationSection({
   );
 }
 
-function CitationRow({
-  d,
-  open,
-  onToggle,
-}: {
-  d: CitationDomain;
-  open: boolean;
-  onToggle: () => void;
-}) {
+function CitationRow({ d, onOpen }: { d: CitationDomain; onOpen: () => void }) {
   return (
-    <div style={{ borderBottom: "1px solid var(--line)" }}>
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full items-center gap-[12px] py-[10px] text-left"
+      style={{ borderBottom: "1px solid var(--line)" }}
+    >
+      <span style={{ fontFamily: MONO, fontSize: 11, color: "var(--dim)", width: 16 }}>{d.i}.</span>
+      <span className="flex flex-1 items-center gap-[8px] text-[14px]" style={{ fontWeight: d.owned ? 700 : 400 }}>
+        <span className="truncate">{d.domain}</span>
+        {d.owned && (
+          <span
+            style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, background: "var(--grn)", color: "#14170f", padding: "3px 7px", flex: "none" }}
+          >
+            Monitored
+          </span>
+        )}
+      </span>
+      <span style={{ fontFamily: MONO, fontSize: 13.5 }}>{d.share}</span>
+      <span className="text-right" style={{ width: 46 }}>
+        <Delta v={d.delta} size={12} />
+      </span>
+      <span style={{ fontFamily: MONO, fontSize: 10, color: "var(--dim)", width: 10 }}>›</span>
+    </button>
+  );
+}
+
+/** Resolve the `?citation=<domain>` URL param to its citation row. */
+function resolveCitation(id: string | null, rows: CitationDomain[]): CitationDomain | null {
+  if (!id) return null;
+  return rows.find((r) => r.domain === id) ?? null;
+}
+
+/**
+ * Full-page detail for one cited domain — its pages, each an external link that
+ * opens in a new tab. Mirrors the prompt detail view (back button, roomy layout)
+ * so citations get their own space instead of cramping the overview.
+ */
+function CitationDetailView({ d, onBack }: { d: CitationDomain; onBack: () => void }) {
+  return (
+    <div className="flex flex-col gap-[22px]">
       <button
         type="button"
-        onClick={onToggle}
-        className="flex w-full items-center gap-[12px] py-[10px] text-left"
+        onClick={onBack}
+        className="inline-flex items-center gap-[7px] self-start text-[13px]"
+        style={{ color: "var(--mut)" }}
       >
-        <span style={{ fontFamily: MONO, fontSize: 11, color: "var(--dim)", width: 16 }}>{d.i}.</span>
-        <span className="flex flex-1 items-center gap-[8px] text-[14px]" style={{ fontWeight: d.owned ? 700 : 400 }}>
-          <span className="truncate">{d.domain}</span>
+        ← Back to overview
+      </button>
+
+      <div className="flex flex-col gap-[8px]">
+        <MonoLabel>Cited domain</MonoLabel>
+        <h2
+          className="flex flex-wrap items-center gap-[10px]"
+          style={{ fontSize: 25, fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1.15 }}
+        >
+          <a
+            href={`https://${d.domain}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "var(--ink)", textDecoration: "underline" }}
+          >
+            {d.domain}
+          </a>
           {d.owned && (
             <span
-              style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, background: "var(--grn)", color: "#14170f", padding: "3px 7px", flex: "none" }}
+              style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, background: "var(--grn)", color: "#14170f", padding: "3px 7px" }}
             >
               Monitored
             </span>
           )}
+        </h2>
+        <span style={{ fontSize: 13.5, color: "var(--mut)" }}>
+          {d.share} of all citations in this scan
         </span>
-        <span style={{ fontFamily: MONO, fontSize: 13.5 }}>{d.share}</span>
-        <span className="text-right" style={{ width: 46 }}>
-          <Delta v={d.delta} size={12} />
-        </span>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: "var(--dim)", width: 10 }}>
-          {open ? "⌄" : "›"}
-        </span>
-      </button>
-      {open && <DomainPages pages={d.pages} />}
-    </div>
-  );
-}
-
-function DomainPages({ pages }: { pages: CitationPage[] }) {
-  return (
-    <div className="mb-[10px] flex flex-col" style={{ background: "var(--panel2)", border: "1px solid var(--line)" }}>
-      <div
-        className="grid grid-cols-[1fr_100px] gap-[10px] px-[14px] py-[8px]"
-        style={{ borderBottom: "1px solid var(--line)", fontFamily: SANS, fontSize: 11, color: "var(--dim)" }}
-      >
-        <span>Page</span>
-        <span className="text-right">Share</span>
       </div>
-      {pages.map((p, i) => (
+
+      <Card className="p-[22px_24px_26px]">
         <div
-          key={p.url}
-          className="grid grid-cols-[1fr_100px] items-baseline gap-[10px] px-[14px] py-[10px]"
-          style={{ borderBottom: i < pages.length - 1 ? "1px solid var(--line)" : undefined }}
+          className="flex items-center justify-between pb-[10px]"
+          style={{ borderBottom: "1px solid var(--line)", fontFamily: SANS, fontSize: 11, color: "var(--dim)" }}
         >
-          <span className="min-w-0 truncate text-[13px]" title={p.url}>{p.url}</span>
-          <span className="whitespace-nowrap text-right">
-            <span style={{ fontFamily: MONO, fontSize: 12.5 }}>{p.share}</span>{" "}
-            <Delta v={p.dShare} size={11} />
-          </span>
+          <span>Cited page</span>
+          <span>Share</span>
         </div>
-      ))}
+        <div className="flex flex-col">
+          {d.pages.map((pg, i) => (
+            <div
+              key={pg.url}
+              className="flex items-center justify-between gap-[16px] py-[11px]"
+              style={{ borderBottom: i < d.pages.length - 1 ? "1px solid var(--line)" : undefined }}
+            >
+              <a
+                href={pg.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="min-w-0 flex-1 truncate text-[14px]"
+                style={{ color: "var(--ink)", textDecoration: "underline" }}
+                title={pg.url}
+              >
+                {pg.url}
+              </a>
+              <span className="whitespace-nowrap" style={{ fontFamily: MONO, fontSize: 13 }}>
+                {pg.share}
+              </span>
+            </div>
+          ))}
+        </div>
+      </Card>
     </div>
   );
 }
@@ -1434,10 +1498,13 @@ function PromptDetailView({
 
 /** ChatGPT's per-prompt metrics — the live, unlocked platform. */
 function PlatformScoreCard({ p }: { p: Prompt }) {
+  // A one-time scan has no per-prompt rank, and Pos is empty when the brand isn't
+  // named — show a word, not a bare dash. Compare against the shared DASH marker.
+  const orLabel = (v: string, fallback: string) => (v === DASH ? fallback : v);
   const cells: [string, React.ReactNode][] = [
-    ["Rank", <span key="r" style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700 }}>{p.rank}</span>],
-    ["Score", <span key="s"><span style={{ fontFamily: MONO, fontSize: 13 }}>{p.score}</span> <Delta v={p.dScore} size={11} /></span>],
-    ["Pos", <span key="p"><span style={{ fontFamily: MONO, fontSize: 13 }}>{p.pos}</span> <Delta v={p.dPos} size={11} /></span>],
+    ["Rank", <span key="r" style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700 }}>{orLabel(p.rank, "Not ranked")}</span>],
+    ["Score", <span key="s"><span style={{ fontFamily: MONO, fontSize: 13 }}>{orLabel(p.score, "N/A")}</span> <Delta v={p.dScore} size={11} /></span>],
+    ["Pos", <span key="p"><span style={{ fontFamily: MONO, fontSize: 13 }}>{orLabel(p.pos, "N/A")}</span> <Delta v={p.dPos} size={11} /></span>],
     ["Cites", <span key="c"><span style={{ fontFamily: MONO, fontSize: 13 }}>{p.cite}</span> <Delta v={p.dCite} size={11} /></span>],
   ];
   return (

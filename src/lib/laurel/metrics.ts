@@ -3,7 +3,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 import { getBrandById } from "./brands";
-import { normalizeDomain } from "./domain";
+import { isOwnDomain, normalizeDomain } from "./domain";
 
 /**
  * Dashboard metrics — aggregates the scan-output tables into every number the
@@ -181,7 +181,9 @@ export async function getBrandMetrics(brandId: string): Promise<BrandMetrics> {
 
     const gPos = meanSelfPosition(groupScans, mentionsByScan);
     const gCites = groupScans.flatMap((s) => citationsByScan.get(s.id) ?? []);
-    const gCite = gCites.length ? gCites.filter((c) => c.is_own_domain).length / gCites.length : 0;
+    const gCite = gCites.length
+      ? gCites.filter((c) => isOwnDomain(ownDomain, c.domain)).length / gCites.length
+      : 0;
 
     return {
       topicId: key === "__ungrouped__" ? null : key,
@@ -191,7 +193,7 @@ export async function getBrandMetrics(brandId: string): Promise<BrandMetrics> {
       rank: gRank,
       pos: gPos,
       cite: gCite,
-      items: groupPrompts.map((p) => promptMetric(p, scanByPrompt.get(p.id), mentionsByScan, citationsByScan, selfScanIds)),
+      items: groupPrompts.map((p) => promptMetric(p, scanByPrompt.get(p.id), mentionsByScan, citationsByScan, selfScanIds, ownDomain)),
     };
   };
 
@@ -207,7 +209,7 @@ export async function getBrandMetrics(brandId: string): Promise<BrandMetrics> {
   // ── citations ───────────────────────────────────────────────────────────
   const okCitations = citations.filter((c) => okScanIds.has(c.scan_id));
   const citationTotal = okCitations.length;
-  const citationOwn = okCitations.filter((c) => c.is_own_domain).length;
+  const citationOwn = okCitations.filter((c) => isOwnDomain(ownDomain, c.domain)).length;
   const citationShare = citationTotal ? citationOwn / citationTotal : 0;
 
   const byDomain = groupBy(okCitations, (c) => c.domain);
@@ -217,7 +219,7 @@ export async function getBrandMetrics(brandId: string): Promise<BrandMetrics> {
       return {
         domain,
         share: citationTotal ? rows.length / citationTotal : 0,
-        owned: domain === ownDomain,
+        owned: isOwnDomain(ownDomain, domain),
         pages: [...byUrl.entries()]
           .map(([url, urlRows]) => ({
             url,
@@ -255,6 +257,7 @@ function promptMetric(
   mentionsByScan: Map<string, MentionRow[]>,
   citationsByScan: Map<string, CitationRow[]>,
   selfScanIds: Set<string>,
+  ownDomain: string,
 ): PromptMetric {
   const ms = scan ? mentionsByScan.get(scan.id) ?? [] : [];
   const cs = scan ? citationsByScan.get(scan.id) ?? [] : [];
@@ -265,7 +268,7 @@ function promptMetric(
     q: p.text,
     score: named ? 1 : 0,
     pos: self?.position ?? null,
-    cite: cs.length ? cs.filter((c) => c.is_own_domain).length / cs.length : 0,
+    cite: cs.length ? cs.filter((c) => isOwnDomain(ownDomain, c.domain)).length / cs.length : 0,
     answer: scan?.answer_text ?? null,
     brands: [...ms].sort(byPosition).map((m) => m.mentioned_name),
     cites: [...new Set(cs.map((c) => c.domain))],

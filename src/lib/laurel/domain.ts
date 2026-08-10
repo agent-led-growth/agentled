@@ -23,7 +23,14 @@ export function normalizeDomain(input: string): string {
   }
 }
 
-/** Whether a citation host is the brand's own site — exact normalized-host match. */
+/**
+ * Whether a citation host is the brand's own site: the normalized host equals
+ * the brand domain, or is a subdomain of it (`docs.farcaster.xyz` counts for
+ * `farcaster.xyz`). Subdomain-as-brand still holds — `name.substack.com` matches
+ * only its own subdomains, never the shared `substack.com`.
+ */
 export function isOwnDomain(brandDomain: string, host: string): boolean {
-  return normalizeDomain(brandDomain) === normalizeDomain(host);
+  const brand = normalizeDomain(brandDomain);
+  const h = normalizeDomain(host);
+  return brand !== "" && (h === brand || h.endsWith(`.${brand}`));
 }
