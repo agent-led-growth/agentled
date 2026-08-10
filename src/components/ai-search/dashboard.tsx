@@ -1282,9 +1282,22 @@ function Prompts({
     );
   }
 
+  const settingsHref = `/ai-search/dashboard?tab=settings&platform=${platform}${
+    brandId ? `&brand=${brandId}` : ""
+  }`;
   return (
     <div className="flex flex-col gap-[16px]">
-      <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.02em" }}>Monitored prompts</h2>
+      <div className="flex flex-wrap items-center justify-between gap-[12px]">
+        <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.02em" }}>Monitored prompts</h2>
+        <button
+          type="button"
+          onClick={() => router.replace(settingsHref, { scroll: false })}
+          className="inline-flex items-center whitespace-nowrap text-[13px]"
+          style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "7px 12px" }}
+        >
+          Edit your prompts →
+        </button>
+      </div>
       <Card>
         <div
           className={`hidden px-[24px] py-[12px] md:grid ${COLS}`}

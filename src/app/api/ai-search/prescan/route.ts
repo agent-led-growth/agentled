@@ -5,6 +5,7 @@ import {
   enrichBrand,
   getOrCreateActiveBrandForUser,
   getUserIdByAuthId,
+  isValidWebsite,
   resetSuggestedTopics,
   updateBrandEnrichment,
   type Brand,
@@ -35,6 +36,14 @@ export async function POST(request: Request) {
       : null;
   if (!website) {
     return NextResponse.json({ error: "Enter a website." }, { status: 400 });
+  }
+  // Websites only — block scripts / prose / junk. A bare domain is fine (the
+  // scheme is added downstream).
+  if (!isValidWebsite(website)) {
+    return NextResponse.json(
+      { error: "Enter a valid website, like example.com." },
+      { status: 400 },
+    );
   }
   const about =
     typeof body.about === "string" && body.about.trim()

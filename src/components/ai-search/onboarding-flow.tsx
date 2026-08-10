@@ -3,8 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { isValidWebsite } from "@/lib/laurel/domain";
+
 import { BrandTile, Lockup } from "./brand";
-import { BRAND, EXAMPLE_URL, type LogColor } from "./fixtures";
+import { EXAMPLE_URL, type LogColor } from "./fixtures";
 import { saveOnboarding } from "./onboarding-store";
 import { MONO, SANS, appTokens } from "./tokens";
 
@@ -145,12 +147,19 @@ function Brief({
   setAbout: (v: string) => void;
   onContinue: () => void;
 }) {
+  const [error, setError] = useState("");
   return (
     <div className="px-[20px] py-[40px] md:px-[56px] md:py-[64px]">
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (!url.trim()) return;
+          const v = url.trim();
+          if (!v) return;
+          if (!isValidWebsite(v)) {
+            setError("Enter a valid website, like example.com.");
+            return;
+          }
+          setError("");
           onContinue();
         }}
         className="mx-auto flex max-w-[620px] flex-col gap-[30px]"
@@ -169,7 +178,10 @@ function Brief({
           <FieldLabel>Website</FieldLabel>
           <input
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            onChange={(e) => {
+              setUrl(e.target.value);
+              if (error) setError("");
+            }}
             placeholder={EXAMPLE_URL}
             inputMode="url"
             autoCapitalize="off"
@@ -178,10 +190,15 @@ function Brief({
             className="h-[52px] w-full px-[16px] text-[17px] placeholder:text-[var(--dim)] md:h-[58px]"
             style={{
               background: "var(--panel)",
-              border: "1px solid var(--line)",
+              border: `1px solid ${error ? "var(--neg)" : "var(--line)"}`,
               color: "var(--ink)",
             }}
           />
+          {error && (
+            <span className="text-[13.5px]" style={{ color: "var(--neg)" }}>
+              {error}
+            </span>
+          )}
         </label>
 
         <label className="flex flex-col gap-[10px]">
@@ -416,8 +433,10 @@ function Topics({
   const [custom, setCustom] = useState("");
   const chosen = topics.filter((t) => t.on).length;
 
-  const brandName = result?.brand.name?.trim() || BRAND.name;
   const brandUrl = result?.brand.domain || fallbackUrl;
+  // When detection couldn't read the site, show the domain — never a hardcoded
+  // brand name.
+  const brandName = result?.brand.name?.trim() || brandUrl;
   const brandInitials = initialsOf(brandName);
 
   function toggle(i: number) {
