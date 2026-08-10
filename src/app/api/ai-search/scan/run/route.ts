@@ -1,7 +1,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { NextResponse } from "next/server";
 
-import { claimScan, getBrandById, getUserIdByAuthId } from "@/lib/laurel";
+import { claimScan, getBrandById, getUserIdByAuthId, releaseScan } from "@/lib/laurel";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -42,8 +42,10 @@ export async function POST(request: Request) {
   }
 
   // In-progress lock: only one run per brand at a time (atomic — see claimScan).
-  // A claim also clears any prior failure, so this doubles as the retry.
-  if (!(await claimScan(brandId))) {
+  // A claim also clears any prior failure, so this doubles as the retry; the
+  // returned token identifies this run so a duplicate delivery can no-op.
+  const runToken = await claimScan(brandId);
+  if (!runToken) {
     return NextResponse.json({ ok: true, status: "already-running" });
   }
 
@@ -53,6 +55,13 @@ export async function POST(request: Request) {
   const env = getCloudflareContext().env as unknown as {
     SCAN_QUEUE: { send(body: unknown): Promise<void> };
   };
-  await env.SCAN_QUEUE.send({ brandId, triggerEmail: user.email ?? null });
+  try {
+    await env.SCAN_QUEUE.send({ brandId, triggerEmail: user.email ?? null, runToken });
+  } catch (err) {
+    // Enqueue failed after the claim — release the lock so it isn't orphaned.
+    console.error("scan/run: enqueue failed", brandId, err);
+    await releaseScan(brandId);
+    return NextResponse.json({ error: "Could not queue the scan." }, { status: 500 });
+  }
   return NextResponse.json({ ok: true, status: "queued" });
 }

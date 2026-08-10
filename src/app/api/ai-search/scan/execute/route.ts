@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { env } from "@/lib/env";
 import { sendScanReadyEmail } from "@/lib/email/scan-ready";
+import { isInternalRequest } from "@/lib/internal-auth";
 import {
   deleteBrandScans,
   generatePrompts,
@@ -23,12 +23,13 @@ import {
  * unexpected crash, which the queue retries.
  */
 export async function POST(request: Request) {
-  if (request.headers.get("x-internal-secret") !== env.internalSecret()) {
+  if (!isInternalRequest(request)) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
-  const { brandId, triggerEmail } = (await request.json().catch(() => ({}))) as {
+  const { brandId, triggerEmail, runToken } = (await request.json().catch(() => ({}))) as {
     brandId?: string;
     triggerEmail?: string | null;
+    runToken?: string;
   };
   if (!brandId) return NextResponse.json({ error: "Missing brandId." }, { status: 400 });
 
@@ -36,6 +37,11 @@ export async function POST(request: Request) {
   if (!brand) return NextResponse.json({ error: "Brand not found." }, { status: 404 });
   if (brand.first_scan_completed_at) {
     return NextResponse.json({ ok: true, status: "already-scanned" });
+  }
+  // Run-token guard: only the run matching the current claim proceeds. A
+  // superseded or duplicate delivery (e.g. a queue redelivery) no-ops safely.
+  if (runToken && brand.scan_started_at !== runToken) {
+    return NextResponse.json({ ok: true, status: "superseded" });
   }
 
   try {
@@ -66,7 +72,7 @@ export async function POST(request: Request) {
     }
 
     // Ran but nothing landed (every prompt failed) — terminal, and recorded.
-    console.error("scan/execute: no results, marking failed", brandId, result);
+    console.warn("scan/execute: no results, marking failed", brandId, result);
     await markScanFailed(brandId);
     return NextResponse.json({ ok: true, status: "failed" });
   } catch (err) {

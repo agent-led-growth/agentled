@@ -14,7 +14,8 @@ import { registry } from "./registry";
  */
 
 const RESPONSES_URL = "https://api.openai.com/v1/responses";
-const TIMEOUT_MS = 60_000; // web search is slow; give it room
+const TIMEOUT_MS = 45_000; // web search is slow, but cap it so one stuck prompt
+// (× MAX_ATTEMPTS) can't drag the whole run past the consumer's window.
 
 export interface ScanCitation {
   url: string;

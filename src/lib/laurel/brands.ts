@@ -186,20 +186,34 @@ export const SCAN_STALE_MS = 15 * 60 * 1000;
  * first_scan_completed_at; failure leaves the marker, keeping it locked until
  * stale so it can't re-fire on every dashboard open.
  */
-export async function claimScan(brandId: string): Promise<boolean> {
+export async function claimScan(brandId: string): Promise<string | null> {
   const admin = createAdminClient();
   const staleBefore = new Date(Date.now() - SCAN_STALE_MS).toISOString();
+  // The token is the exact scan_started_at we write — the run's id. It rides the
+  // queue message so execute can no-op a stale or duplicate delivery.
+  const token = new Date().toISOString();
   const { data, error } = await admin
     .from("brands")
     // Claiming also clears any prior failure — a fresh claim IS the retry.
-    .update({ scan_started_at: new Date().toISOString(), scan_failed_at: null })
+    .update({ scan_started_at: token, scan_failed_at: null })
     .eq("id", brandId)
     .is("first_scan_completed_at", null)
     // Claimable if nothing is running, the running one is stale, or it failed.
     .or(`scan_started_at.is.null,scan_started_at.lt.${staleBefore},scan_failed_at.not.is.null`)
     .select("id");
   if (error) throw error;
-  return (data ?? []).length > 0;
+  return (data ?? []).length > 0 ? token : null;
+}
+
+/** Release a claim without completing it (e.g. the enqueue failed) so it retries. */
+export async function releaseScan(brandId: string): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("brands")
+    .update({ scan_started_at: null })
+    .eq("id", brandId)
+    .is("first_scan_completed_at", null);
+  if (error) throw error;
 }
 
 /** Terminal-failure marker: the queued run gave up. Never overwrites a success. */

@@ -27,7 +27,10 @@ interface QueueBatch<Body> {
   readonly messages: readonly QueueMessage<Body>[];
 }
 
-// Keep in sync with max_retries in wrangler.toml: total attempts = max_retries + 1.
+// Cloudflare delivers with msg.attempts starting at 1; with max_retries = 2 in
+// wrangler.toml the final delivery is attempt 3. We record failure on/after that
+// attempt (>=) so a dead job is marked failed instead of silently dead-lettering.
+// Keep this in sync with max_retries.
 const MAX_ATTEMPTS = 3;
 
 const handler = {

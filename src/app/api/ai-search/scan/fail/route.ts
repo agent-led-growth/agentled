@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { env } from "@/lib/env";
+import { isInternalRequest } from "@/lib/internal-auth";
 import { getBrandById, markScanFailed } from "@/lib/laurel";
 
 /**
@@ -10,7 +10,7 @@ import { getBrandById, markScanFailed } from "@/lib/laurel";
  * INTERNAL_SECRET; never overwrites a completed scan.
  */
 export async function POST(request: Request) {
-  if (request.headers.get("x-internal-secret") !== env.internalSecret()) {
+  if (!isInternalRequest(request)) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
   const { brandId } = (await request.json().catch(() => ({}))) as { brandId?: string };
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
 
   const brand = await getBrandById(brandId);
   if (brand && !brand.first_scan_completed_at) {
-    console.error("scan/fail: recording terminal failure", brandId);
+    console.warn("scan/fail: recording terminal failure", brandId);
     await markScanFailed(brandId);
   }
   return NextResponse.json({ ok: true });
