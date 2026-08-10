@@ -1,15 +1,37 @@
+import Link from "next/link";
+
 import { SOCIALS } from "./socials";
 
 const COMPANY = "Campo Base Labs SL";
 const YEAR = 2026;
 
-export function SiteFooter() {
+/**
+ * `languageSwitch`, when passed, renders a link to this page's counterpart in
+ * the other language. Only the marketing landings supply it; app/auth pages
+ * are English-only and omit it.
+ */
+export function SiteFooter({
+  languageSwitch,
+}: {
+  languageSwitch?: { href: string; label: string };
+}) {
   return (
     <footer className="border-t border-[var(--border-hairline)] bg-[var(--surface)] px-[26px] py-[34px] md:px-[64px] md:py-[40px]">
       <div className="flex flex-col gap-[26px] md:flex-row md:items-center md:justify-between md:gap-[40px]">
-        <p className="font-mono text-[11px] tracking-[0.12em] text-[var(--text-faint)] uppercase md:text-[12px]">
-          {COMPANY}, {YEAR}
-        </p>
+        <div className="flex flex-col gap-[10px] md:flex-row md:items-center md:gap-[22px]">
+          <p className="font-mono text-[11px] tracking-[0.12em] text-[var(--text-faint)] uppercase md:text-[12px]">
+            {COMPANY}, {YEAR}
+          </p>
+          {languageSwitch && (
+            <Link
+              href={languageSwitch.href}
+              hrefLang={languageSwitch.href.startsWith("/es") ? "es" : "en"}
+              className="font-mono text-[11px] tracking-[0.12em] text-[var(--text-faint)] uppercase no-underline transition-colors hover:text-[var(--text-primary)] md:text-[12px]"
+            >
+              {languageSwitch.label} →
+            </Link>
+          )}
+        </div>
 
         <nav aria-label="Social links">
           {/*

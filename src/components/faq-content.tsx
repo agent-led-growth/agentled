@@ -16,10 +16,10 @@ export type FaqItem = {
   plain: string;
 };
 
-const linkClass =
+export const linkClass =
   "underline decoration-[var(--text-faint)] underline-offset-[3px] transition-colors hover:text-[var(--accent)] hover:decoration-[var(--accent)]";
 
-function ExternalLink({ href, children }: { href: string; children: ReactNode }) {
+export function ExternalLink({ href, children }: { href: string; children: ReactNode }) {
   return (
     <a href={href} target="_blank" rel="noreferrer noopener" className={linkClass}>
       {children}

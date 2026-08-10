@@ -2,27 +2,26 @@ import type { Metadata } from "next";
 
 import { RedirectSignedIn } from "@/components/auth/redirect-signed-in";
 import { Faq } from "@/components/faq";
+import { FAQ_ITEMS_ES } from "@/components/faq-content.es";
 import { Hero } from "@/components/hero/hero";
 import { SiteFooter } from "@/components/site-footer";
-import { StructuredData } from "@/components/structured-data";
 import { getDictionary } from "@/lib/i18n";
 import { hreflang, PATHS } from "@/lib/metadata";
 
 export const metadata: Metadata = {
-  alternates: hreflang(PATHS.home, "en"),
+  alternates: hreflang(PATHS.home, "es"),
 };
 
-export default function Home() {
+export default function HomeEs() {
   return (
     <>
       <RedirectSignedIn scanned="/ai-search/dashboard" notScanned="/home" />
-      <StructuredData />
-      <Hero />
-      <Faq />
+      <Hero locale="es" />
+      <Faq items={FAQ_ITEMS_ES} locale="es" />
       <SiteFooter
         languageSwitch={{
-          href: PATHS.home.es,
-          label: getDictionary("en").footer.switchLabel,
+          href: PATHS.home.en,
+          label: getDictionary("es").footer.switchLabel,
         }}
       />
     </>

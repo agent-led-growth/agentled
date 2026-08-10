@@ -1,11 +1,11 @@
 /**
- * English marketing copy. This is the reference dictionary: `es.ts` (added when
- * the Spanish landings ship) must mirror this shape exactly — the `Dictionary`
- * type in `./index.ts` is derived from it, so any drift is a compile error.
+ * English marketing copy. This is the reference dictionary: `es.ts` mirrors
+ * this shape exactly — the `Dictionary` type in `./index.ts` is derived from
+ * it, so any drift is a compile error.
  *
- * Only user-visible marketing strings live here. App/auth chrome, the FAQ
- * question/answer bodies (`faq-content.tsx`) and SEO metadata are localized
- * separately.
+ * Only user-visible marketing strings and page-level metadata live here. App/
+ * auth chrome and the FAQ question/answer bodies (`faq-content.tsx`) are
+ * localized separately.
  */
 export const en = {
   hero: {
@@ -26,4 +26,23 @@ export const en = {
     modelsEyebrow: "Monitor top AI models & assistants",
     brandMarker: "Your brand",
   },
-} as const;
+  footer: {
+    // Autonym of the *other* locale, shown as the language-switcher link.
+    switchLabel: "Español",
+  },
+  meta: {
+    siteTitle: "Agent-led Growth — Grow in the Age of AI",
+    siteDescription:
+      "Independent research on how AI is changing the way businesses grow. Research, experiments, frameworks, and tools for founders, marketers, and growth teams.",
+    siteSocialDescription:
+      "Exploring the new playbooks for growth in a world shaped by AI agents.",
+    aiSearch: {
+      title: "AI Search Monitor",
+      description:
+        "See how often AI assistants recommend your brand. Track your visibility across ChatGPT, Claude, Gemini, Perplexity and Copilot — and win more recommendations, traffic and leads.",
+      ogTitle: "AI Search Monitor — Does AI recommend your brand?",
+      ogDescription:
+        "Track how often AI assistants recommend your brand across ChatGPT, Claude, Gemini, Perplexity and Copilot.",
+    },
+  },
+};
