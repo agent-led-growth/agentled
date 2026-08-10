@@ -211,6 +211,29 @@ export async function getBrandById(brandId: string): Promise<Brand | null> {
   return (data as Brand | null) ?? null;
 }
 
+/** Emails of every member linked to a brand — recipients for scan notifications. */
+export async function getBrandMemberEmails(brandId: string): Promise<string[]> {
+  const admin = createAdminClient();
+  const { data: members, error } = await admin
+    .from("brand_users")
+    .select("user_id")
+    .eq("brand_id", brandId);
+  if (error) throw error;
+
+  const ids = (members ?? []).map((m) => (m as { user_id: string }).user_id);
+  if (ids.length === 0) return [];
+
+  const { data: users, error: usersError } = await admin
+    .from("users")
+    .select("email")
+    .in("id", ids);
+  if (usersError) throw usersError;
+
+  return ((users ?? []) as { email: string | null }[])
+    .map((u) => u.email)
+    .filter((e): e is string => Boolean(e));
+}
+
 /** Resolve the app-owned `public.users` id from a Supabase Auth user id. */
 export async function getUserIdByAuthId(authUserId: string): Promise<string | null> {
   const admin = createAdminClient();

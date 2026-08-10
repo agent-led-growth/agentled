@@ -1,10 +1,12 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { NextResponse } from "next/server";
 
+import { sendScanReadyEmail } from "@/lib/email/scan-ready";
 import {
   claimScan,
   generatePrompts,
   getBrandById,
+  getBrandMemberEmails,
   getUserIdByAuthId,
   insertPrompts,
   listPrompts,
@@ -86,8 +88,22 @@ async function runScanJob(brand: Brand): Promise<void> {
       );
       if (generated.length > 0) await insertPrompts(brand.id, generated);
     }
-    await runScan(brand.id);
+    const result = await runScan(brand.id);
+    // Notify only once the scan actually landed results (scanned > 0) — this is
+    // the safety net for a user who closed the tab before it finished.
+    if (!result.skipped && result.scanned > 0) await notifyScanReady(brand);
   } catch (err) {
     console.error("scan/run: job failed", brand.id, err);
+  }
+}
+
+/** Email each brand member that the scan is ready. Best-effort; never throws. */
+async function notifyScanReady(brand: Brand): Promise<void> {
+  try {
+    const emails = await getBrandMemberEmails(brand.id);
+    const brandName = brand.name?.trim() || brand.domain;
+    await Promise.all(emails.map((email) => sendScanReadyEmail(email, brandName)));
+  } catch (err) {
+    console.error("scan/run: scan-ready email failed", brand.id, err);
   }
 }
