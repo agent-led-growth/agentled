@@ -1499,8 +1499,8 @@ function PromptDetailView({
 /** ChatGPT's per-prompt metrics — the live, unlocked platform. */
 function PlatformScoreCard({ p }: { p: Prompt }) {
   // A one-time scan has no per-prompt rank, and Pos is empty when the brand isn't
-  // named — show a word, not a bare "—".
-  const orLabel = (v: string, fallback: string) => (v === "—" ? fallback : v);
+  // named — show a word, not a bare dash. Compare against the shared DASH marker.
+  const orLabel = (v: string, fallback: string) => (v === DASH ? fallback : v);
   const cells: [string, React.ReactNode][] = [
     ["Rank", <span key="r" style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700 }}>{orLabel(p.rank, "Not ranked")}</span>],
     ["Score", <span key="s"><span style={{ fontFamily: MONO, fontSize: 13 }}>{orLabel(p.score, "N/A")}</span> <Delta v={p.dScore} size={11} /></span>],
