@@ -171,6 +171,7 @@ export function Dashboard() {
                       data={data}
                       platform={platform}
                       brandId={currentBrandId}
+                      brandName={currentBrand?.name?.trim() || currentBrand?.domain || "Your brand"}
                       onUpgrade={() => setPlatform("claude")}
                     />
                   )}
@@ -237,7 +238,7 @@ function ScanNotice({
     loading: { title: "Loading…", body: "Fetching your latest scan." },
     scanning: {
       title: "Running your scan…",
-      body: `We're asking ChatGPT the questions your buyers ask about ${name}. This takes a moment.`,
+      body: `This can take several minutes. We're asking ChatGPT the questions your buyers ask about ${name}.`,
     },
     empty: {
       title: "No results yet",
@@ -1128,11 +1129,13 @@ function Prompts({
   data,
   platform,
   brandId,
+  brandName,
   onUpgrade,
 }: {
   data: DashboardData;
   platform: Platform;
   brandId: string | null;
+  brandName: string;
   onUpgrade: () => void;
 }) {
   const router = useRouter();
@@ -1166,6 +1169,7 @@ function Prompts({
       <PromptDetailView
         p={selected.p}
         groupName={selected.groupName}
+        brandName={brandName}
         onBack={backToList}
         onUpgrade={onUpgrade}
       />
@@ -1315,11 +1319,13 @@ function Cell({ label, children }: { label: string; children: React.ReactNode })
 function PromptDetailView({
   p,
   groupName,
+  brandName,
   onBack,
   onUpgrade,
 }: {
   p: Prompt;
   groupName: string;
+  brandName: string;
   onBack: () => void;
   onUpgrade: () => void;
 }) {
@@ -1359,11 +1365,15 @@ function PromptDetailView({
           <div className="max-w-[80ch] text-[14.5px]" style={{ lineHeight: 1.65, color: "var(--ink)" }}>
             <AnswerMarkdown text={p.answer} highlight={p.highlight} />
           </div>
-          {!p.highlight && (
+          {p.answer.trim() === "" ? (
             <span style={{ fontFamily: MONO, fontSize: 11.5, color: "var(--dim)" }}>
-              {BRAND.name} was not named in this answer.
+              This prompt didn’t return an answer in the last scan.
             </span>
-          )}
+          ) : !p.highlight ? (
+            <span style={{ fontFamily: MONO, fontSize: 11.5, color: "var(--dim)" }}>
+              {brandName} was not named in this answer.
+            </span>
+          ) : null}
         </div>
         <div className="flex flex-col gap-[18px]">
           <div className="flex flex-col gap-[6px]">
