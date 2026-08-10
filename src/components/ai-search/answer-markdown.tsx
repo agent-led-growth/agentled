@@ -6,7 +6,8 @@ import { MONO } from "./tokens";
  * A small, dependency-free Markdown renderer for AI answers. Web-search answers
  * come back as Markdown (bold, bullet/numbered lists, headings, links), so
  * rendering the raw text shows literal `**`/`***`/`-`. This handles that common
- * subset and highlights the monitored brand's mention inside plain text runs.
+ * subset and highlights the monitored brand's mention inside plain, bold and
+ * italic runs (AI answers often bold brand names).
  * Deliberately not a full CommonMark parser — just what the answers actually use.
  */
 
@@ -44,9 +45,11 @@ function highlightPlain(
   return out.length ? out : [text];
 }
 
-// Bold-italic / bold / italic / inline code / link — matched in that order.
+// Bold-italic / bold / italic / inline code / link — matched in that order. The
+// emphasis markers require a non-space just inside them (`*word*`, not `2 * 3`),
+// so stray/math asterisks don't turn into unintended italics.
 const INLINE =
-  /(\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|\[(.+?)\]\((https?:\/\/[^\s)]+)\))/g;
+  /(\*\*\*(?=\S)(.+?)(?<=\S)\*\*\*|\*\*(?=\S)(.+?)(?<=\S)\*\*|\*(?=\S)(.+?)(?<=\S)\*|`(.+?)`|\[(.+?)\]\((https?:\/\/[^\s)]+)\))/g;
 
 /** Inline Markdown → nodes, with the brand mention highlighted in plain runs. */
 function renderInline(
@@ -66,13 +69,19 @@ function renderInline(
     if (m[2] != null) {
       nodes.push(
         <strong key={`${keyBase}-bi${k}`} style={{ fontStyle: "italic" }}>
-          {m[2]}
+          {highlightPlain(m[2], highlight, `${keyBase}-bi${k}`)}
         </strong>,
       );
     } else if (m[3] != null) {
-      nodes.push(<strong key={`${keyBase}-b${k}`}>{m[3]}</strong>);
+      nodes.push(
+        <strong key={`${keyBase}-b${k}`}>
+          {highlightPlain(m[3], highlight, `${keyBase}-b${k}`)}
+        </strong>,
+      );
     } else if (m[4] != null) {
-      nodes.push(<em key={`${keyBase}-i${k}`}>{m[4]}</em>);
+      nodes.push(
+        <em key={`${keyBase}-i${k}`}>{highlightPlain(m[4], highlight, `${keyBase}-i${k}`)}</em>,
+      );
     } else if (m[5] != null) {
       nodes.push(
         <code key={`${keyBase}-c${k}`} style={{ fontFamily: MONO, fontSize: "0.9em" }}>

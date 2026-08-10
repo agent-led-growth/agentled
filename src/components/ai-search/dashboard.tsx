@@ -22,7 +22,7 @@ import {
   type Platform,
   type Prompt,
 } from "./fixtures";
-import { formatMetrics, type DashboardData } from "./format";
+import { DASH, formatMetrics, type DashboardData } from "./format";
 import { AI_MODELS, MODEL_COLOR } from "./model-marks";
 import { clearOnboarding, readOnboarding } from "./onboarding-store";
 import { MONO, SANS, appTokens, toneVar } from "./tokens";
@@ -664,8 +664,8 @@ function Chip({ children }: { children: React.ReactNode }) {
 // ── Shared bits ──────────────────────────────────────────────────────────────
 function Delta({ v, size = 12 }: { v: string; size?: number }) {
   // A one-time scan has no history, so there's no % change to show (the format
-  // layer emits "—"). Deltas reappear on their own once recurring scans exist.
-  if (v === "—") return null;
+  // layer emits DASH). Deltas reappear on their own once recurring scans exist.
+  if (v === DASH) return null;
   return (
     <span style={{ fontFamily: MONO, fontSize: size, color: toneVar(tone(v)) }}>
       {v}
@@ -1010,7 +1010,7 @@ function CitationSection({
             <div className="flex items-baseline gap-[12px]">
               <span
                 style={{
-                  fontSize: data.citationRank.value.startsWith("#") ? 40 : 22,
+                  fontSize: data.citationRank.ranked ? 40 : 22,
                   fontWeight: 700,
                   lineHeight: 1,
                   letterSpacing: "-0.04em",

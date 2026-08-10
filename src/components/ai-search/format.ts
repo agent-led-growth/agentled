@@ -8,7 +8,8 @@ import type { CitationDomain, ChartInput, Group } from "./fixtures";
  * trend charts are a single flat point (per the product decision).
  */
 
-const DASH = "—";
+/** The no-history / no-comparison marker. A one-time scan has no deltas. */
+export const DASH = "—";
 
 const pct1 = (frac: number) => `${(frac * 100).toFixed(1)}%`;
 const pct0 = (frac: number) => `${Math.round(frac * 100)}%`;
@@ -93,6 +94,7 @@ export function toCitationRank(m: BrandMetrics) {
   // Unranked = the brand's own domain isn't cited anywhere in the run.
   return {
     value: m.citationRankValue ? `#${m.citationRankValue}` : "Not ranked",
+    ranked: Boolean(m.citationRankValue),
     delta: DASH,
     rows,
   };
