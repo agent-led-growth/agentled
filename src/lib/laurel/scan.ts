@@ -2,7 +2,7 @@ import "server-only";
 
 import { env } from "@/lib/env";
 
-import { normalizeDomain } from "./domain";
+import { isOwnDomain, normalizeDomain } from "./domain";
 import { registry } from "./registry";
 
 /**
@@ -113,7 +113,6 @@ export function collectCitations(
   annotations: ScanCitation[],
   ownDomain: string,
 ): CollectedCitation[] {
-  const own = normalizeDomain(ownDomain);
   const seen = new Set<string>();
   const out: CollectedCitation[] = [];
 
@@ -126,7 +125,7 @@ export function collectCitations(
       url: clean,
       domain,
       title,
-      isOwnDomain: domain === own,
+      isOwnDomain: isOwnDomain(ownDomain, clean),
       position: out.length + 1,
     });
   };
