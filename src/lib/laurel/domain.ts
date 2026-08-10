@@ -34,3 +34,14 @@ export function isOwnDomain(brandDomain: string, host: string): boolean {
   const h = normalizeDomain(host);
   return brand !== "" && (h === brand || h.endsWith(`.${brand}`));
 }
+
+/**
+ * Whether a submitted value is a usable website: it normalizes to a plausible
+ * hostname — dot-separated labels ending in a 2+ letter TLD, ASCII letters,
+ * digits and hyphens only. Blocks scripts, prose, and junk; a bare domain (no
+ * scheme) is fine since normalizeDomain adds https:// for us. Websites only.
+ */
+export function isValidWebsite(input: string): boolean {
+  const host = normalizeDomain(input);
+  return /^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(host);
+}

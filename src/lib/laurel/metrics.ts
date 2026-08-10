@@ -212,7 +212,11 @@ export async function getBrandMetrics(brandId: string): Promise<BrandMetrics> {
   const citationOwn = okCitations.filter((c) => isOwnDomain(ownDomain, c.domain)).length;
   const citationShare = citationTotal ? citationOwn / citationTotal : 0;
 
-  const byDomain = groupBy(okCitations, (c) => c.domain);
+  // Fold the brand's own domains (apex + subdomains, e.g. docs.farcaster.xyz)
+  // into a single leaderboard row keyed by the brand domain.
+  const byDomain = groupBy(okCitations, (c) =>
+    isOwnDomain(ownDomain, c.domain) ? ownDomain : c.domain,
+  );
   const domainList = [...byDomain.entries()]
     .map(([domain, rows]) => {
       const byUrl = groupBy(rows, (r) => r.url);
