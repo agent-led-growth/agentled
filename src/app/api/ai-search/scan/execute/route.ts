@@ -38,9 +38,12 @@ export async function POST(request: Request) {
   if (brand.first_scan_completed_at) {
     return NextResponse.json({ ok: true, status: "already-scanned" });
   }
-  // Run-token guard: only the run matching the current claim proceeds. A
+  // Run-token guard: only the run matching the current claim proceeds; a
   // superseded or duplicate delivery (e.g. a queue redelivery) no-ops safely.
-  if (runToken && brand.scan_started_at !== runToken) {
+  // Compare as instants, not strings — the token is a JS ISO ("…Z") while the DB
+  // serializes scan_started_at with a "+00:00" offset, so `!==` is always true.
+  const startedMs = brand.scan_started_at ? new Date(brand.scan_started_at).getTime() : NaN;
+  if (runToken && startedMs !== new Date(runToken).getTime()) {
     return NextResponse.json({ ok: true, status: "superseded" });
   }
 
