@@ -51,6 +51,11 @@ export async function POST(request: Request) {
   if (brand.first_scan_completed_at) {
     return NextResponse.json({ ok: true, status: "already-scanned" });
   }
+  // Grab the execution context before claiming the lock: if it's unavailable,
+  // fail here rather than after claimScan, so we never leave the brand locked
+  // for 15 minutes with no scan actually running.
+  const { ctx } = getCloudflareContext();
+
   // In-progress lock: only one run per brand at a time (atomic — see claimScan).
   if (!(await claimScan(brandId))) {
     return NextResponse.json({ ok: true, status: "already-running" });
@@ -62,7 +67,7 @@ export async function POST(request: Request) {
   // them; per-prompt failures are recorded on their scan rows, and a run where
   // nothing lands leaves first_scan_completed_at null so the 15-min lock lets it
   // retry later.
-  getCloudflareContext().ctx.waitUntil(runScanJob(brand));
+  ctx.waitUntil(runScanJob(brand));
   return NextResponse.json({ ok: true, status: "started" });
 }
 
