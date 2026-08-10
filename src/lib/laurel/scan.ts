@@ -29,7 +29,7 @@ export interface ScanResult {
   raw: unknown;
 }
 
-const MAX_ATTEMPTS = 3;
+const MAX_ATTEMPTS = 2; // 1 attempt + 1 retry
 
 export async function runWebSearch(prompt: string): Promise<ScanResult> {
   let lastErr: unknown = new Error("OpenAI web_search failed");
@@ -50,17 +50,19 @@ export async function runWebSearch(prompt: string): Promise<ScanResult> {
 
 async function attemptWebSearch(prompt: string): Promise<ScanResult> {
   const config = registry.scan;
+  const body: Record<string, unknown> = {
+    model: config.model,
+    input: prompt,
+    tools: [{ type: "web_search" }],
+  };
+  if (config.reasoningEffort) body.reasoning = { effort: config.reasoningEffort };
   const res = await fetch(RESPONSES_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${env.openaiApiKey()}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model: config.model,
-      input: prompt,
-      tools: [{ type: "web_search" }],
-    }),
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
 

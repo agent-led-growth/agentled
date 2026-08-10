@@ -36,7 +36,7 @@ export async function openaiGenerateStructured(
   if (config.maxOutputTokens) body.max_output_tokens = config.maxOutputTokens;
   if (config.temperature !== undefined) body.temperature = config.temperature;
 
-  const MAX_ATTEMPTS = 3;
+  const MAX_ATTEMPTS = 2; // 1 attempt + 1 retry
   let lastErr: unknown = new Error("OpenAI Responses failed");
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {

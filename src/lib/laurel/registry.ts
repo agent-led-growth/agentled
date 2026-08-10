@@ -22,19 +22,20 @@ export interface ModelConfig {
 }
 
 export const registry: Record<LaurelRole, ModelConfig> = {
-  // Steps 2 & 5 (generation). Inferring buyer-intent topics from crawled content
-  // is nuanced synthesis, not just extraction — terra over luna earns its keep.
+  // Steps 2 & 5 (generation). Luna for now to keep costs down; was terra for
+  // sharper topic quality — revisit if topics/prompts degrade.
   enrichment: {
     provider: "openai",
-    model: "gpt-5.6-terra",
+    model: "gpt-5.6-luna",
     reasoningEffort: "low",
     maxOutputTokens: 3000,
   },
-  // Step 6. Locked to OpenAI (Responses API + web search). Built in the scan
-  // phase; a per-call web-search fee dominates cost, so Terra over Luna.
+  // Step 6. Locked to OpenAI (Responses API + web search). Luna + low effort to
+  // keep both token and per-call cost down.
   scan: {
     provider: "openai",
-    model: "gpt-5.6-terra",
+    model: "gpt-5.6-luna",
+    reasoningEffort: "low",
   },
   // Step 7 (extraction). Deterministic parsing; cheapest effort.
   extraction: {
