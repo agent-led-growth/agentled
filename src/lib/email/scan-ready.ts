@@ -12,17 +12,23 @@ const DASHBOARD_URL = "https://agentled.co/ai-search";
  * a link back to the dashboard.
  */
 export async function sendScanReadyEmail(to: string, brandName: string): Promise<void> {
-  const { error } = await resend().emails.send({
-    from: FROM,
-    to,
-    subject: `Your AI Search scan for ${brandName} is ready`,
-    text:
-      `Your scan is ready.\n\n` +
-      `We've finished checking how ${brandName} shows up in AI-generated answers. ` +
-      `See your results:\n${DASHBOARD_URL}`,
-    html: scanReadyHtml(brandName),
-  });
-  if (error) console.error("sendScanReadyEmail: send failed", to, error);
+  try {
+    const { error } = await resend().emails.send({
+      from: FROM,
+      to,
+      subject: `Your AI Search scan for ${brandName} is ready`,
+      text:
+        `Your scan is ready.\n\n` +
+        `We've finished checking how ${brandName} shows up in AI-generated answers. ` +
+        `See your results:\n${DASHBOARD_URL}`,
+      html: scanReadyHtml(brandName),
+    });
+    if (error) console.error("sendScanReadyEmail: send failed", to, error);
+  } catch (err) {
+    // Best-effort: the scan already succeeded; a mail failure must not surface
+    // as a scan failure to the caller.
+    console.error("sendScanReadyEmail: threw", to, err);
+  }
 }
 
 function esc(s: string): string {
