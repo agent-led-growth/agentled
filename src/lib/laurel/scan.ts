@@ -29,7 +29,26 @@ export interface ScanResult {
   raw: unknown;
 }
 
+const MAX_ATTEMPTS = 3;
+
 export async function runWebSearch(prompt: string): Promise<ScanResult> {
+  let lastErr: unknown = new Error("OpenAI web_search failed");
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await attemptWebSearch(prompt);
+    } catch (err) {
+      lastErr = err;
+      if (attempt < MAX_ATTEMPTS && isTransient(err)) {
+        await sleep(attempt * 1500); // OpenAI's web_search edge 5xx/429s are often transient
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+}
+
+async function attemptWebSearch(prompt: string): Promise<ScanResult> {
   const config = registry.scan;
   const res = await fetch(RESPONSES_URL, {
     method: "POST",
@@ -49,12 +68,27 @@ export async function runWebSearch(prompt: string): Promise<ScanResult> {
   if (!res.ok) {
     const err = asRecord(raw.error);
     const msg = err && typeof err.message === "string" ? err.message : res.statusText;
-    throw new Error(`OpenAI web_search ${res.status}: ${msg}`);
+    const e = new Error(`OpenAI web_search ${res.status}: ${msg}`) as Error & { status?: number };
+    e.status = res.status;
+    throw e;
   }
 
   const answerText = extractAnswerText(raw);
   if (!answerText) throw new Error("OpenAI web_search: empty answer");
   return { answerText, citations: extractAnnotationCitations(raw), model: config.model, raw };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/** 5xx, 429, and network/timeout errors are worth retrying; 4xx are not. */
+function isTransient(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  if (err.name === "TimeoutError" || err.name === "AbortError") return true;
+  const status = (err as { status?: number }).status;
+  if (typeof status === "number") return status >= 500 || status === 429;
+  return err.name === "TypeError" || /fetch failed|network/i.test(err.message);
 }
 
 /** A citation ready to persist: normalized host + own-domain flag + order. */

@@ -52,8 +52,11 @@ const SYSTEM_PROMPT =
   "brand, product, or company named, in order of first appearance (position 1 = " +
   "first). Resolve each to a single canonical name — map variants like 'Peec', " +
   "'Peec AI' and 'peec.ai' to one name, preferring a name from the known-competitors " +
-  "list when it matches. Mark exactly the monitored brand (by its name or domain) " +
-  "with is_self=true. Do not invent brands that are not in the text.";
+  "list when it matches. Mark the monitored brand (by its name or domain) with " +
+  "is_self=true. CRITICAL: include a brand ONLY if it literally appears in the answer " +
+  "text. Never add the monitored brand or a competitor just because it's in the " +
+  "context — if the monitored brand is not actually named in the answer, do not " +
+  "include it at all.";
 
 export async function extractBrands(input: {
   answerText: string;
@@ -74,7 +77,19 @@ export async function extractBrands(input: {
     schemaName: "brand_extraction",
     schema: SCHEMA,
   });
-  return parseBrands(data);
+
+  // Deterministic guardrail: the model sometimes echoes the monitored brand (or a
+  // known competitor) from context even when it isn't in the answer. Keep only
+  // brands whose name actually appears in the answer text.
+  const text = input.answerText.toLowerCase();
+  return parseBrands(data).filter(
+    (b) => nameInText(text, b.raw) || nameInText(text, b.canonical),
+  );
+}
+
+function nameInText(lowerText: string, name: string): boolean {
+  const n = name.trim().toLowerCase();
+  return n.length >= 2 && lowerText.includes(n);
 }
 
 function parseBrands(data: unknown): ExtractedBrand[] {

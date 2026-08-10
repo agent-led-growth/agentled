@@ -26,7 +26,7 @@ import type { Prompt } from "./types";
 
 const PLATFORM: Platform = "chatgpt";
 const MAX_PROMPTS = 9; // free scan = 3 topics x 3; hard cap on metered calls
-const SEARCH_CONCURRENCY = 5;
+const SEARCH_CONCURRENCY = 3;
 const EXTRACT_CONCURRENCY = 5;
 
 export type ScanRunResult =
@@ -147,7 +147,9 @@ export async function runScan(brandId: string): Promise<ScanRunResult> {
     scanned += 1;
   }
 
-  await markFirstScanComplete(brandId);
+  // Only lock the brand as scanned if something actually landed; a run where
+  // every prompt failed (transient upstream) stays retryable.
+  if (scanned > 0) await markFirstScanComplete(brandId);
   return { skipped: false, scanned, failed };
 }
 
