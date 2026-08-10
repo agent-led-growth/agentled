@@ -5,6 +5,7 @@ import { Faq } from "@/components/faq";
 import { FAQ_ITEMS_ES } from "@/components/faq-content.es";
 import { Hero } from "@/components/hero/hero";
 import { SiteFooter } from "@/components/site-footer";
+import { StructuredData } from "@/components/structured-data";
 import { getDictionary } from "@/lib/i18n";
 import { hreflang, PATHS } from "@/lib/metadata";
 
@@ -16,6 +17,7 @@ export default function HomeEs() {
   return (
     <>
       <RedirectSignedIn scanned="/ai-search/dashboard" notScanned="/home" />
+      <StructuredData locale="es" path={PATHS.home.es} faqItems={FAQ_ITEMS_ES} />
       <Hero locale="es" />
       <Faq items={FAQ_ITEMS_ES} locale="es" />
       <SiteFooter

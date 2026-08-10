@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { RedirectSignedIn } from "@/components/auth/redirect-signed-in";
 import { Faq } from "@/components/faq";
+import { FAQ_ITEMS } from "@/components/faq-content";
 import { Hero } from "@/components/hero/hero";
 import { SiteFooter } from "@/components/site-footer";
 import { StructuredData } from "@/components/structured-data";
@@ -16,7 +17,7 @@ export default function Home() {
   return (
     <>
       <RedirectSignedIn scanned="/ai-search/dashboard" notScanned="/home" />
-      <StructuredData />
+      <StructuredData locale="en" path={PATHS.home.en} faqItems={FAQ_ITEMS} />
       <Hero />
       <Faq />
       <SiteFooter

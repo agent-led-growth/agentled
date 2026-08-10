@@ -1,6 +1,7 @@
 import { Faq } from "@/components/faq";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { StructuredData } from "@/components/structured-data";
 import { getDictionary, type Locale } from "@/lib/i18n";
 import { PATHS } from "@/lib/metadata";
 
@@ -29,6 +30,11 @@ export function AiSearchLanding({ locale }: { locale: Locale }) {
   return (
     <>
       <RedirectIfScanned to="/ai-search/dashboard" />
+      <StructuredData
+        locale={locale}
+        path={PATHS.aiSearch[locale]}
+        faqItems={FAQ_ITEMS[locale]}
+      />
       <section
         style={marketingTokens}
         className="relative min-h-[100svh] overflow-hidden"

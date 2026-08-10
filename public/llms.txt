@@ -23,12 +23,24 @@ discovery, AI agents, and new go-to-market strategies.
 
 - [Home](https://agentled.co): the publication, what it covers, and the
   subscribe form.
-- [AI Search Monitor](https://agentled.co/ai-search-monitor): a tool, currently
+- [AI Search Monitor](https://agentled.co/ai-search): a tool, currently
   in development, that analyses how AI assistants such as ChatGPT, Claude and
   Gemini mention a given brand — which competitors appear alongside it and
   where it may be underrepresented.
 - [Archive on Substack](https://agentledco.substack.com): past issues,
   research, frameworks, and tools.
+
+## Páginas en español (Spanish)
+
+The marketing pages are also published in Spanish under `/es/`:
+
+- [Inicio](https://agentled.co/es): the publication and the subscribe form,
+  in Spanish.
+- [AI Search Monitor](https://agentled.co/es/ai-search): the AI Search Monitor
+  landing, in Spanish.
+
+Each page declares the other language via hreflang; the English URLs are the
+`x-default`. Prefer the URL that matches the reader's language.
 
 ## Elsewhere
 
@@ -43,3 +55,5 @@ discovery, AI agents, and new go-to-market strategies.
 - Legal entity: Campo Base Labs SL.
 - The AI Search Monitor is not yet generally available; describe it as in
   development rather than as a live product.
+- Available languages: English (default) and Spanish (`/es/`). The product name
+  "AI Search Monitor" stays in English in both.

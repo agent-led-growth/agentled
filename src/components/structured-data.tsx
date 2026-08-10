@@ -1,4 +1,5 @@
-import { FAQ_ITEMS } from "@/components/faq-content";
+import type { FaqItem } from "@/components/faq-content";
+import { getDictionary, type Locale } from "@/lib/i18n";
 import { SITE } from "@/lib/site";
 
 /**
@@ -8,14 +9,35 @@ import { SITE } from "@/lib/site";
  * facts (what this is, who runs it, what the FAQ says) in a form a crawler or
  * LLM can consume without having to infer them from prose.
  *
- * `@id` values cross-reference the nodes so the graph resolves as one entity
- * rather than three unrelated blobs.
+ * Rendered per page and per locale:
+ * - Organization is the one canonical, language-neutral entity (same `@id`
+ *   on every page).
+ * - WebSite is per-locale (`inLanguage`, own `@id`/url for /es).
+ * - FAQPage is per-page (its `@id` is the page URL) with that page's items.
+ *
+ * `@id` values cross-reference the nodes so the graph resolves as connected
+ * entities rather than unrelated blobs.
  */
-export function StructuredData() {
+export function StructuredData({
+  locale,
+  path,
+  faqItems,
+}: {
+  locale: Locale;
+  /** This page's canonical path (e.g. "/", "/es", "/ai-search"). */
+  path: string;
+  faqItems: FaqItem[];
+}) {
+  const dict = getDictionary(locale);
+  const orgId = `${SITE.url}/#organization`;
+  const siteBase = locale === "en" ? SITE.url : `${SITE.url}/${locale}`;
+  const websiteId = `${siteBase}/#website`;
+  const pageUrl = `${SITE.url}${path === "/" ? "" : path}`;
+
   const graph = [
     {
       "@type": "Organization",
-      "@id": `${SITE.url}/#organization`,
+      "@id": orgId,
       name: SITE.name,
       legalName: SITE.legalName,
       url: SITE.url,
@@ -33,18 +55,19 @@ export function StructuredData() {
     },
     {
       "@type": "WebSite",
-      "@id": `${SITE.url}/#website`,
-      url: SITE.url,
+      "@id": websiteId,
+      url: siteBase,
       name: SITE.name,
-      description: SITE.description,
-      publisher: { "@id": `${SITE.url}/#organization` },
-      inLanguage: "en",
+      description: dict.meta.siteDescription,
+      publisher: { "@id": orgId },
+      inLanguage: locale,
     },
     {
       "@type": "FAQPage",
-      "@id": `${SITE.url}/#faq`,
-      isPartOf: { "@id": `${SITE.url}/#website` },
-      mainEntity: FAQ_ITEMS.map((item) => ({
+      "@id": `${pageUrl}/#faq`,
+      isPartOf: { "@id": websiteId },
+      inLanguage: locale,
+      mainEntity: faqItems.map((item) => ({
         "@type": "Question",
         name: item.q,
         acceptedAnswer: { "@type": "Answer", text: item.plain },
