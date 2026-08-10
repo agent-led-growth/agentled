@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { getBrandById, getBrandMetrics, getUserIdByAuthId } from "@/lib/laurel";
+import {
+  getBrandById,
+  getBrandMetrics,
+  getUserIdByAuthId,
+  SCAN_STALE_MS,
+} from "@/lib/laurel";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -35,6 +40,10 @@ export async function GET(request: Request) {
   if (!brand) return NextResponse.json({ error: "Brand not found." }, { status: 404 });
 
   const scannedAt = brand.first_scan_completed_at;
+  const scanning =
+    !scannedAt &&
+    brand.scan_started_at != null &&
+    Date.now() - new Date(brand.scan_started_at).getTime() < SCAN_STALE_MS;
   const metrics = scannedAt ? await getBrandMetrics(brandId) : null;
-  return NextResponse.json({ scannedAt, metrics });
+  return NextResponse.json({ scannedAt, scanning, metrics });
 }

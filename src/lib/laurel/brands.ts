@@ -175,6 +175,31 @@ export async function markFirstScanComplete(brandId: string): Promise<void> {
   if (error) throw error;
 }
 
+/** A scan is "in progress" if it was claimed within this window. */
+export const SCAN_STALE_MS = 15 * 60 * 1000;
+
+/**
+ * Claim the one-time scan — the in-progress lock. One atomic conditional update:
+ * it wins only if the scan isn't done and none is running (or the running one is
+ * stale). Under row contention Postgres re-checks the WHERE, so exactly one
+ * concurrent caller claims it. No explicit release: success sets
+ * first_scan_completed_at; failure leaves the marker, keeping it locked until
+ * stale so it can't re-fire on every dashboard open.
+ */
+export async function claimScan(brandId: string): Promise<boolean> {
+  const admin = createAdminClient();
+  const staleBefore = new Date(Date.now() - SCAN_STALE_MS).toISOString();
+  const { data, error } = await admin
+    .from("brands")
+    .update({ scan_started_at: new Date().toISOString() })
+    .eq("id", brandId)
+    .is("first_scan_completed_at", null)
+    .or(`scan_started_at.is.null,scan_started_at.lt.${staleBefore}`)
+    .select("id");
+  if (error) throw error;
+  return (data ?? []).length > 0;
+}
+
 export async function getBrandById(brandId: string): Promise<Brand | null> {
   const admin = createAdminClient();
   const { data, error } = await admin

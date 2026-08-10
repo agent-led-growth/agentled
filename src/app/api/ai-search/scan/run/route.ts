@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import {
+  claimScan,
   generatePrompts,
   getBrandById,
   getUserIdByAuthId,
@@ -46,6 +47,10 @@ export async function POST(request: Request) {
   if (!brand) return NextResponse.json({ error: "Brand not found." }, { status: 404 });
   if (brand.first_scan_completed_at) {
     return NextResponse.json({ ok: true, status: "already-scanned" });
+  }
+  // In-progress lock: only one run per brand at a time (atomic — see claimScan).
+  if (!(await claimScan(brandId))) {
+    return NextResponse.json({ ok: true, status: "already-running" });
   }
 
   try {

@@ -17,6 +17,7 @@ export interface Brand {
   logo_url: string | null;
   status: BrandStatus;
   first_scan_completed_at: string | null;
+  scan_started_at: string | null;
   created_at: string;
   claimed_at: string | null;
 }

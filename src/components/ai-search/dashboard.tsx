@@ -87,13 +87,16 @@ export function Dashboard() {
         if (!active) return;
         if (!payload.scannedAt) {
           setScanState("scanning");
-          await fetch("/api/ai-search/scan/run", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ brandId: currentBrandId }),
-          });
-          if (!active) return;
-          payload = await fetchMetrics(currentBrandId);
+          // Start the scan only if one isn't already running (the lock keeps a
+          // race from double-firing); then poll for whoever runs it to finish.
+          if (!payload.scanning) {
+            void fetch("/api/ai-search/scan/run", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ brandId: currentBrandId }),
+            }).catch(() => {});
+          }
+          payload = await pollUntilScanned(currentBrandId, () => active);
           if (!active) return;
         }
         if (payload.metrics && payload.metrics.answers > 0) {
@@ -197,12 +200,31 @@ export function Dashboard() {
 
 type ScanState = "loading" | "scanning" | "ready" | "empty" | "error";
 
-async function fetchMetrics(
-  brandId: string,
-): Promise<{ scannedAt: string | null; metrics: BrandMetrics | null }> {
+type MetricsPayload = {
+  scannedAt: string | null;
+  scanning: boolean;
+  metrics: BrandMetrics | null;
+};
+
+async function fetchMetrics(brandId: string): Promise<MetricsPayload> {
   const res = await fetch(`/api/ai-search/metrics?brand=${brandId}`);
   if (!res.ok) throw new Error("metrics fetch failed");
   return res.json();
+}
+
+/** Poll /metrics until the scan finishes (or we time out), while still mounted. */
+async function pollUntilScanned(
+  brandId: string,
+  active: () => boolean,
+): Promise<MetricsPayload> {
+  const deadline = Date.now() + 3 * 60_000;
+  let payload = await fetchMetrics(brandId);
+  while (!payload.scannedAt && active() && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 4000));
+    if (!active()) break;
+    payload = await fetchMetrics(brandId);
+  }
+  return payload;
 }
 
 /** Full-body notice for the non-ready states (loading / running / empty / error). */
