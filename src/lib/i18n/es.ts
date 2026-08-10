@@ -15,20 +15,24 @@ export const es: Dictionary = {
       "Investigación, experimentos y herramientas para la próxima generación del crecimiento.",
     subscribe: "Suscríbete",
     ctaChip: "Prueba el AI Search Monitor",
+    socialProof: "Leído por gente de",
   },
   faq: {
     eyebrow: "FAQ",
     heading: ["Preguntas,", "respondidas"],
   },
   aiSearch: {
-    headline: "¿La IA recomienda tu marca?",
+    headline: "¿Recomienda la IA tu marca?",
     subhead:
       "Domina tu visibilidad en la IA y consigue más recomendaciones, tráfico y leads.",
     modelsEyebrow: "Monitoriza los principales modelos y asistentes de IA",
     brandMarker: "Tu marca",
+    scanButton: "Scanea mi marca",
+    scanAriaLabel: "Tu sitio web",
   },
   footer: {
-    switchLabel: "English",
+    tools: "Nuestras herramientas",
+    languages: "Idiomas",
   },
   meta: {
     siteTitle: "Agent-led Growth — Crece en la era de la IA",
@@ -40,7 +44,7 @@ export const es: Dictionary = {
       title: "AI Search Monitor",
       description:
         "Descubre con qué frecuencia los asistentes de IA recomiendan tu marca. Monitoriza tu visibilidad en ChatGPT, Claude, Gemini, Perplexity y Copilot, y consigue más recomendaciones, tráfico y leads.",
-      ogTitle: "AI Search Monitor — ¿La IA recomienda tu marca?",
+      ogTitle: "AI Search Monitor — ¿Recomienda la IA tu marca?",
       ogDescription:
         "Monitoriza con qué frecuencia los asistentes de IA recomiendan tu marca en ChatGPT, Claude, Gemini, Perplexity y Copilot.",
     },

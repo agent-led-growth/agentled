@@ -1,6 +1,7 @@
 import { OtpForm } from "@/components/auth/otp-form";
 import { SiteHeader } from "@/components/site-header";
 import { getDictionary, type Locale } from "@/lib/i18n";
+import { PATHS } from "@/lib/metadata";
 
 import { CtaChip } from "./cta-chip";
 import { SocialProof } from "./social-proof";
@@ -21,7 +22,7 @@ export function Hero({ locale = "en" }: { locale?: Locale }) {
       <TracesCanvas />
 
       <div className="relative flex flex-1 flex-col">
-        <SiteHeader />
+        <SiteHeader languageToggle={{ locale, paths: PATHS.home }} />
 
         <div className="flex flex-1 flex-col px-[26px] pb-[34px] md:px-[56px] md:pb-[64px]">
           {/* Copy block. translate-y on mobile drops it off the header;
@@ -38,7 +39,7 @@ export function Hero({ locale = "en" }: { locale?: Locale }) {
               redirectTo="/home"
               source="hero"
             />
-            <SocialProof />
+            <SocialProof locale={locale} />
           </div>
         </div>
 

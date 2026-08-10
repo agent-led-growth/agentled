@@ -1,3 +1,5 @@
+import { getDictionary, type Locale } from "@/lib/i18n";
+
 import { BRANDS } from "./brands";
 
 /**
@@ -9,11 +11,11 @@ import { BRANDS } from "./brands";
  * wordmark-only brands render their real letterform through a CSS mask over a
  * currentColor background (see `brands.ts`).
  */
-export function SocialProof() {
+export function SocialProof({ locale = "en" }: { locale?: Locale }) {
   return (
     <div className="flex flex-col gap-[12px] pt-[4px] md:flex-row md:items-center md:gap-[20px] md:pt-[10px]">
       <span className="shrink-0 font-mono text-[10.5px] tracking-[0.2em] text-[var(--text-faint)] uppercase md:text-[12px]">
-        Read by people at
+        {getDictionary(locale).hero.socialProof}
       </span>
       <ul className="flex list-none items-center gap-[8px] md:gap-[9px]">
         {BRANDS.map((brand) => (

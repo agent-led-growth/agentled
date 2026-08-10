@@ -25,7 +25,6 @@ const FAQ_ITEMS = {
  */
 export function AiSearchLanding({ locale }: { locale: Locale }) {
   const t = getDictionary(locale).aiSearch;
-  const other = locale === "en" ? "es" : "en";
 
   return (
     <>
@@ -42,7 +41,7 @@ export function AiSearchLanding({ locale }: { locale: Locale }) {
         <WaveCanvas />
 
         <div className="relative z-10 flex min-h-[100svh] flex-col">
-          <SiteHeader />
+          <SiteHeader languageToggle={{ locale, paths: PATHS.aiSearch }} />
 
           {/* Hero */}
           <div className="flex flex-1 items-center px-[26px] py-[40px] md:px-[56px] md:py-0">
@@ -65,7 +64,7 @@ export function AiSearchLanding({ locale }: { locale: Locale }) {
                   {t.subhead}
                 </p>
 
-                <ScanForm />
+                <ScanForm locale={locale} />
 
                 <div className="flex flex-col gap-[14px]">
                   <span
@@ -106,12 +105,7 @@ export function AiSearchLanding({ locale }: { locale: Locale }) {
       </section>
 
       <Faq items={FAQ_ITEMS[locale]} locale={locale} />
-      <SiteFooter
-        languageSwitch={{
-          href: PATHS.aiSearch[other],
-          label: getDictionary(locale).footer.switchLabel,
-        }}
-      />
+      <SiteFooter locale={locale} />
     </>
   );
 }

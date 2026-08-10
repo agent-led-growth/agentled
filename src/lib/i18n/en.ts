@@ -14,6 +14,7 @@ export const en = {
       "Get research, experiments, and tools for the next generation of growth.",
     subscribe: "Subscribe",
     ctaChip: "Try the AI Search Monitor",
+    socialProof: "Read by people at",
   },
   faq: {
     eyebrow: "FAQ",
@@ -25,10 +26,12 @@ export const en = {
     subhead: "Master AI visibility, win more recommendations, traffic and leads.",
     modelsEyebrow: "Monitor top AI models & assistants",
     brandMarker: "Your brand",
+    scanButton: "Scan my brand",
+    scanAriaLabel: "Your website",
   },
   footer: {
-    // Autonym of the *other* locale, shown as the language-switcher link.
-    switchLabel: "Español",
+    tools: "Our Tools",
+    languages: "Languages",
   },
   meta: {
     siteTitle: "Agent-led Growth — Grow in the Age of AI",
