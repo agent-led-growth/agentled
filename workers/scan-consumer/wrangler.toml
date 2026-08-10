@@ -1,0 +1,21 @@
+# Standalone consumer for the one-time scan queue. Deploy from this directory:
+#   wrangler deploy
+# Secret (server-to-server auth with the app; must match the app's INTERNAL_SECRET):
+#   wrangler secret put INTERNAL_SECRET
+name = "agentled-scan-consumer"
+main = "index.ts"
+compatibility_date = "2026-07-31"
+
+[vars]
+APP_URL = "https://agentled.co"
+
+[observability]
+enabled = true
+
+# total attempts = max_retries + 1; keep MAX_ATTEMPTS in index.ts in sync.
+[[queues.consumers]]
+queue = "agentled-scan"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 2
+dead_letter_queue = "agentled-scan-dlq"

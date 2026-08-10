@@ -25,6 +25,9 @@ export const env = {
     ),
   resendApiKey: () => required("RESEND_API_KEY", process.env.RESEND_API_KEY),
   openaiApiKey: () => required("OPENAI_API_KEY", process.env.OPENAI_API_KEY),
+  // Shared secret guarding the internal scan-execute/-fail routes, which the
+  // scan-consumer worker calls server-to-server (no user session).
+  internalSecret: () => required("INTERNAL_SECRET", process.env.INTERNAL_SECRET),
   // Optional: authenticates the Jina Reader. Keyless works from residential IPs
   // (local dev) but is refused from Cloudflare's egress; set it in production.
   jinaApiKey: (): string | undefined => process.env.JINA_API_KEY,
