@@ -53,22 +53,22 @@ export async function runScan(brandId: string): Promise<ScanRunResult> {
   // 1. Search every prompt (concurrent, capped). This is the slow, metered step.
   type Searched =
     | { prompt: Prompt; ok: true; result: ScanResult }
-    | { prompt: Prompt; ok: false };
+    | { prompt: Prompt; ok: false; error: string };
   const searched = await mapPool<Prompt, Searched>(prompts, SEARCH_CONCURRENCY, async (p) => {
     try {
       return { prompt: p, ok: true, result: await runWebSearch(p.text) };
     } catch (err) {
       console.error("runScan: search failed", p.id, err);
-      return { prompt: p, ok: false };
+      return { prompt: p, ok: false, error: failureReason("search", err) };
     }
   });
 
   // 2. Extract brands from each successful answer (concurrent, capped).
   type Extracted =
     | { prompt: Prompt; ok: true; result: ScanResult; brands: ExtractedBrand[] }
-    | { prompt: Prompt; ok: false };
+    | { prompt: Prompt; ok: false; error: string };
   const extracted = await mapPool<Searched, Extracted>(searched, EXTRACT_CONCURRENCY, async (s) => {
-    if (!s.ok) return { prompt: s.prompt, ok: false };
+    if (!s.ok) return { prompt: s.prompt, ok: false, error: s.error };
     try {
       const brands = await extractBrands({
         answerText: s.result.answerText,
@@ -80,7 +80,7 @@ export async function runScan(brandId: string): Promise<ScanRunResult> {
     } catch (err) {
       // A malformed extraction fails this scan's post-processing loudly.
       console.error("runScan: extraction failed", s.prompt.id, err);
-      return { prompt: s.prompt, ok: false };
+      return { prompt: s.prompt, ok: false, error: failureReason("extract", err) };
     }
   });
 
@@ -103,6 +103,7 @@ export async function runScan(brandId: string): Promise<ScanRunResult> {
         answerText: null,
         raw: null,
         status: "failed",
+        error: e.error,
       });
       failed += 1;
       continue;
@@ -151,6 +152,12 @@ export async function runScan(brandId: string): Promise<ScanRunResult> {
   // every prompt failed (transient upstream) stays retryable.
   if (scanned > 0) await markFirstScanComplete(brandId);
   return { skipped: false, scanned, failed };
+}
+
+/** A short, storable failure reason: which stage broke and the error message. */
+function failureReason(stage: "search" | "extract", err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  return `${stage}: ${msg}`.slice(0, 500);
 }
 
 /** Run `fn` over `items` with at most `limit` in flight; preserves order. */
