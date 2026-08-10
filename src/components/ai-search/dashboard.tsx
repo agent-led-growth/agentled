@@ -4,20 +4,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { capture, identifyUser } from "@/lib/analytics";
+import type { BrandMetrics } from "@/lib/laurel/metrics";
 import { createClient } from "@/lib/supabase/client";
 
 import { Mark, Wordmark } from "./brand";
 import {
-  ALL_PROMPTS,
   BRAND,
-  CITATION,
-  CITATION_RANK,
-  GROUPS,
   isLocked,
   PLATFORM_OPTIONS,
   PLATFORMS,
-  RANK,
-  VISIBILITY,
   tone,
   type ChartInput,
   type CitationDomain,
@@ -26,6 +21,7 @@ import {
   type Platform,
   type Prompt,
 } from "./fixtures";
+import { formatMetrics, type DashboardData } from "./format";
 import { AI_MODELS, MODEL_COLOR } from "./model-marks";
 import { clearOnboarding, readOnboarding } from "./onboarding-store";
 import { MONO, SANS, appTokens, toneVar } from "./tokens";
@@ -54,6 +50,8 @@ export function Dashboard() {
   const [gated, setGated] = useState(true);
   const [checked, setChecked] = useState(false);
   const [brands, setBrands] = useState<BrandLite[]>([]);
+  const [scanState, setScanState] = useState<ScanState>("loading");
+  const [data, setData] = useState<DashboardData | null>(null);
 
   useEffect(() => {
     createClient()
@@ -74,6 +72,44 @@ export function Dashboard() {
   }, [checked, gated]);
 
   const currentBrand = brands.find((b) => b.id === brandId) ?? brands[0] ?? null;
+  const currentBrandId = currentBrand?.id ?? null;
+
+  // Load metrics for the current brand; kick off the one-time scan first if it
+  // hasn't run yet, then show the results.
+  useEffect(() => {
+    if (!checked || gated || !currentBrandId) return;
+    let active = true;
+    (async () => {
+      setScanState("loading");
+      setData(null);
+      try {
+        let payload = await fetchMetrics(currentBrandId);
+        if (!active) return;
+        if (!payload.scannedAt) {
+          setScanState("scanning");
+          await fetch("/api/ai-search/scan/run", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ brandId: currentBrandId }),
+          });
+          if (!active) return;
+          payload = await fetchMetrics(currentBrandId);
+          if (!active) return;
+        }
+        if (payload.metrics && payload.metrics.answers > 0) {
+          setData(formatMetrics(payload.metrics));
+          setScanState("ready");
+        } else {
+          setScanState("empty");
+        }
+      } catch {
+        if (active) setScanState("error");
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [checked, gated, currentBrandId]);
 
   // Both tab and platform live in the URL, so a reload keeps the view and a
   // link is shareable. Each setter preserves the other's value.
@@ -119,14 +155,34 @@ export function Dashboard() {
             <TitleRow current={currentBrand} brands={brands} onSwitch={setBrand} />
             <FilterBar tab={tab} platform={platform} setPlatform={setPlatform} />
             <div className="px-[20px] py-[24px] md:px-[28px]">
-              {tab === "overview" && (
-                <Overview platform={platform} onUpgrade={() => setPlatform("claude")} />
-              )}
-              {tab === "prompts" && (
-                <Prompts platform={platform} onUpgrade={() => setPlatform("claude")} />
-              )}
-              {tab === "settings" && (
-                <Settings platform={platform} onUpgrade={() => setPlatform("claude")} />
+              {scanState !== "ready" || !data ? (
+                <ScanNotice kind={scanState === "ready" ? "loading" : scanState} brand={currentBrand} />
+              ) : (
+                <>
+                  {tab === "overview" && (
+                    <Overview
+                      data={data}
+                      brand={currentBrand}
+                      platform={platform}
+                      onUpgrade={() => setPlatform("claude")}
+                    />
+                  )}
+                  {tab === "prompts" && (
+                    <Prompts
+                      data={data}
+                      platform={platform}
+                      onUpgrade={() => setPlatform("claude")}
+                    />
+                  )}
+                  {tab === "settings" && (
+                    <Settings
+                      brand={currentBrand}
+                      data={data}
+                      platform={platform}
+                      onUpgrade={() => setPlatform("claude")}
+                    />
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -136,6 +192,65 @@ export function Dashboard() {
 
       {gated && checked && <Gate onEnter={() => setGated(false)} />}
     </main>
+  );
+}
+
+type ScanState = "loading" | "scanning" | "ready" | "empty" | "error";
+
+async function fetchMetrics(
+  brandId: string,
+): Promise<{ scannedAt: string | null; metrics: BrandMetrics | null }> {
+  const res = await fetch(`/api/ai-search/metrics?brand=${brandId}`);
+  if (!res.ok) throw new Error("metrics fetch failed");
+  return res.json();
+}
+
+/** Full-body notice for the non-ready states (loading / running / empty / error). */
+function ScanNotice({
+  kind,
+  brand,
+}: {
+  kind: Exclude<ScanState, "ready">;
+  brand: BrandLite | null;
+}) {
+  const name = brand?.name?.trim() || brand?.domain || "your brand";
+  const copy: Record<Exclude<ScanState, "ready">, { title: string; body: string }> = {
+    loading: { title: "Loading…", body: "Fetching your latest scan." },
+    scanning: {
+      title: "Running your scan…",
+      body: `We're asking ChatGPT the questions your buyers ask about ${name}. This takes a moment.`,
+    },
+    empty: {
+      title: "No results yet",
+      body: "The scan finished but didn't return anything to report. Try again shortly.",
+    },
+    error: {
+      title: "Something went wrong",
+      body: "We couldn't load your scan. Refresh to try again.",
+    },
+  };
+  const { title, body } = copy[kind];
+  return (
+    <div className="flex min-h-[300px] flex-col items-center justify-center gap-[10px] text-center">
+      {(kind === "scanning" || kind === "loading") && (
+        <span
+          aria-hidden="true"
+          className="mb-[6px] inline-block h-[26px] w-[26px] animate-spin"
+          style={{
+            border: "2px solid var(--line)",
+            borderTopColor: "var(--ink)",
+            borderRadius: "9999px",
+          }}
+        />
+      )}
+      <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em" }}>{title}</span>
+      <span
+        className="max-w-[430px] text-[14px]"
+        style={{ color: "var(--mut)", lineHeight: 1.5 }}
+      >
+        {body}
+      </span>
+    </div>
   );
 }
 
@@ -718,29 +833,40 @@ function ClaudeLockRow({ text, onUpgrade }: { text: string; onUpgrade: () => voi
 }
 
 // ── Overview ─────────────────────────────────────────────────────────────────
-function Overview({ platform, onUpgrade }: { platform: Platform; onUpgrade: () => void }) {
+function Overview({
+  data,
+  brand,
+  platform,
+  onUpgrade,
+}: {
+  data: DashboardData;
+  brand: BrandLite | null;
+  platform: Platform;
+  onUpgrade: () => void;
+}) {
   // The blended `all` view and the Claude view both need paid Claude data.
   if (isLocked(platform)) {
     return <UpgradePanel variant={platform === "all" ? "blend" : "claude"} />;
   }
+  const brandName = brand?.name?.trim() || brand?.domain || BRAND.name;
   return (
     <div className="flex flex-col gap-[30px]">
       <section className="flex flex-col gap-[14px]">
         <SectionHead
           title="Visibility score"
-          sub={`How often ${BRAND.name} appears in AI-generated answers`}
+          sub={`How often ${brandName} appears in AI-generated answers`}
         />
         <Card className="grid md:grid-cols-[1fr_480px]">
           <div className="flex flex-col gap-[16px] p-[22px_24px]" style={{ borderBottom: "1px solid var(--line)" }}>
             <MonoLabel>Visibility score</MonoLabel>
             <div className="flex flex-wrap items-baseline gap-[12px]">
               <span style={{ fontSize: 40, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.04em" }}>
-                {VISIBILITY.score}
+                {data.visibility.score}
               </span>
-              <Delta v={VISIBILITY.delta} size={14} />
-              <span style={{ fontSize: 12.5, color: "var(--dim)" }}>{VISIBILITY.detail}</span>
+              <Delta v={data.visibility.delta} size={14} />
+              <span style={{ fontSize: 12.5, color: "var(--dim)" }}>{data.visibility.detail}</span>
             </div>
-            <Chart v={VISIBILITY} />
+            <Chart v={data.visibility} />
             <div className="flex items-center gap-[22px] pt-[4px]">
               <Legend color="var(--pos)" label="Current period" />
               <Legend color="var(--dim)" label="Previous period" dashed />
@@ -750,9 +876,9 @@ function Overview({ platform, onUpgrade }: { platform: Platform; onUpgrade: () =
             <MonoLabel>Visibility rank</MonoLabel>
             <div className="flex items-baseline gap-[12px]">
               <span style={{ fontSize: 40, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.04em" }}>
-                {RANK.value}
+                {data.rank.value}
               </span>
-              <Delta v={RANK.delta} size={14} />
+              <Delta v={data.rank.delta} size={14} />
             </div>
             <div
               className="flex items-center justify-between pb-[8px]"
@@ -762,7 +888,7 @@ function Overview({ platform, onUpgrade }: { platform: Platform; onUpgrade: () =
               <span>Visibility</span>
             </div>
             <div className="flex flex-col">
-              {RANK.rows.map((r) => (
+              {data.rank.rows.map((r) => (
                 <div
                   key={r.name}
                   className="flex items-center gap-[12px] py-[10px]"
@@ -791,7 +917,7 @@ function Overview({ platform, onUpgrade }: { platform: Platform; onUpgrade: () =
         </Card>
       </section>
 
-      <CitationSection onUpgrade={onUpgrade} />
+      <CitationSection data={data} brand={brand} onUpgrade={onUpgrade} />
     </div>
   );
 }
@@ -852,25 +978,34 @@ function Chart({ v }: { v: ChartInput }) {
 }
 
 // ── Citations ────────────────────────────────────────────────────────────────
-function CitationSection({ onUpgrade }: { onUpgrade: () => void }) {
+function CitationSection({
+  data,
+  brand,
+  onUpgrade,
+}: {
+  data: DashboardData;
+  brand: BrandLite | null;
+  onUpgrade: () => void;
+}) {
   const [open, setOpen] = useState<number>(-1);
+  const brandUrl = brand?.domain || BRAND.url;
   return (
     <section className="flex flex-col gap-[14px]">
       <SectionHead
         title="Citation share"
-        sub={`How often ${BRAND.url} is cited by AI-generated answers`}
+        sub={`How often ${brandUrl} is cited by AI-generated answers`}
       />
         <Card className="grid md:grid-cols-[1fr_480px]">
           <div className="flex flex-col gap-[16px] p-[22px_24px]" style={{ borderBottom: "1px solid var(--line)" }}>
             <MonoLabel>Citation share</MonoLabel>
             <div className="flex flex-wrap items-baseline gap-[12px]">
               <span style={{ fontSize: 40, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.04em" }}>
-                {CITATION.score}
+                {data.citation.score}
               </span>
-              <Delta v={CITATION.delta} size={14} />
-              <span style={{ fontSize: 12.5, color: "var(--dim)" }}>{CITATION.detail}</span>
+              <Delta v={data.citation.delta} size={14} />
+              <span style={{ fontSize: 12.5, color: "var(--dim)" }}>{data.citation.detail}</span>
             </div>
-            <Chart v={CITATION} />
+            <Chart v={data.citation} />
             <div className="flex items-center gap-[22px] pt-[4px]">
               <Legend color="var(--pos)" label="Current period" />
               <Legend color="var(--dim)" label="Previous period" dashed />
@@ -881,9 +1016,9 @@ function CitationSection({ onUpgrade }: { onUpgrade: () => void }) {
             <MonoLabel>Citation rank</MonoLabel>
             <div className="flex items-baseline gap-[12px]">
               <span style={{ fontSize: 40, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.04em" }}>
-                {CITATION_RANK.value}
+                {data.citationRank.value}
               </span>
-              <Delta v={CITATION_RANK.delta} size={14} />
+              <Delta v={data.citationRank.delta} size={14} />
             </div>
             <div
               className="flex items-center justify-between pb-[8px]"
@@ -893,7 +1028,7 @@ function CitationSection({ onUpgrade }: { onUpgrade: () => void }) {
               <span>Share</span>
             </div>
             <div className="flex flex-col">
-              {CITATION_RANK.rows.map((d) => (
+              {data.citationRank.rows.map((d) => (
                 <CitationRow
                   key={d.domain}
                   d={d}
@@ -953,27 +1088,22 @@ function DomainPages({ pages }: { pages: CitationPage[] }) {
   return (
     <div className="mb-[10px] flex flex-col" style={{ background: "var(--panel2)", border: "1px solid var(--line)" }}>
       <div
-        className="grid grid-cols-[1fr_100px_90px] gap-[10px] px-[14px] py-[8px]"
+        className="grid grid-cols-[1fr_100px] gap-[10px] px-[14px] py-[8px]"
         style={{ borderBottom: "1px solid var(--line)", fontFamily: SANS, fontSize: 11, color: "var(--dim)" }}
       >
         <span>Page</span>
         <span className="text-right">Share</span>
-        <span className="text-right">Global</span>
       </div>
       {pages.map((p, i) => (
         <div
           key={p.url}
-          className="grid grid-cols-[1fr_100px_90px] items-baseline gap-[10px] px-[14px] py-[10px]"
+          className="grid grid-cols-[1fr_100px] items-baseline gap-[10px] px-[14px] py-[10px]"
           style={{ borderBottom: i < pages.length - 1 ? "1px solid var(--line)" : undefined }}
         >
           <span className="min-w-0 truncate text-[13px]" title={p.url}>{p.url}</span>
           <span className="whitespace-nowrap text-right">
             <span style={{ fontFamily: MONO, fontSize: 12.5 }}>{p.share}</span>{" "}
             <Delta v={p.dShare} size={11} />
-          </span>
-          <span className="whitespace-nowrap text-right">
-            <span style={{ fontFamily: MONO, fontSize: 12.5 }}>{p.global}</span>{" "}
-            <Delta v={p.dGlobal} size={11} />
           </span>
         </div>
       ))}
@@ -983,16 +1113,27 @@ function DomainPages({ pages }: { pages: CitationPage[] }) {
 
 // ── Prompts ──────────────────────────────────────────────────────────────────
 /** Resolve a `gi:pi` prompt id from the URL to its prompt + owning topic. */
-function resolvePrompt(id: string | null): { p: Prompt; groupName: string } | null {
+function resolvePrompt(
+  id: string | null,
+  groups: Group[],
+): { p: Prompt; groupName: string } | null {
   if (!id) return null;
   const [gi, pi] = id.split(":").map(Number);
-  const g = GROUPS[gi];
+  const g = groups[gi];
   const p = g?.items[pi];
   if (!g || !p) return null;
   return { p, groupName: g.name };
 }
 
-function Prompts({ platform, onUpgrade }: { platform: Platform; onUpgrade: () => void }) {
+function Prompts({
+  data,
+  platform,
+  onUpgrade,
+}: {
+  data: DashboardData;
+  platform: Platform;
+  onUpgrade: () => void;
+}) {
   const router = useRouter();
   const params = useSearchParams();
   const [openGroups, setOpenGroups] = useState<number[]>([0]);
@@ -1009,7 +1150,7 @@ function Prompts({ platform, onUpgrade }: { platform: Platform; onUpgrade: () =>
   // The selected prompt lives in the URL (`&prompt=gi:pi`) so the Prompts tab
   // stays highlighted and the detail view is shareable / survives reload.
   const base = `/ai-search/dashboard?tab=prompts&platform=${platform}`;
-  const selected = resolvePrompt(params.get("prompt"));
+  const selected = resolvePrompt(params.get("prompt"), data.groups);
   const openPrompt = (id: string) =>
     router.replace(`${base}&prompt=${id}`, { scroll: false });
   const backToList = () => router.replace(base, { scroll: false });
@@ -1040,7 +1181,7 @@ function Prompts({ platform, onUpgrade }: { platform: Platform; onUpgrade: () =>
           <span>Citation share</span>
         </div>
 
-        {GROUPS.map((g, gi) => (
+        {data.groups.map((g, gi) => (
           <GroupBlock
             key={g.name}
             g={g}
@@ -1311,15 +1452,24 @@ function ClaudeScoreLock({ onUpgrade }: { onUpgrade: () => void }) {
 }
 
 // ── Settings ─────────────────────────────────────────────────────────────────
-function Settings({ onUpgrade }: { platform: Platform; onUpgrade: () => void }) {
+function Settings({
+  brand,
+  data,
+  onUpgrade,
+}: {
+  brand: BrandLite | null;
+  data: DashboardData;
+  platform: Platform;
+  onUpgrade: () => void;
+}) {
+  const allPrompts = data.groups.flatMap((g) => g.items.map((p) => p.q));
   return (
     <div className="flex flex-col gap-[20px]">
       <div className="grid gap-[20px] md:grid-cols-2">
         <Card className="flex flex-col gap-[16px] p-[22px_24px]">
           <SectionHead title="Brand" />
-          <ReadonlyField label="Name" value={BRAND.name} />
-          <ReadonlyField label="Website" value={BRAND.url} />
-          <ReadonlyField label="Category" value={BRAND.category} />
+          <ReadonlyField label="Name" value={brand?.name?.trim() || brand?.domain || BRAND.name} />
+          <ReadonlyField label="Website" value={brand?.domain || BRAND.url} />
         </Card>
 
         <Card className="flex flex-col p-[22px_24px]">
@@ -1367,7 +1517,7 @@ function Settings({ onUpgrade }: { platform: Platform; onUpgrade: () => void }) 
           </span>
         </div>
         <div className="grid gap-x-[24px] gap-y-[13px] md:grid-cols-3">
-          {ALL_PROMPTS.map((q, i) => (
+          {allPrompts.map((q, i) => (
             <span key={i} className="text-[14px]" style={{ color: "var(--mut)" }}>
               {q}
             </span>

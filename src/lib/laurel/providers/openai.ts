@@ -36,6 +36,26 @@ export async function openaiGenerateStructured(
   if (config.maxOutputTokens) body.max_output_tokens = config.maxOutputTokens;
   if (config.temperature !== undefined) body.temperature = config.temperature;
 
+  const MAX_ATTEMPTS = 3;
+  let lastErr: unknown = new Error("OpenAI Responses failed");
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await attemptStructured(body);
+    } catch (err) {
+      lastErr = err;
+      if (attempt < MAX_ATTEMPTS && isTransientResponsesError(err)) {
+        await sleepMs(attempt * 1500);
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+}
+
+async function attemptStructured(
+  body: Record<string, unknown>,
+): Promise<StructuredResponse> {
   const res = await fetch(RESPONSES_URL, {
     method: "POST",
     headers: {
@@ -51,7 +71,11 @@ export async function openaiGenerateStructured(
     const errRec = asRecord(raw.error);
     const msg =
       errRec && typeof errRec.message === "string" ? errRec.message : res.statusText;
-    throw new Error(`OpenAI Responses ${res.status}: ${msg}`);
+    const e = new Error(`OpenAI Responses ${res.status}: ${msg}`) as Error & {
+      status?: number;
+    };
+    e.status = res.status;
+    throw e;
   }
 
   const text = extractOutputText(raw);
@@ -64,6 +88,19 @@ export async function openaiGenerateStructured(
     throw new Error("OpenAI Responses: output_text was not valid JSON");
   }
   return { data, raw };
+}
+
+function sleepMs(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/** 5xx, 429, and network/timeout errors are worth retrying; 4xx are not. */
+function isTransientResponsesError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  if (err.name === "TimeoutError" || err.name === "AbortError") return true;
+  const status = (err as { status?: number }).status;
+  if (typeof status === "number") return status >= 500 || status === 429;
+  return err.name === "TypeError" || /fetch failed|network/i.test(err.message);
 }
 
 function asRecord(v: unknown): Record<string, unknown> | null {

@@ -14,8 +14,9 @@ export interface ModelConfig {
    * (the expensive flagship, ~5×). Never shorten these strings.
    */
   model: string;
-  /** Responses API reasoning effort; keep low/minimal for short structured work. */
-  reasoningEffort?: "minimal" | "low" | "medium" | "high";
+  /** Responses API reasoning effort. Note: gpt-5.6 models reject "minimal"; the
+   * cheapest supported value is "none". */
+  reasoningEffort?: "none" | "low" | "medium" | "high" | "xhigh" | "max";
   temperature?: number;
   maxOutputTokens?: number;
 }
@@ -39,6 +40,6 @@ export const registry: Record<LaurelRole, ModelConfig> = {
   extraction: {
     provider: "openai",
     model: "gpt-5.6-luna",
-    reasoningEffort: "minimal",
+    reasoningEffort: "low",
   },
 };
