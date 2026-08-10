@@ -1,6 +1,7 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { NextResponse } from "next/server";
 
+import { sendScanReadyEmail } from "@/lib/email/scan-ready";
 import {
   claimScan,
   generatePrompts,
@@ -67,12 +68,19 @@ export async function POST(request: Request) {
   // them; per-prompt failures are recorded on their scan rows, and a run where
   // nothing lands leaves first_scan_completed_at null so the 15-min lock lets it
   // retry later.
-  ctx.waitUntil(runScanJob(brand));
+  // Pass the triggering user's own email into the job — the scan-ready email
+  // goes to whoever started this scan, never to the brand's other members (a
+  // brand can be added by many people and we don't verify ownership).
+  ctx.waitUntil(runScanJob(brand, user.email ?? null));
   return NextResponse.json({ ok: true, status: "started" });
 }
 
-/** The detached scan job: generate prompts if none exist yet, then run the scan. */
-async function runScanJob(brand: Brand): Promise<void> {
+/**
+ * The detached scan job: generate prompts if none exist yet, then run the scan.
+ * When it finishes with results, email the person who triggered it — and only
+ * them (see the note at the call site).
+ */
+async function runScanJob(brand: Brand, triggerEmail: string | null): Promise<void> {
   try {
     const existing = (await listPrompts(brand.id)).filter((p) => p.active);
     if (existing.length === 0) {
@@ -86,7 +94,12 @@ async function runScanJob(brand: Brand): Promise<void> {
       );
       if (generated.length > 0) await insertPrompts(brand.id, generated);
     }
-    await runScan(brand.id);
+    const result = await runScan(brand.id);
+    // Notify only once the scan actually landed results (scanned > 0) — the
+    // safety net for a user who closed the tab before it finished.
+    if (!result.skipped && result.scanned > 0 && triggerEmail) {
+      await sendScanReadyEmail(triggerEmail, brand.name?.trim() || brand.domain);
+    }
   } catch (err) {
     console.error("scan/run: job failed", brand.id, err);
   }
