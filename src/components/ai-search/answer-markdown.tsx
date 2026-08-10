@@ -47,11 +47,13 @@ function highlightPlain(
 
 // Bold-italic / bold / italic / inline code / link — matched in that order. The
 // emphasis markers require a non-space just inside them (`*word*`, not `2 * 3`),
-// so stray/math asterisks don't turn into unintended italics.
+// so stray/math asterisks don't turn into unintended italics. The `(.*?\S)`
+// body enforces the trailing non-space with a lookAHEAD-only pattern — no
+// lookbehind, which older in-app browser engines (iOS < 16.4) can't parse.
 const INLINE =
-  /(\*\*\*(?=\S)(.+?)(?<=\S)\*\*\*|\*\*(?=\S)(.+?)(?<=\S)\*\*|\*(?=\S)(.+?)(?<=\S)\*|`(.+?)`|\[(.+?)\]\((https?:\/\/[^\s)]+)\))/g;
+  /(\*\*\*(?=\S)(.*?\S)\*\*\*|\*\*(?=\S)(.*?\S)\*\*|\*(?=\S)(.*?\S)\*|`(.+?)`|\[(.+?)\]\((https?:\/\/[^\s)]+)\))/g;
 
-/** Inline Markdown → nodes, with the brand mention highlighted in plain runs. */
+/** Inline Markdown → nodes, with the brand mention highlighted in plain, bold and italic runs. */
 function renderInline(
   text: string,
   highlight: string | undefined,
