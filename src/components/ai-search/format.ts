@@ -90,7 +90,12 @@ export function toCitationRank(m: BrandMetrics) {
       })),
     }),
   );
-  return { value: m.citationRankValue ? `#${m.citationRankValue}` : DASH, delta: DASH, rows };
+  // Unranked = the brand's own domain isn't cited anywhere in the run.
+  return {
+    value: m.citationRankValue ? `#${m.citationRankValue}` : "Not ranked",
+    delta: DASH,
+    rows,
+  };
 }
 
 export function toGroups(m: BrandMetrics): Group[] {

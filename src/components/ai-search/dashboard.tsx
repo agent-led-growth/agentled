@@ -7,6 +7,7 @@ import { capture, identifyUser } from "@/lib/analytics";
 import type { BrandMetrics } from "@/lib/laurel/metrics";
 import { createClient } from "@/lib/supabase/client";
 
+import { AnswerMarkdown } from "./answer-markdown";
 import { Mark, Wordmark } from "./brand";
 import {
   BRAND,
@@ -163,17 +164,13 @@ export function Dashboard() {
               ) : (
                 <>
                   {tab === "overview" && (
-                    <Overview
-                      data={data}
-                      brand={currentBrand}
-                      platform={platform}
-                      onUpgrade={() => setPlatform("claude")}
-                    />
+                    <Overview data={data} brand={currentBrand} platform={platform} />
                   )}
                   {tab === "prompts" && (
                     <Prompts
                       data={data}
                       platform={platform}
+                      brandId={currentBrandId}
                       onUpgrade={() => setPlatform("claude")}
                     />
                   )}
@@ -509,7 +506,7 @@ function FilterBar({
   platform: Platform;
   setPlatform: (p: Platform) => void;
 }) {
-  // Date range rides on the analytics tabs; frequency (pro-only, always Daily)
+  // Date range rides on the analytics tabs; the frequency lock (pro-only)
   // only belongs on Overview. The platform selector is global — it redefines
   // what every headline number means, so it shows on Settings too.
   const showDates = tab !== "settings";
@@ -534,14 +531,14 @@ function FilterBar({
   );
 }
 
-/** Scan frequency is fixed at Daily and gated to pro members — a plain label. */
+/** Recurring scans are a pro feature — a locked indicator, no cadence shown yet. */
 function FrequencyLock() {
   return (
     <span
       className="inline-flex items-center gap-[7px] whitespace-nowrap text-[13px]"
       style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "7px 12px", color: "var(--mut)" }}
     >
-      Frequency: <span style={{ color: "var(--ink)" }}>Daily</span>
+      Frequency
       <Lock size={11} color="var(--dim)" />
     </span>
   );
@@ -666,6 +663,9 @@ function Chip({ children }: { children: React.ReactNode }) {
 
 // ── Shared bits ──────────────────────────────────────────────────────────────
 function Delta({ v, size = 12 }: { v: string; size?: number }) {
+  // A one-time scan has no history, so there's no % change to show (the format
+  // layer emits "—"). Deltas reappear on their own once recurring scans exist.
+  if (v === "—") return null;
   return (
     <span style={{ fontFamily: MONO, fontSize: size, color: toneVar(tone(v)) }}>
       {v}
@@ -830,41 +830,15 @@ function UpgradePanel({ variant }: { variant: "claude" | "blend" }) {
  * inside an otherwise-live ChatGPT view. Clicking it jumps to the Claude view,
  * i.e. the full upgrade panel.
  */
-function ClaudeLockRow({ text, onUpgrade }: { text: string; onUpgrade: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onUpgrade}
-      className="flex w-full items-center gap-[12px] py-[10px] text-left"
-    >
-      <span style={{ fontFamily: MONO, fontSize: 11, color: "var(--dim)", width: 14 }} aria-hidden="true">
-        <Lock size={12} color="var(--dim)" />
-      </span>
-      <span className="flex flex-1 items-center gap-[8px] text-[14px]" style={{ color: "var(--dim)" }}>
-        <PlatformLogo name="Claude" size={15} />
-        {text}
-      </span>
-      <span
-        className="inline-flex items-center gap-[6px] whitespace-nowrap"
-        style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: "0.04em", color: "var(--ink)" }}
-      >
-        Unlock →
-      </span>
-    </button>
-  );
-}
-
 // ── Overview ─────────────────────────────────────────────────────────────────
 function Overview({
   data,
   brand,
   platform,
-  onUpgrade,
 }: {
   data: DashboardData;
   brand: BrandLite | null;
   platform: Platform;
-  onUpgrade: () => void;
 }) {
   // The blended `all` view and the Claude view both need paid Claude data.
   if (isLocked(platform)) {
@@ -923,7 +897,7 @@ function Overview({
                       <span
                         style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, background: "var(--grn)", color: "#14170f", padding: "3px 7px" }}
                       >
-                        You
+                        Monitored
                       </span>
                     )}
                   </span>
@@ -933,13 +907,12 @@ function Overview({
                   </span>
                 </div>
               ))}
-              <ClaudeLockRow text="Claude ranks these competitors differently" onUpgrade={onUpgrade} />
             </div>
           </div>
         </Card>
       </section>
 
-      <CitationSection data={data} brand={brand} onUpgrade={onUpgrade} />
+      <CitationSection data={data} brand={brand} />
     </div>
   );
 }
@@ -1003,11 +976,9 @@ function Chart({ v }: { v: ChartInput }) {
 function CitationSection({
   data,
   brand,
-  onUpgrade,
 }: {
   data: DashboardData;
   brand: BrandLite | null;
-  onUpgrade: () => void;
 }) {
   const [open, setOpen] = useState<number>(-1);
   const brandUrl = brand?.domain || BRAND.url;
@@ -1037,7 +1008,14 @@ function CitationSection({
           <div className="flex flex-col gap-[16px] p-[22px_24px] md:border-l" style={{ borderColor: "var(--line)" }}>
             <MonoLabel>Citation rank</MonoLabel>
             <div className="flex items-baseline gap-[12px]">
-              <span style={{ fontSize: 40, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.04em" }}>
+              <span
+                style={{
+                  fontSize: data.citationRank.value.startsWith("#") ? 40 : 22,
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  letterSpacing: "-0.04em",
+                }}
+              >
                 {data.citationRank.value}
               </span>
               <Delta v={data.citationRank.delta} size={14} />
@@ -1058,7 +1036,6 @@ function CitationSection({
                   onToggle={() => setOpen(open === d.i ? -1 : d.i)}
                 />
               ))}
-              <ClaudeLockRow text="Claude cites a different mix of sources" onUpgrade={onUpgrade} />
             </div>
           </div>
         </Card>
@@ -1089,7 +1066,7 @@ function CitationRow({
             <span
               style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, background: "var(--grn)", color: "#14170f", padding: "3px 7px", flex: "none" }}
             >
-              Owned
+              Monitored
             </span>
           )}
         </span>
@@ -1150,10 +1127,12 @@ function resolvePrompt(
 function Prompts({
   data,
   platform,
+  brandId,
   onUpgrade,
 }: {
   data: DashboardData;
   platform: Platform;
+  brandId: string | null;
   onUpgrade: () => void;
 }) {
   const router = useRouter();
@@ -1171,7 +1150,12 @@ function Prompts({
 
   // The selected prompt lives in the URL (`&prompt=gi:pi`) so the Prompts tab
   // stays highlighted and the detail view is shareable / survives reload.
-  const base = `/ai-search/dashboard?tab=prompts&platform=${platform}`;
+  // Keep the current brand in the URL — otherwise navigating to a prompt drops
+  // ?brand= and the dashboard falls back to the newest brand (showing the wrong
+  // brand's prompt). See the brand resolution in Dashboard().
+  const base = `/ai-search/dashboard?tab=prompts&platform=${platform}${
+    brandId ? `&brand=${brandId}` : ""
+  }`;
   const selected = resolvePrompt(params.get("prompt"), data.groups);
   const openPrompt = (id: string) =>
     router.replace(`${base}&prompt=${id}`, { scroll: false });
@@ -1372,9 +1356,9 @@ function PromptDetailView({
       <Card className="grid gap-[30px] p-[22px_24px_26px] md:grid-cols-[1fr_280px]">
         <div className="flex flex-col gap-[10px]">
           <MonoLabel>Answer · {p.platform}</MonoLabel>
-          <p className="max-w-[80ch] text-[14.5px]" style={{ lineHeight: 1.65, color: "var(--ink)" }}>
-            <HighlightedAnswer text={p.answer} highlight={p.highlight} />
-          </p>
+          <div className="max-w-[80ch] text-[14.5px]" style={{ lineHeight: 1.65, color: "var(--ink)" }}>
+            <AnswerMarkdown text={p.answer} highlight={p.highlight} />
+          </div>
           {!p.highlight && (
             <span style={{ fontFamily: MONO, fontSize: 11.5, color: "var(--dim)" }}>
               {BRAND.name} was not named in this answer.
@@ -1393,23 +1377,6 @@ function PromptDetailView({
         </div>
       </Card>
     </div>
-  );
-}
-
-/** Renders the answer text with the monitored brand's mention highlighted. */
-function HighlightedAnswer({ text, highlight }: { text: string; highlight?: string }) {
-  const idx = highlight ? text.indexOf(highlight) : -1;
-  if (!highlight || idx === -1) return <>{text}</>;
-  return (
-    <>
-      {text.slice(0, idx)}
-      <mark
-        style={{ background: "var(--grn)", color: "#14170f", padding: "1px 4px", fontWeight: 600 }}
-      >
-        {highlight}
-      </mark>
-      {text.slice(idx + highlight.length)}
-    </>
   );
 }
 
@@ -1519,10 +1486,7 @@ function Settings({
             ))}
             <div className="flex items-center justify-between gap-[12px] py-[12px]">
               <span className="text-[14px]">Scan cadence</span>
-              <span className="flex items-center gap-[10px]">
-                <span className="text-[14px]" style={{ color: "var(--mut)" }}>Daily</span>
-                <UpgradeButton onUpgrade={onUpgrade} />
-              </span>
+              <UpgradeButton onUpgrade={onUpgrade} />
             </div>
           </div>
         </Card>
