@@ -12,16 +12,19 @@ const DASHBOARD_URL = "https://agentled.co/ai-search";
  * a link back to the dashboard.
  */
 export async function sendScanReadyEmail(to: string, brandName: string): Promise<void> {
+  // Collapse any whitespace/newlines so a stray line break in the brand name
+  // can't malform the subject line or body.
+  const name = brandName.replace(/\s+/g, " ").trim() || "your brand";
   try {
     const { error } = await resend().emails.send({
       from: FROM,
       to,
-      subject: `Your AI Search scan for ${brandName} is ready`,
+      subject: `Your AI Search scan for ${name} is ready`,
       text:
         `Your scan is ready.\n\n` +
-        `We've finished checking how ${brandName} shows up in AI-generated answers. ` +
+        `We've finished checking how ${name} shows up in AI-generated answers. ` +
         `See your results:\n${DASHBOARD_URL}`,
-      html: scanReadyHtml(brandName),
+      html: scanReadyHtml(name),
     });
     if (error) console.error("sendScanReadyEmail: send failed", to, error);
   } catch (err) {
