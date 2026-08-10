@@ -237,7 +237,7 @@ function ScanNotice({
     loading: { title: "Loading…", body: "Fetching your latest scan." },
     scanning: {
       title: "Running your scan…",
-      body: `We're asking ChatGPT the questions your buyers ask about ${name}. This takes a moment.`,
+      body: `This can take several minutes. We're asking ChatGPT the questions your buyers ask about ${name}.`,
     },
     empty: {
       title: "No results yet",
