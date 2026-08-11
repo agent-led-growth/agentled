@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { capture, identifyUser } from "@/lib/analytics";
 import type { BrandMetrics } from "@/lib/laurel/metrics";
@@ -26,8 +26,40 @@ import { AI_MODELS, MODEL_COLOR } from "./model-marks";
 import { clearOnboarding, readOnboarding } from "./onboarding-store";
 import { MONO, SANS, appTokens, toneVar } from "./tokens";
 
-type Tab = "overview" | "prompts" | "settings";
-const TABS: Tab[] = ["overview", "prompts", "settings"];
+type Tab = "overview" | "settings";
+const TABS: Tab[] = ["overview", "settings"];
+// Sections within the combined main view — the left-nav jump targets.
+type Section = "visibility" | "citations" | "prompts";
+const SECTIONS: Section[] = ["visibility", "citations", "prompts"];
+
+/** Single source of truth for dashboard URLs (encoding handled by URLSearchParams). */
+function dashHref(opts: {
+  tab?: Tab;
+  platform: Platform;
+  brandId: string | null;
+  prompt?: string;
+  citation?: string;
+}): string {
+  const p = new URLSearchParams();
+  p.set("tab", opts.tab ?? "overview");
+  p.set("platform", opts.platform);
+  if (opts.brandId) p.set("brand", opts.brandId);
+  if (opts.prompt) p.set("prompt", opts.prompt);
+  if (opts.citation) p.set("citation", opts.citation);
+  return `/ai-search/dashboard?${p.toString()}`;
+}
+
+/** Scroll to a section. Visibility goes to the very top so the header bars stay
+ *  visible; other sections align to the top. Works desktop (scroll container)
+ *  and mobile (window). */
+function scrollToSection(section: Section, container: HTMLElement | null) {
+  if (section === "visibility") {
+    container?.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } else {
+    document.getElementById(section)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
 const PLATFORM_IDS = PLATFORM_OPTIONS.map((p) => p.id);
 
 /** A brand on the current account, as the header switcher needs it. */
@@ -54,6 +86,12 @@ export function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   // Bumped by the "try again" action on a failed scan to re-run the effect.
   const [retryNonce, setRetryNonce] = useState(0);
+  // Left nav is a jump-nav over the combined view: the section in view
+  // (scroll-spy) and a one-shot scroll target after navigating back to it.
+  const [activeSection, setActiveSection] = useState<Section>("visibility");
+  const [pendingScroll, setPendingScroll] = useState<Section | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null); // the desktop scroll container
+  const jumpingRef = useRef(false); // suppress scroll-spy during a programmatic jump
 
   useEffect(() => {
     createClient()
@@ -138,11 +176,12 @@ export function Dashboard() {
   // Both tab and platform live in the URL, so a reload keeps the view and a
   // link is shareable. Each setter preserves the other's value.
   const go = (next: { tab?: Tab; platform?: Platform; brand?: string }) => {
-    const b = next.brand ?? brandId;
     router.replace(
-      `/ai-search/dashboard?tab=${next.tab ?? tab}&platform=${
-        next.platform ?? platform
-      }${b ? `&brand=${b}` : ""}`,
+      dashHref({
+        tab: next.tab ?? tab,
+        platform: next.platform ?? platform,
+        brandId: next.brand ?? brandId,
+      }),
       { scroll: false },
     );
   };
@@ -157,6 +196,69 @@ export function Dashboard() {
     router.replace("/ai-search");
     router.refresh();
   };
+
+  // ── Combined-view jump navigation ─────────────────────────────────────────
+  // The section anchors only exist when the combined view is showing them (not
+  // Settings, a detail page, or the scan notice).
+  const showSections =
+    tab === "overview" &&
+    scanState === "ready" &&
+    !!data &&
+    !params.get("prompt") &&
+    !params.get("citation");
+
+  // Jump to a section; if a detail page or Settings is open, return to the
+  // combined view first and finish the scroll once it renders (pendingScroll).
+  const jumpTo = (section: Section) => {
+    setActiveSection(section);
+    // Suppress scroll-spy while the programmatic scroll animates so the
+    // highlight doesn't flicker through the sections we pass.
+    jumpingRef.current = true;
+    window.setTimeout(() => {
+      jumpingRef.current = false;
+    }, 700);
+    if (showSections) {
+      scrollToSection(section, scrollRef.current);
+    } else {
+      // A detail page or Settings is open — return to a clean combined view
+      // (explicitly, not via go()), then finish the scroll once it paints.
+      setPendingScroll(section);
+      router.replace(dashHref({ platform, brandId }), { scroll: false });
+    }
+  };
+
+  // Scroll-spy: highlight the section nearest the top of the viewport.
+  useEffect(() => {
+    if (gated || !showSections) return;
+    const els = SECTIONS.map((s) => document.getElementById(s)).filter(
+      (e): e is HTMLElement => e != null,
+    );
+    if (els.length === 0) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (jumpingRef.current) return; // ignore while a jump animates
+        const inView = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (inView[0]) setActiveSection(inView[0].target.id as Section);
+      },
+      { rootMargin: "-15% 0px -75% 0px" },
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [gated, showSections]);
+
+  // Finish a jump that had to navigate back to the combined view first. Wait a
+  // frame so the sections have painted, then scroll and clear the target.
+  useEffect(() => {
+    if (!pendingScroll || !showSections) return;
+    const target = pendingScroll;
+    const raf = requestAnimationFrame(() => {
+      scrollToSection(target, scrollRef.current);
+      setPendingScroll(null);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [pendingScroll, showSections]);
 
   return (
     <main
@@ -174,8 +276,13 @@ export function Dashboard() {
       >
         <Header onSignOut={signOut} onNew={goNewBrand} />
         <div className="flex md:min-h-0 md:flex-1">
-          <Sidebar tab={tab} setTab={setTab} />
-          <div className="min-w-0 flex-1 pb-[84px] md:overflow-y-auto md:pb-0">
+          <Sidebar
+            tab={tab}
+            activeSection={activeSection}
+            onJump={jumpTo}
+            onSettings={() => setTab("settings")}
+          />
+          <div ref={scrollRef} className="min-w-0 flex-1 pb-[84px] md:overflow-y-auto md:pb-0">
             <TitleRow current={currentBrand} brands={brands} onSwitch={setBrand} />
             <FilterBar tab={tab} platform={platform} setPlatform={setPlatform} />
             <div className="px-[20px] py-[24px] md:px-[28px]">
@@ -187,29 +294,21 @@ export function Dashboard() {
                 />
               ) : (
                 <>
-                  {tab === "overview" && (
-                    <Overview
-                      data={data}
-                      brand={currentBrand}
-                      platform={platform}
-                      brandId={currentBrandId}
-                    />
-                  )}
-                  {tab === "prompts" && (
-                    <Prompts
-                      data={data}
-                      platform={platform}
-                      brandId={currentBrandId}
-                      brandName={currentBrand?.name?.trim() || currentBrand?.domain || "Your brand"}
-                      onUpgrade={() => setPlatform("claude")}
-                    />
-                  )}
-                  {tab === "settings" && (
+                  {tab === "settings" ? (
                     <Settings
                       brand={currentBrand}
                       data={data}
                       platform={platform}
                       onUpgrade={() => setPlatform("claude")}
+                    />
+                  ) : (
+                    <MainView
+                      data={data}
+                      brand={currentBrand}
+                      platform={platform}
+                      brandId={currentBrandId}
+                      onUpgrade={() => setPlatform("claude")}
+                      onBackToSection={jumpTo}
                     />
                   )}
                 </>
@@ -217,7 +316,12 @@ export function Dashboard() {
             </div>
           </div>
         </div>
-        <TabBar tab={tab} setTab={setTab} />
+        <TabBar
+          tab={tab}
+          activeSection={activeSection}
+          onJump={jumpTo}
+          onSettings={() => setTab("settings")}
+        />
       </div>
 
       {gated && checked && <Gate onEnter={() => setGated(false)} />}
@@ -365,7 +469,18 @@ function Header({ onSignOut, onNew }: { onSignOut: () => void; onNew: () => void
   );
 }
 
-function Sidebar({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
+function Sidebar({
+  tab,
+  activeSection,
+  onJump,
+  onSettings,
+}: {
+  tab: Tab;
+  activeSection: Section;
+  onJump: (s: Section) => void;
+  onSettings: () => void;
+}) {
+  const secActive = (s: Section) => tab === "overview" && activeSection === s;
   return (
     <nav
       className="hidden w-[165px] shrink-0 flex-col p-[14px_12px] md:flex"
@@ -374,15 +489,18 @@ function Sidebar({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
         borderRight: "1px solid var(--line)",
       }}
     >
-      <NavItem active={tab === "overview"} onClick={() => setTab("overview")}>
-        Overview
+      <NavItem active={secActive("visibility")} onClick={() => onJump("visibility")}>
+        Visibility
       </NavItem>
-      <NavItem active={tab === "prompts"} onClick={() => setTab("prompts")}>
+      <NavItem active={secActive("citations")} onClick={() => onJump("citations")}>
+        Citations
+      </NavItem>
+      <NavItem active={secActive("prompts")} onClick={() => onJump("prompts")}>
         Prompts
       </NavItem>
 
       <div className="mt-auto">
-        <NavItem active={tab === "settings"} onClick={() => setTab("settings")}>
+        <NavItem active={tab === "settings"} onClick={onSettings}>
           Settings
         </NavItem>
       </div>
@@ -878,40 +996,67 @@ function UpgradePanel({ variant }: { variant: "claude" | "blend" }) {
  * i.e. the full upgrade panel.
  */
 // ── Overview ─────────────────────────────────────────────────────────────────
-function Overview({
+/**
+ * The combined main view: Visibility, Citations and Prompts stacked in one
+ * scrollable page (the left nav jumps between them). Click-through detail pages
+ * (a prompt's answer, a domain's pages) replace it and return via onBackToSection.
+ */
+function MainView({
   data,
   brand,
   platform,
   brandId,
+  onUpgrade,
+  onBackToSection,
 }: {
   data: DashboardData;
   brand: BrandLite | null;
   platform: Platform;
   brandId: string | null;
+  onUpgrade: () => void;
+  onBackToSection: (s: Section) => void;
 }) {
   const router = useRouter();
   const params = useSearchParams();
+  const [openGroups, setOpenGroups] = useState<number[]>([0]);
+  const toggleGroup = (gi: number) =>
+    setOpenGroups((g) => (g.includes(gi) ? g.filter((x) => x !== gi) : [...g, gi]));
+
   // The blended `all` view and the Claude view both need paid Claude data.
   if (isLocked(platform)) {
     return <UpgradePanel variant={platform === "all" ? "blend" : "claude"} />;
   }
-  // A cited domain opens its own detail view (like a prompt). The selection rides
-  // the URL so it survives reload and keeps the current brand (&brand=).
-  const base = `/ai-search/dashboard?tab=overview&platform=${platform}${
-    brandId ? `&brand=${brandId}` : ""
-  }`;
-  const citation = resolveCitation(params.get("citation"), data.citationRank.rows);
-  if (citation) {
+
+  const settingsHref = dashHref({ tab: "settings", platform, brandId });
+  const brandName = brand?.name?.trim() || brand?.domain || "Your brand";
+
+  // Click-through detail pages (kept in the URL); back returns to the combined
+  // view scrolled to that section.
+  const selectedPrompt = resolvePrompt(params.get("prompt"), data.groups);
+  if (selectedPrompt) {
     return (
-      <CitationDetailView d={citation} onBack={() => router.replace(base, { scroll: false })} />
+      <PromptDetailView
+        p={selectedPrompt.p}
+        groupName={selectedPrompt.groupName}
+        brandName={brandName}
+        onBack={() => onBackToSection("prompts")}
+        onUpgrade={onUpgrade}
+      />
     );
   }
+  const citation = resolveCitation(params.get("citation"), data.citationRank.rows);
+  if (citation) {
+    return <CitationDetailView d={citation} onBack={() => onBackToSection("citations")} />;
+  }
+
+  const openPrompt = (id: string) =>
+    router.replace(dashHref({ platform, brandId, prompt: id }), { scroll: false });
   const openCitation = (domain: string) =>
-    router.replace(`${base}&citation=${encodeURIComponent(domain)}`, { scroll: false });
-  const brandName = brand?.name?.trim() || brand?.domain || BRAND.name;
+    router.replace(dashHref({ platform, brandId, citation: domain }), { scroll: false });
+
   return (
     <div className="flex flex-col gap-[30px]">
-      <section className="flex flex-col gap-[14px]">
+      <section id="visibility" className="flex scroll-mt-[16px] flex-col gap-[14px]">
         <SectionHead
           title="Visibility score"
           sub={`How often ${brandName} appears in AI-generated answers`}
@@ -977,6 +1122,42 @@ function Overview({
       </section>
 
       <CitationSection data={data} brand={brand} onOpen={openCitation} />
+
+      <section id="prompts" className="flex scroll-mt-[16px] flex-col gap-[16px]">
+        <div className="flex flex-wrap items-center justify-between gap-[12px]">
+          <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.02em" }}>Monitored prompts</h2>
+          <button
+            type="button"
+            onClick={() => router.replace(settingsHref, { scroll: false })}
+            className="inline-flex items-center whitespace-nowrap text-[13px]"
+            style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "7px 12px" }}
+          >
+            Edit your prompts →
+          </button>
+        </div>
+        <Card>
+          <div
+            className={`hidden px-[24px] py-[12px] md:grid ${COLS}`}
+            style={{ background: "var(--panel2)", borderBottom: "1px solid var(--line)", fontFamily: SANS, fontSize: 11, color: "var(--dim)" }}
+          >
+            <span>Topic</span>
+            <span>Visibility rank</span>
+            <span>Visibility score</span>
+            <span>Average position</span>
+            <span>Citation share</span>
+          </div>
+          {data.groups.map((g, gi) => (
+            <GroupBlock
+              key={g.name}
+              g={g}
+              gi={gi}
+              openGroup={openGroups.includes(gi)}
+              toggleGroup={() => toggleGroup(gi)}
+              onSelectPrompt={openPrompt}
+            />
+          ))}
+        </Card>
+      </section>
     </div>
   );
 }
@@ -1048,7 +1229,7 @@ function CitationSection({
 }) {
   const brandUrl = brand?.domain || BRAND.url;
   return (
-    <section className="flex flex-col gap-[14px]">
+    <section id="citations" className="flex scroll-mt-[16px] flex-col gap-[14px]">
       <SectionHead
         title="Citation share"
         sub={`How often ${brandUrl} is cited by AI-generated answers`}
@@ -1229,100 +1410,6 @@ function resolvePrompt(
   const p = g?.items[pi];
   if (!g || !p) return null;
   return { p, groupName: g.name };
-}
-
-function Prompts({
-  data,
-  platform,
-  brandId,
-  brandName,
-  onUpgrade,
-}: {
-  data: DashboardData;
-  platform: Platform;
-  brandId: string | null;
-  brandName: string;
-  onUpgrade: () => void;
-}) {
-  const router = useRouter();
-  const params = useSearchParams();
-  const [openGroups, setOpenGroups] = useState<number[]>([0]);
-
-  const toggleGroup = (gi: number) =>
-    setOpenGroups((g) => (g.includes(gi) ? g.filter((x) => x !== gi) : [...g, gi]));
-
-  // Claude / blended views are gated; the per-platform side-by-side lives in the
-  // (unlocked) ChatGPT view, where a prompt opens its own detail page.
-  if (isLocked(platform)) {
-    return <UpgradePanel variant={platform === "all" ? "blend" : "claude"} />;
-  }
-
-  // The selected prompt lives in the URL (`&prompt=gi:pi`) so the Prompts tab
-  // stays highlighted and the detail view is shareable / survives reload.
-  // Keep the current brand in the URL — otherwise navigating to a prompt drops
-  // ?brand= and the dashboard falls back to the newest brand (showing the wrong
-  // brand's prompt). See the brand resolution in Dashboard().
-  const base = `/ai-search/dashboard?tab=prompts&platform=${platform}${
-    brandId ? `&brand=${brandId}` : ""
-  }`;
-  const selected = resolvePrompt(params.get("prompt"), data.groups);
-  const openPrompt = (id: string) =>
-    router.replace(`${base}&prompt=${id}`, { scroll: false });
-  const backToList = () => router.replace(base, { scroll: false });
-
-  if (selected) {
-    return (
-      <PromptDetailView
-        p={selected.p}
-        groupName={selected.groupName}
-        brandName={brandName}
-        onBack={backToList}
-        onUpgrade={onUpgrade}
-      />
-    );
-  }
-
-  const settingsHref = `/ai-search/dashboard?tab=settings&platform=${platform}${
-    brandId ? `&brand=${brandId}` : ""
-  }`;
-  return (
-    <div className="flex flex-col gap-[16px]">
-      <div className="flex flex-wrap items-center justify-between gap-[12px]">
-        <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.02em" }}>Monitored prompts</h2>
-        <button
-          type="button"
-          onClick={() => router.replace(settingsHref, { scroll: false })}
-          className="inline-flex items-center whitespace-nowrap text-[13px]"
-          style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "7px 12px" }}
-        >
-          Edit your prompts →
-        </button>
-      </div>
-      <Card>
-        <div
-          className={`hidden px-[24px] py-[12px] md:grid ${COLS}`}
-          style={{ background: "var(--panel2)", borderBottom: "1px solid var(--line)", fontFamily: SANS, fontSize: 11, color: "var(--dim)" }}
-        >
-          <span>Topic</span>
-          <span>Visibility rank</span>
-          <span>Visibility score</span>
-          <span>Average position</span>
-          <span>Citation share</span>
-        </div>
-
-        {data.groups.map((g, gi) => (
-          <GroupBlock
-            key={g.name}
-            g={g}
-            gi={gi}
-            openGroup={openGroups.includes(gi)}
-            toggleGroup={() => toggleGroup(gi)}
-            onSelectPrompt={openPrompt}
-          />
-        ))}
-      </Card>
-    </div>
-  );
 }
 
 function GroupBlock({
@@ -1687,30 +1774,47 @@ function StatusChip({ children }: { children: React.ReactNode }) {
 }
 
 // ── Mobile tab bar ───────────────────────────────────────────────────────────
-function TabBar({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
-  const item = (t: Tab, label: string, icon: React.ReactNode) => {
-    const active = tab === t;
-    return (
-      <button
-        type="button"
-        onClick={() => setTab(t)}
-        className="flex flex-1 flex-col items-center gap-[6px] pt-[12px] pb-[16px]"
-        style={{ color: active ? "var(--ink)" : "var(--mut)" }}
-      >
-        <span style={{ width: 18, height: 18, display: "grid", placeItems: "center" }}>{icon}</span>
-        <span className="text-[12px]">{label}</span>
-      </button>
-    );
-  };
+function TabBar({
+  tab,
+  activeSection,
+  onJump,
+  onSettings,
+}: {
+  tab: Tab;
+  activeSection: Section;
+  onJump: (s: Section) => void;
+  onSettings: () => void;
+}) {
+  const item = (label: string, icon: React.ReactNode, active: boolean, onClick: () => void) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex flex-1 flex-col items-center gap-[6px] pt-[12px] pb-[16px]"
+      style={{ color: active ? "var(--ink)" : "var(--mut)" }}
+    >
+      <span style={{ width: 18, height: 18, display: "grid", placeItems: "center" }}>{icon}</span>
+      <span className="text-[12px]">{label}</span>
+    </button>
+  );
+  const secActive = (s: Section) => tab === "overview" && activeSection === s;
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-20 flex md:hidden"
       style={{ background: "var(--panel)", borderTop: "1px solid var(--line)" }}
     >
-      {item("overview", "Overview", <OverviewIcon />)}
-      {item("prompts", "Prompts", <PromptsIcon />)}
-      {item("settings", "Settings", <SettingsIcon />)}
+      {item("Visibility", <OverviewIcon />, secActive("visibility"), () => onJump("visibility"))}
+      {item("Citations", <CitationsIcon />, secActive("citations"), () => onJump("citations"))}
+      {item("Prompts", <PromptsIcon />, secActive("prompts"), () => onJump("prompts"))}
+      {item("Settings", <SettingsIcon />, tab === "settings", onSettings)}
     </nav>
+  );
+}
+
+function CitationsIcon() {
+  return (
+    <span
+      style={{ width: 15, height: 15, borderRadius: "9999px", border: "2px solid currentColor", display: "block" }}
+    />
   );
 }
 
