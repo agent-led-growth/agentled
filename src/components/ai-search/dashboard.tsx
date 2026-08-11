@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { capture, identifyUser } from "@/lib/analytics";
 import type { BrandMetrics } from "@/lib/laurel/metrics";
@@ -31,6 +31,35 @@ const TABS: Tab[] = ["overview", "settings"];
 // Sections within the combined main view — the left-nav jump targets.
 type Section = "visibility" | "citations" | "prompts";
 const SECTIONS: Section[] = ["visibility", "citations", "prompts"];
+
+/** Single source of truth for dashboard URLs (encoding handled by URLSearchParams). */
+function dashHref(opts: {
+  tab?: Tab;
+  platform: Platform;
+  brandId: string | null;
+  prompt?: string;
+  citation?: string;
+}): string {
+  const p = new URLSearchParams();
+  p.set("tab", opts.tab ?? "overview");
+  p.set("platform", opts.platform);
+  if (opts.brandId) p.set("brand", opts.brandId);
+  if (opts.prompt) p.set("prompt", opts.prompt);
+  if (opts.citation) p.set("citation", opts.citation);
+  return `/ai-search/dashboard?${p.toString()}`;
+}
+
+/** Scroll to a section. Visibility goes to the very top so the header bars stay
+ *  visible; other sections align to the top. Works desktop (scroll container)
+ *  and mobile (window). */
+function scrollToSection(section: Section, container: HTMLElement | null) {
+  if (section === "visibility") {
+    container?.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } else {
+    document.getElementById(section)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
 const PLATFORM_IDS = PLATFORM_OPTIONS.map((p) => p.id);
 
 /** A brand on the current account, as the header switcher needs it. */
@@ -61,6 +90,8 @@ export function Dashboard() {
   // (scroll-spy) and a one-shot scroll target after navigating back to it.
   const [activeSection, setActiveSection] = useState<Section>("visibility");
   const [pendingScroll, setPendingScroll] = useState<Section | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null); // the desktop scroll container
+  const jumpingRef = useRef(false); // suppress scroll-spy during a programmatic jump
 
   useEffect(() => {
     createClient()
@@ -145,11 +176,12 @@ export function Dashboard() {
   // Both tab and platform live in the URL, so a reload keeps the view and a
   // link is shareable. Each setter preserves the other's value.
   const go = (next: { tab?: Tab; platform?: Platform; brand?: string }) => {
-    const b = next.brand ?? brandId;
     router.replace(
-      `/ai-search/dashboard?tab=${next.tab ?? tab}&platform=${
-        next.platform ?? platform
-      }${b ? `&brand=${b}` : ""}`,
+      dashHref({
+        tab: next.tab ?? tab,
+        platform: next.platform ?? platform,
+        brandId: next.brand ?? brandId,
+      }),
       { scroll: false },
     );
   };
@@ -179,12 +211,19 @@ export function Dashboard() {
   // combined view first and finish the scroll once it renders (pendingScroll).
   const jumpTo = (section: Section) => {
     setActiveSection(section);
-    const el = document.getElementById(section);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Suppress scroll-spy while the programmatic scroll animates so the
+    // highlight doesn't flicker through the sections we pass.
+    jumpingRef.current = true;
+    window.setTimeout(() => {
+      jumpingRef.current = false;
+    }, 700);
+    if (showSections) {
+      scrollToSection(section, scrollRef.current);
     } else {
+      // A detail page or Settings is open — return to a clean combined view
+      // (explicitly, not via go()), then finish the scroll once it paints.
       setPendingScroll(section);
-      go({ tab: "overview" }); // drops ?prompt/?citation → clean combined view
+      router.replace(dashHref({ platform, brandId }), { scroll: false });
     }
   };
 
@@ -197,6 +236,7 @@ export function Dashboard() {
     if (els.length === 0) return;
     const io = new IntersectionObserver(
       (entries) => {
+        if (jumpingRef.current) return; // ignore while a jump animates
         const inView = entries
           .filter((e) => e.isIntersecting)
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
@@ -212,10 +252,9 @@ export function Dashboard() {
   // frame so the sections have painted, then scroll and clear the target.
   useEffect(() => {
     if (!pendingScroll || !showSections) return;
-    const el = document.getElementById(pendingScroll);
-    if (!el) return;
+    const target = pendingScroll;
     const raf = requestAnimationFrame(() => {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      scrollToSection(target, scrollRef.current);
       setPendingScroll(null);
     });
     return () => cancelAnimationFrame(raf);
@@ -243,7 +282,7 @@ export function Dashboard() {
             onJump={jumpTo}
             onSettings={() => setTab("settings")}
           />
-          <div className="min-w-0 flex-1 pb-[84px] md:overflow-y-auto md:pb-0">
+          <div ref={scrollRef} className="min-w-0 flex-1 pb-[84px] md:overflow-y-auto md:pb-0">
             <TitleRow current={currentBrand} brands={brands} onSwitch={setBrand} />
             <FilterBar tab={tab} platform={platform} setPlatform={setPlatform} />
             <div className="px-[20px] py-[24px] md:px-[28px]">
@@ -988,12 +1027,7 @@ function MainView({
     return <UpgradePanel variant={platform === "all" ? "blend" : "claude"} />;
   }
 
-  const base = `/ai-search/dashboard?tab=overview&platform=${platform}${
-    brandId ? `&brand=${brandId}` : ""
-  }`;
-  const settingsHref = `/ai-search/dashboard?tab=settings&platform=${platform}${
-    brandId ? `&brand=${brandId}` : ""
-  }`;
+  const settingsHref = dashHref({ tab: "settings", platform, brandId });
   const brandName = brand?.name?.trim() || brand?.domain || "Your brand";
 
   // Click-through detail pages (kept in the URL); back returns to the combined
@@ -1015,9 +1049,10 @@ function MainView({
     return <CitationDetailView d={citation} onBack={() => onBackToSection("citations")} />;
   }
 
-  const openPrompt = (id: string) => router.replace(`${base}&prompt=${id}`, { scroll: false });
+  const openPrompt = (id: string) =>
+    router.replace(dashHref({ platform, brandId, prompt: id }), { scroll: false });
   const openCitation = (domain: string) =>
-    router.replace(`${base}&citation=${encodeURIComponent(domain)}`, { scroll: false });
+    router.replace(dashHref({ platform, brandId, citation: domain }), { scroll: false });
 
   return (
     <div className="flex flex-col gap-[30px]">
