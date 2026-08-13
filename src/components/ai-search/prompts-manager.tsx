@@ -13,16 +13,16 @@ const MAX_LEN = 300;
 
 /**
  * Add / edit / remove the monitored questions for a brand, with a live account-
- * wide "used / limit" counter. Edits go straight to the prompts table; remove is
- * a soft deactivate (history kept). At the plan limit, Add is disabled and an
- * upgrade link points at pricing. ChatGPT-only — one question is one prompt.
+ * wide "used / limit" counter. Remove is a soft deactivate (history kept). At the
+ * plan limit, Add is disabled and an upgrade link points at pricing. ChatGPT-only
+ * — one question is one prompt.
  */
 export function PromptsManager({ brandId }: { brandId: string | null }) {
   const [prompts, setPrompts] = useState<PromptItem[]>([]);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -48,8 +48,8 @@ export function PromptsManager({ brandId }: { brandId: string | null }) {
 
   const add = useCallback(async () => {
     const text = draft.trim();
-    if (!text || !brandId || busy || atLimit) return;
-    setBusy(true);
+    if (!text || !brandId || adding || atLimit) return;
+    setAdding(true);
     setError(null);
     try {
       const r = await fetch(API, {
@@ -69,38 +69,47 @@ export function PromptsManager({ brandId }: { brandId: string | null }) {
     } catch {
       setError("Could not add prompt.");
     } finally {
-      setBusy(false);
+      setAdding(false);
     }
-  }, [draft, brandId, busy, atLimit]);
+  }, [draft, brandId, adding, atLimit]);
 
+  // Remove = soft deactivate. Only mutates the list on success; on failure the
+  // prompt stays put and we surface an error (the row unfreezes itself).
   const remove = useCallback(async (id: string) => {
-    setBusy(true);
     try {
       const r = await fetch(API, {
         method: "DELETE",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id }),
       });
-      const d = await r.json();
-      if (r.ok) {
-        setPrompts((ps) => ps.filter((p) => p.id !== id));
-        if (d.usage) setUsage(d.usage as Usage);
-        setError(null);
-      }
-    } finally {
-      setBusy(false);
+      const d = (await r.json().catch(() => ({}))) as { usage?: Usage };
+      if (!r.ok) throw new Error();
+      setPrompts((ps) => ps.filter((p) => p.id !== id));
+      if (d.usage) setUsage(d.usage);
+      setError(null);
+    } catch {
+      setError("Could not remove prompt.");
     }
   }, []);
 
+  // Save on success only: the row's ✓ clears because item.text now matches its
+  // input. On failure nothing is committed, the ✓ stays, and we show an error —
+  // so an edit can never look saved when it isn't.
   const saveEdit = useCallback(async (id: string, text: string) => {
     const clean = text.trim();
     if (!clean) return;
-    setPrompts((ps) => ps.map((p) => (p.id === id ? { ...p, text: clean } : p)));
-    await fetch(API, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id, text: clean }),
-    }).catch(() => {});
+    try {
+      const r = await fetch(API, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id, text: clean }),
+      });
+      if (!r.ok) throw new Error();
+      setPrompts((ps) => ps.map((p) => (p.id === id ? { ...p, text: clean } : p)));
+      setError(null);
+    } catch {
+      setError("Could not save your edit.");
+    }
   }, []);
 
   if (!brandId) return null;
@@ -130,7 +139,7 @@ export function PromptsManager({ brandId }: { brandId: string | null }) {
             if (e.key === "Enter") add();
           }}
           maxLength={MAX_LEN}
-          disabled={atLimit || busy}
+          disabled={atLimit || adding}
           placeholder={atLimit ? "Plan prompt limit reached" : "Add a question buyers ask…"}
           className="flex-1 text-[14px]"
           style={{ background: "var(--panel2)", border: "1px solid var(--line)", padding: "9px 11px", color: "var(--ink)" }}
@@ -138,13 +147,13 @@ export function PromptsManager({ brandId }: { brandId: string | null }) {
         <button
           type="button"
           onClick={add}
-          disabled={!draft.trim() || atLimit || busy}
+          disabled={!draft.trim() || atLimit || adding}
           className="whitespace-nowrap text-[13px]"
           style={{
             background: "var(--ink)",
             color: "var(--panel)",
             padding: "9px 16px",
-            opacity: !draft.trim() || atLimit || busy ? 0.5 : 1,
+            opacity: !draft.trim() || atLimit || adding ? 0.5 : 1,
           }}
         >
           Add
@@ -159,7 +168,7 @@ export function PromptsManager({ brandId }: { brandId: string | null }) {
 
       <div className="flex flex-col gap-[8px]">
         {prompts.map((p) => (
-          <PromptRow key={p.id} item={p} disabled={busy} onSave={saveEdit} onRemove={remove} />
+          <PromptRow key={p.id} item={p} onSave={saveEdit} onRemove={remove} />
         ))}
         {!loading && prompts.length === 0 && (
           <span className="text-[14px]" style={{ color: "var(--dim)" }}>
@@ -173,21 +182,32 @@ export function PromptsManager({ brandId }: { brandId: string | null }) {
 
 function PromptRow({
   item,
-  disabled,
   onSave,
   onRemove,
 }: {
   item: PromptItem;
-  disabled: boolean;
-  onSave: (id: string, text: string) => void;
-  onRemove: (id: string) => void;
+  onSave: (id: string, text: string) => Promise<void>;
+  onRemove: (id: string) => Promise<void>;
 }) {
   const [text, setText] = useState(item.text);
   const [confirming, setConfirming] = useState(false);
+  // Per-row busy — one row's save/remove never disables the others.
+  const [rowBusy, setRowBusy] = useState(false);
   // A save affordance appears only once the text actually changed.
   const dirty = text.trim() !== "" && text.trim() !== item.text;
-  const save = () => {
-    if (dirty && !disabled) onSave(item.id, text.trim());
+
+  const save = async () => {
+    if (!dirty || rowBusy) return;
+    setRowBusy(true);
+    await onSave(item.id, text.trim());
+    setRowBusy(false);
+  };
+  const doRemove = async () => {
+    if (rowBusy) return;
+    setConfirming(false);
+    setRowBusy(true);
+    await onRemove(item.id);
+    setRowBusy(false);
   };
 
   return (
@@ -211,8 +231,8 @@ function PromptRow({
           </span>
           <button
             type="button"
-            onClick={() => onRemove(item.id)}
-            disabled={disabled}
+            onClick={doRemove}
+            disabled={rowBusy}
             className="text-[12px] font-semibold"
             style={{ border: "1px solid var(--ink)", background: "var(--ink)", color: "var(--panel)", padding: "7px 11px" }}
           >
@@ -233,7 +253,7 @@ function PromptRow({
             <button
               type="button"
               onClick={save}
-              disabled={disabled}
+              disabled={rowBusy}
               aria-label="Save edit"
               className="shrink-0"
               style={{ border: "1px solid var(--ink)", background: "var(--ink)", color: "var(--panel)", padding: "8px 12px", fontFamily: MONO, fontSize: 13 }}
@@ -244,7 +264,7 @@ function PromptRow({
           <button
             type="button"
             onClick={() => setConfirming(true)}
-            disabled={disabled}
+            disabled={rowBusy}
             aria-label="Remove prompt"
             className="shrink-0"
             style={{ border: "1px solid var(--line)", color: "var(--dim)", padding: "8px 12px", fontFamily: MONO, fontSize: 13 }}

@@ -71,10 +71,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "limit_reached", usage: { used, limit } }, { status: 409 });
 
   const p = await createPrompt(body.brandId, text);
-  return NextResponse.json({
-    prompt: { id: p.id, text: p.text },
-    usage: { used: used + 1, limit },
-  });
+
+  // The pre-check and insert aren't atomic, so a concurrent add could push the
+  // account over the cap. Re-count and soft-roll-back this one if so, so the
+  // limit is never actually exceeded.
+  const after = await countActivePrompts(acc.brandIds);
+  if (after > limit) {
+    await setPromptActive(p.id, false);
+    return NextResponse.json({ error: "limit_reached", usage: { used: limit, limit } }, { status: 409 });
+  }
+  return NextResponse.json({ prompt: { id: p.id, text: p.text }, usage: { used: after, limit } });
 }
 
 /** PATCH { id, text } → edit a prompt's question text (account-scoped). */
