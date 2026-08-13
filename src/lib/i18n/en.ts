@@ -29,6 +29,52 @@ export const en = {
     scanButton: "Scan my brand",
     scanAriaLabel: "Your website",
   },
+  pricing: {
+    eyebrow: "Pricing",
+    headline: "Pricing that scales with your visibility",
+    subhead:
+      "Start with a free scan. Upgrade for daily tracking, more prompts and more brands.",
+    billing: {
+      monthly: "Monthly",
+      yearly: "Yearly",
+      yearlyNote: "2 months free",
+    },
+    perMonth: "/mo",
+    perYear: "/yr",
+    freePrice: "Free",
+    featured: "Most popular",
+    plans: {
+      free: {
+        name: "Free Scan",
+        tagline: "A one-time look at how AI answers about you.",
+        cta: "Start free scan",
+      },
+      starter: {
+        name: "Starter",
+        tagline: "Daily tracking for one brand.",
+        cta: "Get Starter",
+      },
+      pro: {
+        name: "Pro",
+        tagline: "More prompts and deeper tracking.",
+        cta: "Get Pro",
+      },
+      business: {
+        name: "Business",
+        tagline: "Up to three brands, at scale.",
+        cta: "Get Business",
+      },
+    },
+    features: {
+      brand: "brand",
+      brands: "brands",
+      prompts: "prompts",
+      oneTimeScan: "One-time scan",
+      dailyScans: "Daily scans",
+      chatgpt: "ChatGPT",
+      moreModelsSoon: "more models coming soon",
+    },
+  },
   footer: {
     tools: "Our Tools",
     languages: "Languages",
@@ -46,6 +92,11 @@ export const en = {
       ogTitle: "AI Search Monitor — Does AI recommend your brand?",
       ogDescription:
         "Track how often AI assistants recommend your brand across ChatGPT, Claude, Gemini, Perplexity and Copilot.",
+    },
+    pricing: {
+      title: "Pricing",
+      description:
+        "Simple plans for tracking your brand's visibility in AI answers. Start with a free scan; upgrade for daily scans, more prompts and more brands.",
     },
   },
 };
