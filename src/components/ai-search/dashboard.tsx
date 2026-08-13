@@ -843,7 +843,7 @@ function MonoLabel({ children }: { children: React.ReactNode }) {
     <span
       style={{
         fontFamily: SANS,
-        fontSize: 12,
+        fontSize: 15,
         fontWeight: 600,
         color: "var(--dim)",
       }}
@@ -1086,11 +1086,13 @@ function MainView({
               <Delta v={data.rank.delta} size={14} />
             </div>
             <div
-              className="flex items-center justify-between pb-[8px]"
-              style={{ borderBottom: "1px solid var(--line)", fontFamily: SANS, fontSize: 11, color: "var(--dim)" }}
+              className="flex items-center gap-[12px] pb-[8px]"
+              style={{ borderBottom: "1px solid var(--line)", fontFamily: SANS, fontSize: 14, color: "var(--dim)" }}
             >
-              <span>Brand</span>
+              <span style={{ width: 14 }} />
+              <span className="flex-1">Brand</span>
               <span>Visibility</span>
+              <span style={{ width: 46 }} />
             </div>
             <div className="flex flex-col">
               {data.rank.rows.map((r) => (
@@ -1138,7 +1140,7 @@ function MainView({
         <Card>
           <div
             className={`hidden px-[24px] py-[12px] md:grid ${COLS}`}
-            style={{ background: "var(--panel2)", borderBottom: "1px solid var(--line)", fontFamily: SANS, fontSize: 11, color: "var(--dim)" }}
+            style={{ background: "var(--panel2)", borderBottom: "1px solid var(--line)", fontFamily: SANS, fontSize: 14, color: "var(--dim)" }}
           >
             <span>Topic</span>
             <span>Visibility rank</span>
@@ -1267,11 +1269,14 @@ function CitationSection({
               <Delta v={data.citationRank.delta} size={14} />
             </div>
             <div
-              className="flex items-center justify-between pb-[8px]"
-              style={{ borderBottom: "1px solid var(--line)", fontFamily: SANS, fontSize: 11, color: "var(--dim)" }}
+              className="flex items-center gap-[12px] pb-[8px]"
+              style={{ borderBottom: "1px solid var(--line)", fontFamily: SANS, fontSize: 14, color: "var(--dim)" }}
             >
-              <span>Domain</span>
+              <span style={{ width: 16 }} />
+              <span className="flex-1">Domain</span>
               <span>Share</span>
+              <span style={{ width: 46 }} />
+              <span style={{ width: 10 }} />
             </div>
             <div className="flex flex-col">
               {data.citationRank.rows.map((d) => (
@@ -1365,7 +1370,7 @@ function CitationDetailView({ d, onBack }: { d: CitationDomain; onBack: () => vo
       <Card className="p-[22px_24px_26px]">
         <div
           className="flex items-center justify-between pb-[10px]"
-          style={{ borderBottom: "1px solid var(--line)", fontFamily: SANS, fontSize: 11, color: "var(--dim)" }}
+          style={{ borderBottom: "1px solid var(--line)", fontFamily: SANS, fontSize: 14, color: "var(--dim)" }}
         >
           <span>Cited page</span>
           <span>Share</span>
