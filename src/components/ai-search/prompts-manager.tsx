@@ -108,7 +108,7 @@ export function PromptsManager({ brandId }: { brandId: string | null }) {
   return (
     <div className="flex flex-col gap-[14px]">
       <div className="flex flex-wrap items-center justify-between gap-[10px]">
-        <span style={{ fontFamily: MONO, fontSize: 11, color: "var(--dim)" }}>
+        <span style={{ fontFamily: MONO, fontSize: 13, color: "var(--dim)" }}>
           {usage ? `${usage.used} / ${usage.limit} used` : loading ? "Loading…" : ""}
         </span>
         {atLimit && (
@@ -183,33 +183,76 @@ function PromptRow({
   onRemove: (id: string) => void;
 }) {
   const [text, setText] = useState(item.text);
+  const [confirming, setConfirming] = useState(false);
+  // A save affordance appears only once the text actually changed.
+  const dirty = text.trim() !== "" && text.trim() !== item.text;
+  const save = () => {
+    if (dirty && !disabled) onSave(item.id, text.trim());
+  };
+
   return (
     <div className="flex items-center gap-[8px]">
       <input
         value={text}
         onChange={(e) => setText(e.target.value)}
-        onBlur={() => {
-          const clean = text.trim();
-          if (clean && clean !== item.text) onSave(item.id, clean);
-          else if (!clean) setText(item.text);
-        }}
         onKeyDown={(e) => {
-          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Enter") save();
+          if (e.key === "Escape") setText(item.text);
         }}
         maxLength={MAX_LEN}
         className="flex-1 text-[14px]"
         style={{ background: "var(--panel2)", border: "1px solid var(--line)", padding: "8px 11px", color: "var(--ink)" }}
       />
-      <button
-        type="button"
-        onClick={() => onRemove(item.id)}
-        disabled={disabled}
-        aria-label="Remove prompt"
-        className="shrink-0"
-        style={{ border: "1px solid var(--line)", color: "var(--dim)", padding: "8px 11px", fontFamily: MONO, fontSize: 13 }}
-      >
-        ×
-      </button>
+
+      {confirming ? (
+        <span className="inline-flex shrink-0 items-center gap-[6px]">
+          <span className="text-[12px]" style={{ color: "var(--dim)" }}>
+            Remove?
+          </span>
+          <button
+            type="button"
+            onClick={() => onRemove(item.id)}
+            disabled={disabled}
+            className="text-[12px] font-semibold"
+            style={{ border: "1px solid var(--ink)", background: "var(--ink)", color: "var(--panel)", padding: "7px 11px" }}
+          >
+            Yes
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirming(false)}
+            className="text-[12px]"
+            style={{ border: "1px solid var(--line)", color: "var(--dim)", padding: "7px 11px" }}
+          >
+            No
+          </button>
+        </span>
+      ) : (
+        <>
+          {dirty && (
+            <button
+              type="button"
+              onClick={save}
+              disabled={disabled}
+              aria-label="Save edit"
+              className="shrink-0"
+              style={{ border: "1px solid var(--ink)", background: "var(--ink)", color: "var(--panel)", padding: "8px 12px", fontFamily: MONO, fontSize: 13 }}
+            >
+              ✓
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setConfirming(true)}
+            disabled={disabled}
+            aria-label="Remove prompt"
+            className="shrink-0"
+            style={{ border: "1px solid var(--line)", color: "var(--dim)", padding: "8px 12px", fontFamily: MONO, fontSize: 13 }}
+          >
+            ×
+          </button>
+        </>
+      )}
     </div>
   );
 }
