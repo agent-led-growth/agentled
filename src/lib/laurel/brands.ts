@@ -2,6 +2,8 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 
+import { planOf, type Plan } from "@/lib/plan";
+
 import { normalizeDomain } from "./domain";
 import type { Brand, BrandEnrichment, BrandRole } from "./types";
 
@@ -261,6 +263,23 @@ export async function getUserIdByAuthId(authUserId: string): Promise<string | nu
     .maybeSingle();
   if (error) throw error;
   return data ? (data as { id: string }).id : null;
+}
+
+/**
+ * The account plan for a Supabase Auth user, fail-closed to `free`.
+ * Reads `users.plan` (migration 0011) with the service-role client; an unknown
+ * or missing value resolves to `free` via {@link planOf}. Server-side only —
+ * every plan gate should resolve the plan here, never trust a client value.
+ */
+export async function getPlanForAuthUser(authUserId: string): Promise<Plan> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("users")
+    .select("plan")
+    .eq("auth_user_id", authUserId)
+    .maybeSingle();
+  if (error) throw error;
+  return planOf((data as { plan: string | null } | null)?.plan);
 }
 
 /** Every brand a user belongs to, newest first. */
