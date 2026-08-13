@@ -125,6 +125,10 @@ run record.
 - **`scan_runs` table** — one immutable row per run: **owner (`user_id`) + `brand_id`**,
   `status`, `trigger`, `model`, counts, timestamps, cost (see §7). Unlocks **real
   trends/deltas** (hidden today — only one run exists).
+- **Trends read completed runs only.** A stale-reaped run keeps the partial `scans`
+  rows it wrote (under a `failed` run). The trend/metrics aggregation must scope
+  `scans` to `run_id IN (completed runs)`, not read by `brand_id` alone, or partial
+  failed data pollutes the charts.
 - **Append-only, nothing deleted.** `scans` was built append-only ("never updated,
   only inserted") and already carries `prompt_id` + `model`; the one-time flow's
   `deleteBrandScans` overwrite is **removed**. Add `run_id` + `prompt_text` to `scans`.

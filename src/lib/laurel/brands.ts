@@ -266,44 +266,6 @@ export async function getUserIdByAuthId(authUserId: string): Promise<string | nu
 }
 
 /**
- * The app `users` row (internal id + resolved plan) for a Supabase Auth user, or
- * null. One round-trip for callers that need both — e.g. plan gates that also key
- * off the internal id (brand_users). Reads `users.plan` (migration 0011) with the
- * service-role client; the plan is normalised via {@link planOf}.
- */
-export async function getUserRecord(
-  authUserId: string,
-): Promise<{ id: string; plan: Plan } | null> {
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("users")
-    .select("id, plan")
-    .eq("auth_user_id", authUserId)
-    .maybeSingle();
-  if (error) throw error;
-  if (!data) return null;
-  const row = data as { id: string; plan: string | null };
-  return { id: row.id, plan: planOf(row.plan) };
-}
-
-/** Read + normalise `users.plan` by a unique column (unknown value → `free`). */
-async function readPlanBy(column: "id" | "auth_user_id", value: string): Promise<Plan> {
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("users")
-    .select("plan")
-    .eq(column, value)
-    .maybeSingle();
-  if (error) throw error;
-  return planOf((data as { plan: string | null } | null)?.plan);
-}
-
-/** The plan for an app `users.id` (e.g. a brand owner). Throws on a DB error. */
-export async function getPlanForUserId(userId: string): Promise<Plan> {
-  return readPlanBy("id", userId);
-}
-
-/**
  * The account plan for a Supabase Auth user, fail-closed to `free`. Any lookup
  * error (e.g. before migration 0011 is applied, or a transient DB error) degrades
  * to `free` rather than throwing, so resolving a plan can never take a page down.
@@ -312,24 +274,46 @@ export async function getPlanForUserId(userId: string): Promise<Plan> {
  */
 export async function getPlanForAuthUser(authUserId: string): Promise<Plan> {
   try {
-    return await readPlanBy("auth_user_id", authUserId);
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("users")
+      .select("plan")
+      .eq("auth_user_id", authUserId)
+      .maybeSingle();
+    if (error) throw error;
+    return planOf((data as { plan: string | null } | null)?.plan);
   } catch (err) {
     console.error("getPlanForAuthUser: plan lookup failed, defaulting to free", err);
     return "free";
   }
 }
 
-/** The brand's owner (role `owner`, else the first member) — the run's `user_id`. */
-export async function getBrandOwnerId(brandId: string): Promise<string | null> {
+/**
+ * The brand's owner (role `owner`, else the first member) with their plan — the
+ * run's `user_id` and the scan's prompt cap, resolved in one query. Null when the
+ * brand has no members.
+ */
+export async function getBrandOwner(
+  brandId: string,
+): Promise<{ userId: string; plan: Plan } | null> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("brand_users")
-    .select("user_id, role")
+    .select("user_id, role, users(plan)")
     .eq("brand_id", brandId);
   if (error) throw error;
-  const rows = (data ?? []) as { user_id: string; role: string }[];
+  // PostgREST types the embed as an array; a to-one FK returns one row (or an
+  // object), so normalise either shape.
+  type Embed = { plan: string | null };
+  const rows = (data ?? []) as unknown as {
+    user_id: string;
+    role: string;
+    users: Embed | Embed[] | null;
+  }[];
   if (rows.length === 0) return null;
-  return (rows.find((r) => r.role === "owner") ?? rows[0]).user_id;
+  const row = rows.find((r) => r.role === "owner") ?? rows[0];
+  const embed = Array.isArray(row.users) ? row.users[0] : row.users;
+  return { userId: row.user_id, plan: planOf(embed?.plan ?? null) };
 }
 
 /** Every brand a user belongs to, newest first. */

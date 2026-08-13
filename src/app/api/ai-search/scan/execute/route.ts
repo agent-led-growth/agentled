@@ -9,8 +9,7 @@ import {
   failRun,
   generatePrompts,
   getBrandById,
-  getBrandOwnerId,
-  getPlanForUserId,
+  getBrandOwner,
   insertPrompts,
   listPrompts,
   listSelectedTopics,
@@ -67,17 +66,17 @@ export async function POST(request: Request) {
   // lock would block this brand forever. Then open a run (idempotent: null when a
   // run is already in flight, e.g. a queue redelivery mid-run → no-op).
   await reapStaleRuns(brandId);
-  const ownerId = await getBrandOwnerId(brandId);
-  const run = await createRun(brandId, ownerId, runTrigger);
+  const owner = await getBrandOwner(brandId);
+  const run = await createRun(brandId, owner?.userId ?? null, runTrigger);
   if (!run) return NextResponse.json({ ok: true, status: "in-progress" });
 
   try {
     await startRun(run.id);
 
-    // Fresh slate each attempt — the queue may retry, and runScan writes rows
-    // only at the end, so clearing partials keeps a re-run from duplicating.
-    // (Slice 3 scopes this to the run once recurring history accumulates.)
-    await deleteBrandScans(brandId);
+    // Onboarding only: clears any partial rows from a prior failed attempt of the
+    // one-time scan. Recurring runs must NOT delete — scans is append-only history,
+    // and their retries are guarded by createRun idempotency + reapStaleRuns.
+    if (runTrigger === "onboarding") await deleteBrandScans(brandId);
 
     // Generate prompts from the selected topics if none exist yet.
     const existing = (await listPrompts(brandId)).filter((p) => p.active);
@@ -95,8 +94,7 @@ export async function POST(request: Request) {
 
     // Scan up to the owner's plan prompt limit (free 9, pro 50, business 150),
     // not a hardcoded 9.
-    const plan = ownerId ? await getPlanForUserId(ownerId) : "free";
-    const result = await runScan(brandId, run.id, promptLimit(plan));
+    const result = await runScan(brandId, run.id, promptLimit(owner?.plan ?? "free"));
     if (!result.skipped && result.scanned > 0) {
       await completeRun(run.id, brandId, {
         model: result.model,
