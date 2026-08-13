@@ -115,19 +115,38 @@ and Phase-2 gating have a home. Every gate calls a server-side helper (`limits(p
 - **No model column, no Claude toggle.** One question = one prompt, runs on ChatGPT.
 
 ### Epic 4 — Daily scans ("frequency" + history)
-- **`scan_runs` table** — one row per run, an immutable snapshot of what actually
-  happened (see §7). Unlocks **real trends/deltas** (currently hidden — only one run exists).
-- **Run state machine**: `pending → running → completed | failed`.
-  **Only a `completed` run advances `next_scan_at`** (to `completed_at + 24h`). A
-  `failed`/stuck run does **not** push the daily slot forward — it's retried on a
-  short backoff so the user doesn't silently lose a day.
-- **Idempotent enqueue**: a brand that already has a `pending`/`running` run is
-  never enqueued again — no two concurrent daily runs for the same brand record.
-- **`brands`** gains `next_scan_at` / `last_scan_at` and `is_active` (Epic 5).
-- **Cron** (see §6) selects due brands → enqueues to the existing `agentled-scan`
-  queue → the existing consumer runs them (reuses the durable Phase-A scan).
-- Cron host: an OpenNext `scheduled` handler **or** a small dedicated cron worker
-  (like the scan-consumer) — TBD during build.
+
+**The scan unit is the per-account brand row** (§3) — its own prompts, its own
+isolated results, keyed by `brand_id`, **never a shared domain**. Two accounts on
+the same URL are two rows → two independent runs and histories. Reuses the working
+one-time pipeline (queue + consumer + runner); Epic 4 adds only the schedule + the
+run record.
+
+- **`scan_runs` table** — one immutable row per run: **owner (`user_id`) + `brand_id`**,
+  `status`, `trigger`, `model`, counts, timestamps, cost (see §7). Unlocks **real
+  trends/deltas** (hidden today — only one run exists).
+- **Append-only, nothing deleted.** `scans` was built append-only ("never updated,
+  only inserted") and already carries `prompt_id` + `model`; the one-time flow's
+  `deleteBrandScans` overwrite is **removed**. Add `run_id` + `prompt_text` to `scans`.
+- **Run state machine**: `pending → running → completed | failed`. Only a
+  `completed` run advances the brand's next due time (`completed_at + ~24h`); a
+  `failed`/stuck run does not, and is retried on a short backoff.
+- **Idempotent enqueue**: a brand row with a `pending`/`running` run is never
+  re-enqueued — no two concurrent runs for one row.
+- **Daily sweep (paid only).** An **hourly cron** enqueues every **paid + active**
+  brand row whose last completed run is older than ~24h and has no in-flight run,
+  onto the existing `agentled-scan` queue; the existing consumer **drains them brand
+  by brand** until the day's set is done. **Free is never scheduled** — it keeps the
+  one-time onboarding scan (itself a `scan_run`, `trigger=onboarding`, so history is
+  continuous if they upgrade).
+- **`brands`** gains `last_scan_at` and `is_active` (the latter shared with Epic 5,
+  for paused rows).
+- Cron host: a small dedicated cron worker (like the scan-consumer) — TBD at build.
+- **Edited-prompt history (v1 = snapshot + reset-on-edit).** Each result snapshots
+  the `prompt_text` it actually ran; editing a prompt stays an in-place `text` update
+  (Epic 3); the **trend plots only points whose snapshot matches the prompt's current
+  text**, so an edit cleanly starts the line fresh — no versions table, no typo-vs-pivot
+  judgement. Old answers are kept for audit, never blended in.
 
 ### Epic 5 — Brand limits & downgrade
 - Enforce brand cap **per account** at creation (1/1/1/3) with an "upgrade for more brands" CTA.
@@ -165,15 +184,19 @@ one-time scan — worth a per-plan margin check before launch.
 - `users`: + Stripe mirror columns (Epic 6).
 - **`scan_runs`** (new) — an immutable snapshot per run, so an August-2026 run never
   looks like it used a model added in 2027:
-  - `brand_id` (→ account context), run `status` (pending/running/completed/failed),
-    `trigger` (onboarding | scheduled | manual),
+  - **`user_id`** (owner) + `brand_id` (the per-account monitored row), run `status`
+    (pending/running/completed/failed), `trigger` (onboarding | scheduled | manual),
   - `model` (text, **always `'chatgpt'` for now** — a recorded value, not Claude schema),
     `prompts_attempted`, `prompts_completed`,
   - `started_at`, `completed_at`, `error`, and usage/cost metadata (tokens, est. cost).
-  - `scans.run_id` FK links results to the run.
-- `brands`: + `next_scan_at`, `last_scan_at`, `is_active` (Epics 4, 5). **No new
-  uniqueness on domain.**
-- `prompts`: user-owned **questions** only (no model column in Phase 1).
+  - `scans` already has `brand_id` + `prompt_id` + `model` and is append-only; Epic 4
+    adds **`run_id`** (which run) + **`prompt_text`** (snapshot of the question actually
+    run), so editing a prompt never re-labels past results; trends match on `prompt_text`
+    (reset-on-edit).
+- `brands`: + `last_scan_at`, `is_active` (Epics 4, 5). Due = last completed run
+  older than ~24h. **No new uniqueness on domain; `id` stays a random uuid.**
+- `prompts`: user-owned **questions** only (no model column in Phase 1). Editing is
+  an in-place `text` update; history integrity comes from `scans.prompt_text` above.
 - Every new table gets RLS with explicit policies (repo rule), scoped via `is_brand_member`.
 
 ## 8. Content deliverables
