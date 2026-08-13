@@ -16,35 +16,10 @@ export const EXAMPLE_URL = "coca-cola.com";
 
 // ── Platforms ─────────────────────────────────────────────────────────────
 /**
- * The dashboard is platform-aware: the selector doesn't just filter, it
- * redefines what every headline number means. `all` is the blended view across
- * every live platform, `chatgpt`/`claude` recompute each figure for one model.
+ * Phase 1 is ChatGPT-only. More models (Claude, etc.) arrive in Phase 2, at
+ * which point this widens back into a union and the selector returns.
  */
-export type Platform = "all" | "chatgpt" | "claude";
-
-/**
- * Free tier ships ChatGPT live; Claude (and therefore the blended `all` view,
- * which would average it in) is upgrade-gated. Flip this to false — and author
- * the Claude fixtures — to unlock the full two-platform experience.
- */
-export const FREE_TIER = true;
-
-/** A view needs paid Claude data unless it is the ChatGPT-only view. */
-export const requiresClaude = (p: Platform) => p !== "chatgpt";
-
-/** Whether a view is locked behind the paywall for the current tier. */
-export const isLocked = (p: Platform) => FREE_TIER && requiresClaude(p);
-
-export const PLATFORM_OPTIONS: {
-  id: Platform;
-  label: string;
-  /** Show a lock glyph on the segment — the pro-only views (blended + Claude). */
-  lockGlyph: boolean;
-}[] = [
-  { id: "all", label: "All", lockGlyph: true },
-  { id: "chatgpt", label: "ChatGPT", lockGlyph: false },
-  { id: "claude", label: "Claude", lockGlyph: true },
-];
+export type Platform = "chatgpt";
 
 export type LogColor = "mut" | "pos" | "dim";
 /** Scan terminal log — [glyph, text, colour role]. Revealed one per 720ms. */
@@ -147,13 +122,13 @@ export const CHANGES = [
     tag: "Lost",
     tone: "neg" as const,
     text: "“Best AEO platforms for B2B SaaS”",
-    detail: "Claude · no longer mentioned",
+    detail: "ChatGPT · no longer mentioned",
   },
   {
     tag: "Rival",
     tone: "dim" as const,
     text: "Peec AI dropped out of 2 comparison answers",
-    detail: "Both platforms · −3.0 pp",
+    detail: "ChatGPT · −3.0 pp",
   },
   {
     tag: "Source",
@@ -355,17 +330,15 @@ export type PlatformRow = {
   name: string;
   status: string;
   dim: boolean;
-  /** Live on the free tier and toggleable, vs upgrade-gated ("Locked"). */
-  locked?: boolean;
 };
+/** ChatGPT is live; every other model is Phase-2 "coming soon". */
 export const PLATFORMS: PlatformRow[] = [
   { name: "ChatGPT", status: "On", dim: false },
-  { name: "Claude", status: "Locked", dim: false, locked: true },
-  { name: "Perplexity", status: "Soon", dim: true },
-  { name: "Gemini", status: "Soon", dim: true },
-  { name: "Copilot", status: "Soon", dim: true },
+  { name: "Claude", status: "Coming soon", dim: true },
+  { name: "Perplexity", status: "Coming soon", dim: true },
+  { name: "Gemini", status: "Coming soon", dim: true },
+  { name: "Copilot", status: "Coming soon", dim: true },
 ];
-export const SCHEDULE = "Weekly · Mondays";
 
 // ── Citations tab ───────────────────────────────────────────────────────────
 /** Shape the line chart needs; VISIBILITY and CITATION both satisfy it. */

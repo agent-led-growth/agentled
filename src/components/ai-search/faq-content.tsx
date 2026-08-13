@@ -13,13 +13,13 @@ export const AI_SEARCH_FAQ_ITEMS: FaqItem[] = [
       <p>
         AI Search Monitor is a tool by Agent-led Growth (agentled.co) that tracks
         whether AI assistants mention and recommend you when people ask questions
-        in your category. It runs real prompts against ChatGPT and Claude every
-        day, checks each answer for mentions of your brand and citations of your
+        in your category. It runs real prompts against ChatGPT every day, checks
+        each answer for mentions of your brand and citations of your
         domain, and turns that into a visibility score you can watch over time.
       </p>
     ),
     plain:
-      "AI Search Monitor is a tool by Agent-led Growth (agentled.co) that tracks whether AI assistants mention and recommend you when people ask questions in your category. It runs real prompts against ChatGPT and Claude every day, checks each answer for mentions of your brand and citations of your domain, and turns that into a visibility score you can watch over time.",
+      "AI Search Monitor is a tool by Agent-led Growth (agentled.co) that tracks whether AI assistants mention and recommend you when people ask questions in your category. It runs real prompts against ChatGPT every day, checks each answer for mentions of your brand and citations of your domain, and turns that into a visibility score you can watch over time.",
   },
   {
     q: "What can the AI Search Monitor track?",
@@ -54,27 +54,27 @@ export const AI_SEARCH_FAQ_ITEMS: FaqItem[] = [
     q: "Which AI assistants and LLMs do you monitor?",
     a: (
       <p>
-        ChatGPT and Claude today, with more coming soon. You can view your score
+        ChatGPT today, with more models coming soon. You can view your score
         per assistant or averaged across them. Visibility is rarely identical
         across models, and the gap between them is usually the most useful thing
         on the dashboard.
       </p>
     ),
     plain:
-      "ChatGPT and Claude today, with more coming soon. You can view your score per assistant or averaged across them. Visibility is rarely identical across models, and the gap between them is usually the most useful thing on the dashboard.",
+      "ChatGPT today, with more models coming soon. You can view your score per assistant or averaged across them. Visibility is rarely identical across models, and the gap between them is usually the most useful thing on the dashboard.",
   },
   {
     q: "How often is my visibility refreshed?",
     a: (
       <p>
-        Daily. Every prompt is re-run against every assistant you monitor once a
-        day, and each run is added to your history rather than replacing the last
-        one. AI answers are volatile, so one check tells you almost nothing. Daily
-        sampling is what turns noise into a trend.
+        On the paid plans, daily. Every prompt is re-run once a day and each run
+        is added to your history rather than replacing the last one. The free scan
+        is a one-time snapshot. AI answers are volatile, so one check tells you
+        almost nothing, and daily sampling is what turns noise into a trend.
       </p>
     ),
     plain:
-      "Daily. Every prompt is re-run against every assistant you monitor once a day, and each run is added to your history rather than replacing the last one. AI answers are volatile, so one check tells you almost nothing. Daily sampling is what turns noise into a trend.",
+      "On the paid plans, daily. Every prompt is re-run once a day and each run is added to your history rather than replacing the last one. The free scan is a one-time snapshot. AI answers are volatile, so one check tells you almost nothing, and daily sampling is what turns noise into a trend.",
   },
   {
     q: "How is this different from traditional SEO tools?",
@@ -95,15 +95,15 @@ export const AI_SEARCH_FAQ_ITEMS: FaqItem[] = [
     q: "Is the AI Search Monitor free?",
     a: (
       <p>
-        Yes, there is a free scan and no credit card is needed. Enter your domain,
+        You get a free scan, and no credit card is needed. Enter your domain,
         watch the live scan work out your category and competitors, pick up to
-        three topics, and enter your email to open your dashboard. The free tier
-        keeps those topics refreshed daily. Paid tiers add more prompts and deeper
-        competitor tracking.
+        three topics, and enter your email to open your dashboard with your first
+        results. That first scan is free and one-time; ongoing daily tracking,
+        more prompts and deeper competitor analysis are on the paid plans.
       </p>
     ),
     plain:
-      "Yes, there is a free scan and no credit card is needed. Enter your domain, watch the live scan work out your category and competitors, pick up to three topics, and enter your email to open your dashboard. The free tier keeps those topics refreshed daily. Paid tiers add more prompts and deeper competitor tracking.",
+      "You get a free scan, and no credit card is needed. Enter your domain, watch the live scan work out your category and competitors, pick up to three topics, and enter your email to open your dashboard with your first results. That first scan is free and one-time; ongoing daily tracking, more prompts and deeper competitor analysis are on the paid plans.",
   },
   {
     q: "Why is my brand not showing up in ChatGPT answers?",
@@ -149,5 +149,60 @@ export const AI_SEARCH_FAQ_ITEMS: FaqItem[] = [
     ),
     plain:
       "AI Search Monitor suggests prompts from your site, your category and your competitors, then hands them to you. Every prompt is fully editable. Add the ones your buyers actually ask, rewrite the ones that missed, remove anything irrelevant. The best prompts are usually the ones you hear on sales calls, so the list is meant to be edited rather than accepted.",
+  },
+  {
+    q: "What is a prompt?",
+    a: (
+      <p>
+        A prompt is one question we send to an AI model to check how your brand
+        shows up in its answer. In practice, one prompt is one AI answer
+        monitored on one model: a single question, run on ChatGPT, produces one
+        answer and counts as one prompt. Each plan includes a set number of
+        prompts, 9 on Free and Starter, 50 on Pro and 150 on Business.
+      </p>
+    ),
+    plain:
+      "A prompt is one question we send to an AI model to check how your brand shows up in its answer. In practice, one prompt is one AI answer monitored on one model: a single question, run on ChatGPT, produces one answer and counts as one prompt. Each plan includes a set number of prompts, 9 on Free and Starter, 50 on Pro and 150 on Business.",
+  },
+  {
+    q: "What is the difference between prompts and models?",
+    a: (
+      <p>
+        A prompt is the question being monitored; a model is the AI system that
+        answers it, such as ChatGPT. Today every prompt runs on ChatGPT, with
+        more models coming soon. Once a question can run on more than one model,
+        each model counts as its own prompt, because each produces a separate
+        answer, so the same question on two models is two prompts. A 50-prompt
+        plan could then cover, say, 25 questions across two models.
+      </p>
+    ),
+    plain:
+      "A prompt is the question being monitored; a model is the AI system that answers it, such as ChatGPT. Today every prompt runs on ChatGPT, with more models coming soon. Once a question can run on more than one model, each model counts as its own prompt, because each produces a separate answer, so the same question on two models is two prompts. A 50-prompt plan could then cover, say, 25 questions across two models.",
+  },
+  {
+    q: "What is a brand?",
+    a: (
+      <p>
+        A brand is the website or URL you want to monitor, such as agentled.co.
+        Each account has its own private workspace for a brand, with its own
+        prompts, results and history, so two people can monitor the same domain
+        independently. Starter and Pro include one brand; Business includes up to
+        three.
+      </p>
+    ),
+    plain:
+      "A brand is the website or URL you want to monitor, such as agentled.co. Each account has its own private workspace for a brand, with its own prompts, results and history, so two people can monitor the same domain independently. Starter and Pro include one brand; Business includes up to three.",
+  },
+  {
+    q: "How do I pay?",
+    a: (
+      <p>
+        Payments are billed securely through Stripe. Depending on your country,
+        Stripe supports a range of payment methods, and you will see the options
+        available to you at checkout.
+      </p>
+    ),
+    plain:
+      "Payments are billed securely through Stripe. Depending on your country, Stripe supports a range of payment methods, and you will see the options available to you at checkout.",
   },
 ];

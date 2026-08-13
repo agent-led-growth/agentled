@@ -1,18 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { capture, identifyUser } from "@/lib/analytics";
 import type { BrandMetrics } from "@/lib/laurel/metrics";
+import { brandLimit, isDaily } from "@/lib/plan";
 import { createClient } from "@/lib/supabase/client";
 
 import { AnswerMarkdown } from "./answer-markdown";
 import { Mark, Wordmark } from "./brand";
 import {
   BRAND,
-  isLocked,
-  PLATFORM_OPTIONS,
   PLATFORMS,
   tone,
   type ChartInput,
@@ -60,7 +60,7 @@ function scrollToSection(section: Section, container: HTMLElement | null) {
     document.getElementById(section)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 }
-const PLATFORM_IDS = PLATFORM_OPTIONS.map((p) => p.id);
+const PLATFORM_IDS: Platform[] = ["chatgpt"];
 
 /** A brand on the current account, as the header switcher needs it. */
 type BrandLite = { id: string; domain: string; name: string | null };
@@ -82,6 +82,7 @@ export function Dashboard() {
   const [gated, setGated] = useState(true);
   const [checked, setChecked] = useState(false);
   const [brands, setBrands] = useState<BrandLite[]>([]);
+  const [plan, setPlan] = useState<string>("free");
   const [scanState, setScanState] = useState<ScanState>("loading");
   const [data, setData] = useState<DashboardData | null>(null);
   // Bumped by the "try again" action on a failed scan to re-run the effect.
@@ -107,7 +108,10 @@ export function Dashboard() {
     if (!checked || gated) return;
     fetch("/api/ai-search/brands")
       .then((r) => r.json())
-      .then((d: { brands?: BrandLite[] }) => setBrands(d.brands ?? []))
+      .then((d: { brands?: BrandLite[]; plan?: string }) => {
+        setBrands(d.brands ?? []);
+        setPlan(d.plan ?? "free");
+      })
       .catch(() => {});
   }, [checked, gated]);
 
@@ -186,9 +190,14 @@ export function Dashboard() {
     );
   };
   const setTab = (t: Tab) => go({ tab: t });
-  const setPlatform = (p: Platform) => go({ platform: p });
   const setBrand = (id: string) => go({ brand: id });
-  const goNewBrand = () => router.push("/ai-search/onboarding");
+  // Adding a brand is gated by the plan's brand allowance: room left → onboard a
+  // new brand; at the limit → send them to pricing to upgrade (only Business,
+  // with 3 brands, can hold more than one).
+  const goNewBrand = () =>
+    router.push(
+      brands.length < brandLimit(plan) ? "/ai-search/onboarding" : "/ai-search/pricing",
+    );
   // Real sign-out: clear the Supabase session first, then leave the (gated)
   // dashboard. Previously this only navigated, so the user stayed signed in.
   const signOut = async () => {
@@ -284,7 +293,7 @@ export function Dashboard() {
           />
           <div ref={scrollRef} className="min-w-0 flex-1 pb-[84px] md:overflow-y-auto md:pb-0">
             <TitleRow current={currentBrand} brands={brands} onSwitch={setBrand} />
-            <FilterBar tab={tab} platform={platform} setPlatform={setPlatform} />
+            <FilterBar tab={tab} plan={plan} />
             <div className="px-[20px] py-[24px] md:px-[28px]">
               {scanState !== "ready" || !data ? (
                 <ScanNotice
@@ -295,19 +304,13 @@ export function Dashboard() {
               ) : (
                 <>
                   {tab === "settings" ? (
-                    <Settings
-                      brand={currentBrand}
-                      data={data}
-                      platform={platform}
-                      onUpgrade={() => setPlatform("claude")}
-                    />
+                    <Settings brand={currentBrand} data={data} plan={plan} />
                   ) : (
                     <MainView
                       data={data}
                       brand={currentBrand}
                       platform={platform}
                       brandId={currentBrandId}
-                      onUpgrade={() => setPlatform("claude")}
                       onBackToSection={jumpTo}
                     />
                   )}
@@ -662,20 +665,11 @@ function BrandSwitcher({
   );
 }
 
-function FilterBar({
-  tab,
-  platform,
-  setPlatform,
-}: {
-  tab: Tab;
-  platform: Platform;
-  setPlatform: (p: Platform) => void;
-}) {
-  // Date range rides on the analytics tabs; the frequency lock (pro-only)
-  // only belongs on Overview. The platform selector is global — it redefines
-  // what every headline number means, so it shows on Settings too.
+function FilterBar({ tab, plan }: { tab: Tab; plan: string }) {
+  // Date range rides on the analytics tabs; the cadence indicator only belongs
+  // on Overview. Phase 1 is ChatGPT-only, so there is no platform selector.
   const showDates = tab !== "settings";
-  const showFrequency = tab === "overview";
+  const showCadence = tab === "overview";
   return (
     <div
       className="flex flex-wrap items-center gap-[8px] px-[20px] py-[14px] md:px-[28px]"
@@ -688,81 +682,28 @@ function FilterBar({
           <Chip>Previous period ⌄</Chip>
         </>
       )}
-      <div className="ml-auto flex items-center gap-[8px]">
-        {showFrequency && <FrequencyLock />}
-        <PlatformSegmented platform={platform} setPlatform={setPlatform} />
-      </div>
+      {showCadence && (
+        <div className="ml-auto flex items-center gap-[8px]">
+          <CadenceIndicator plan={plan} />
+          {!isDaily(plan) && <UpgradeLink />}
+        </div>
+      )}
     </div>
   );
 }
 
-/** Recurring scans are a pro feature — a locked indicator, no cadence shown yet. */
-function FrequencyLock() {
+/** Real scan cadence for the current plan: paid runs daily, free is one-time. */
+function CadenceIndicator({ plan }: { plan: string }) {
   return (
     <span
-      className="inline-flex items-center gap-[7px] whitespace-nowrap text-[13px]"
+      className="inline-flex items-center gap-[8px] whitespace-nowrap text-[13px]"
       style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "7px 12px", color: "var(--mut)" }}
     >
-      Frequency
-      <Lock size={11} color="var(--dim)" />
-    </span>
-  );
-}
-
-/**
- * Single-select platform control. This is not a filter — the active choice
- * redefines the headline numbers on every tab. `All` blends the live platforms;
- * `ChatGPT`/`Claude` recompute for one model. Claude (and the blend that needs
- * it) are upgrade-gated on the free tier, so those views render a paywall.
- */
-function PlatformSegmented({
-  platform,
-  setPlatform,
-}: {
-  platform: Platform;
-  setPlatform: (p: Platform) => void;
-}) {
-  return (
-    <div className="inline-flex items-center gap-[8px]">
-      <span
-        className="hidden sm:inline"
-        style={{ fontFamily: SANS, fontSize: 11, color: "var(--dim)" }}
-      >
-        Platform
+      <span style={{ color: "var(--dim)" }}>Cadence</span>
+      <span style={{ color: "var(--ink)", fontWeight: 600 }}>
+        {isDaily(plan) ? "Daily" : "One-time"}
       </span>
-      <div
-        className="inline-flex"
-        style={{ border: "1px solid var(--line)", background: "var(--panel)" }}
-      >
-        {PLATFORM_OPTIONS.map((opt, i) => {
-          const active = platform === opt.id;
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => setPlatform(opt.id)}
-              aria-pressed={active}
-              className="inline-flex items-center gap-[6px] whitespace-nowrap text-[13px]"
-              style={{
-                padding: "7px 12px",
-                borderLeft: i > 0 ? "1px solid var(--line)" : undefined,
-                background: active ? "var(--ink)" : "transparent",
-                color: active ? "var(--panel)" : "var(--mut)",
-                fontWeight: active ? 600 : 400,
-              }}
-            >
-              {opt.id !== "all" && (
-                <PlatformLogo name={opt.label} color={active ? "var(--panel)" : undefined} />
-              )}
-              {opt.label}
-              {opt.lockGlyph && (
-                <Lock size={11} color={active ? "var(--panel)" : "var(--dim)"} />
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
+    </span>
   );
 }
 
@@ -875,126 +816,6 @@ function Card({ children, className = "" }: { children: React.ReactNode; classNa
   );
 }
 
-// ── Paywall ──────────────────────────────────────────────────────────────────
-/**
- * Free tier ships ChatGPT live. Selecting Claude (or the blended All view that
- * would average it in) swaps the whole section for this panel — the paywall is
- * meant to be obvious, never a silently-blended number. Copy differs by intent:
- * `claude` sells the second platform, `blend` sells the cross-platform view.
- */
-const UPGRADE_COPY = {
-  claude: {
-    label: "Claude · locked",
-    title: "See how you show up in Claude",
-    body: "ChatGPT is live on your free plan. Unlock Claude for its own visibility score, competitor rank and citation share — plus the exact prompts where Claude names you or leaves you out.",
-    cta: "Upgrade to unlock Claude",
-    bullets: [
-      "Claude visibility score, rank and citations",
-      "Per-prompt answers, straight from Claude",
-      "See where ChatGPT and Claude disagree",
-    ],
-  },
-  blend: {
-    label: "Blended view · locked",
-    title: "Blend every platform into one score",
-    body: "The All view averages your live platforms into a single cross-platform visibility score. Add Claude to blend it with ChatGPT — and watch where the two diverge over time.",
-    cta: "Upgrade to add Claude",
-    bullets: [
-      "One blended score across ChatGPT + Claude",
-      "Competitor ranks that combine both platforms",
-      "Divergence over time, ChatGPT vs Claude",
-    ],
-  },
-} as const;
-
-const tileStyle: React.CSSProperties = {
-  width: 48,
-  height: 48,
-  display: "grid",
-  placeItems: "center",
-  border: "1px solid var(--line)",
-  background: "var(--panel2)",
-};
-
-function PlatformPair() {
-  return (
-    <span className="inline-flex items-center gap-[14px]">
-      <span style={tileStyle}>
-        <PlatformLogo name="ChatGPT" size={22} />
-      </span>
-      <span style={{ fontFamily: MONO, fontSize: 16, color: "var(--dim)" }}>+</span>
-      <span style={{ ...tileStyle, position: "relative" }}>
-        <PlatformLogo name="Claude" size={22} />
-        <span
-          style={{
-            position: "absolute",
-            right: -7,
-            bottom: -7,
-            background: "var(--panel)",
-            border: "1px solid var(--line)",
-            borderRadius: 999,
-            padding: 3,
-            display: "grid",
-            placeItems: "center",
-          }}
-        >
-          <Lock size={10} color="var(--ink)" />
-        </span>
-      </span>
-    </span>
-  );
-}
-
-function UpgradePanel({ variant }: { variant: "claude" | "blend" }) {
-  const c = UPGRADE_COPY[variant];
-  return (
-    <Card className="mx-auto flex max-w-[640px] flex-col items-center gap-[22px] p-[40px_28px_44px] text-center md:p-[56px_48px]">
-      <PlatformPair />
-      <div className="flex flex-col items-center gap-[10px]">
-        <span className="inline-flex items-center gap-[7px]">
-          <Lock size={11} color="var(--dim)" />
-          <MonoLabel>{c.label}</MonoLabel>
-        </span>
-        <h2
-          className="max-w-[18ch]"
-          style={{ fontSize: 27, fontWeight: 700, letterSpacing: "-0.035em", lineHeight: 1.12 }}
-        >
-          {c.title}
-        </h2>
-        <p className="max-w-[46ch] text-[15px]" style={{ color: "var(--mut)", lineHeight: 1.55 }}>
-          {c.body}
-        </p>
-      </div>
-      <ul className="flex flex-col gap-[9px] text-left">
-        {c.bullets.map((b) => (
-          <li
-            key={b}
-            className="flex items-start gap-[10px] text-[14px]"
-            style={{ color: "var(--ink)" }}
-          >
-            <span aria-hidden="true" style={{ color: "var(--pos)", flex: "none", fontWeight: 700 }}>
-              ✓
-            </span>
-            {b}
-          </li>
-        ))}
-      </ul>
-      <button
-        type="button"
-        className="mt-[4px] h-[50px] px-[28px] text-[15px]"
-        style={{ background: "var(--ink)", color: "var(--panel)", fontWeight: 700 }}
-      >
-        {c.cta}
-      </button>
-    </Card>
-  );
-}
-
-/**
- * Compact inline lock used where a Claude row/column/line would otherwise sit
- * inside an otherwise-live ChatGPT view. Clicking it jumps to the Claude view,
- * i.e. the full upgrade panel.
- */
 // ── Overview ─────────────────────────────────────────────────────────────────
 /**
  * The combined main view: Visibility, Citations and Prompts stacked in one
@@ -1006,14 +827,12 @@ function MainView({
   brand,
   platform,
   brandId,
-  onUpgrade,
   onBackToSection,
 }: {
   data: DashboardData;
   brand: BrandLite | null;
   platform: Platform;
   brandId: string | null;
-  onUpgrade: () => void;
   onBackToSection: (s: Section) => void;
 }) {
   const router = useRouter();
@@ -1021,11 +840,6 @@ function MainView({
   const [openGroups, setOpenGroups] = useState<number[]>([0]);
   const toggleGroup = (gi: number) =>
     setOpenGroups((g) => (g.includes(gi) ? g.filter((x) => x !== gi) : [...g, gi]));
-
-  // The blended `all` view and the Claude view both need paid Claude data.
-  if (isLocked(platform)) {
-    return <UpgradePanel variant={platform === "all" ? "blend" : "claude"} />;
-  }
 
   const settingsHref = dashHref({ tab: "settings", platform, brandId });
   const brandName = brand?.name?.trim() || brand?.domain || "Your brand";
@@ -1040,7 +854,6 @@ function MainView({
         groupName={selectedPrompt.groupName}
         brandName={brandName}
         onBack={() => onBackToSection("prompts")}
-        onUpgrade={onUpgrade}
       />
     );
   }
@@ -1209,7 +1022,7 @@ function Chart({ v }: { v: ChartInput }) {
         </svg>
         <div className="flex justify-between pt-[8px]" style={{ fontFamily: MONO, fontSize: 10, color: "var(--dim)" }}>
           {V.xLabels.map((l, i) => (
-            <span key={l} className={i === 1 || i === 4 ? "hidden md:inline" : ""}>
+            <span key={i} className={i === 1 || i === 4 ? "hidden md:inline" : ""}>
               {l}
             </span>
           ))}
@@ -1524,21 +1337,19 @@ function Cell({ label, children }: { label: string; children: React.ReactNode })
 
 /**
  * Full detail page for one prompt — replaces the list while the Prompts tab
- * stays selected. Leads with the per-platform scores (ChatGPT live, Claude
- * locked), then the verbatim answer with the brand mention highlighted.
+ * stays selected. Leads with the ChatGPT score, then the verbatim answer with
+ * the brand mention highlighted.
  */
 function PromptDetailView({
   p,
   groupName,
   brandName,
   onBack,
-  onUpgrade,
 }: {
   p: Prompt;
   groupName: string;
   brandName: string;
   onBack: () => void;
-  onUpgrade: () => void;
 }) {
   return (
     <div className="flex flex-col gap-[22px]">
@@ -1561,12 +1372,11 @@ function PromptDetailView({
         </h2>
       </div>
 
-      {/* Per-platform scores, side by side — not just the combined figure. */}
+      {/* ChatGPT score — the only live platform in Phase 1. */}
       <div>
         <MonoLabel>Score by platform</MonoLabel>
-        <div className="mt-[10px] grid gap-[12px] sm:grid-cols-2 lg:max-w-[560px]">
+        <div className="mt-[10px] max-w-[280px]">
           <PlatformScoreCard p={p} />
-          <ClaudeScoreLock onUpgrade={onUpgrade} />
         </div>
       </div>
 
@@ -1635,45 +1445,15 @@ function PlatformScoreCard({ p }: { p: Prompt }) {
   );
 }
 
-/** Locked Claude column — the paywall, in-context next to ChatGPT's scores. */
-function ClaudeScoreLock({ onUpgrade }: { onUpgrade: () => void }) {
-  return (
-    <div style={{ border: "1px solid var(--line)", background: "var(--panel2)" }}>
-      <div
-        className="flex items-center gap-[8px] px-[14px] py-[10px]"
-        style={{ borderBottom: "1px solid var(--line)" }}
-      >
-        <PlatformLogo name="Claude" size={15} />
-        <span className="text-[13px] font-bold" style={{ color: "var(--mut)" }}>Claude</span>
-        <Lock size={12} color="var(--dim)" />
-      </div>
-      <div className="flex flex-col items-start gap-[8px] p-[12px_14px]">
-        <span className="text-[12.5px]" style={{ color: "var(--mut)", lineHeight: 1.5 }}>
-          Unlock Claude to see its answer to this prompt and how it scores you.
-        </span>
-        <button
-          type="button"
-          onClick={onUpgrade}
-          className="inline-flex items-center gap-[6px] text-[12px]"
-          style={{ fontFamily: MONO, color: "var(--ink)", borderBottom: "1px solid var(--ink)", paddingBottom: 1 }}
-        >
-          Unlock Claude →
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // ── Settings ─────────────────────────────────────────────────────────────────
 function Settings({
   brand,
   data,
-  onUpgrade,
+  plan,
 }: {
   brand: BrandLite | null;
   data: DashboardData;
-  platform: Platform;
-  onUpgrade: () => void;
+  plan: string;
 }) {
   const allPrompts = data.groups.flatMap((g) => g.items.map((p) => p.q));
   return (
@@ -1694,23 +1474,26 @@ function Settings({
                 className="flex items-center justify-between gap-[12px] py-[12px]"
                 style={{
                   borderBottom: "1px solid var(--line)",
-                  color: pl.dim ? "var(--dim)" : pl.locked ? "var(--mut)" : "var(--ink)",
+                  color: pl.dim ? "var(--dim)" : "var(--ink)",
                 }}
               >
                 <span className="flex items-center gap-[9px] text-[14px]">
                   {!pl.dim && <PlatformLogo name={pl.name} size={15} />}
                   {pl.name}
                 </span>
-                {pl.locked ? (
-                  <UpgradeButton onUpgrade={onUpgrade} />
-                ) : (
-                  <StatusChip>{pl.status}</StatusChip>
-                )}
+                <StatusChip>{pl.status}</StatusChip>
               </div>
             ))}
             <div className="flex items-center justify-between gap-[12px] py-[12px]">
               <span className="text-[14px]">Scan cadence</span>
-              <UpgradeButton onUpgrade={onUpgrade} />
+              {isDaily(plan) ? (
+                <StatusChip>Daily</StatusChip>
+              ) : (
+                <span className="inline-flex items-center gap-[8px]">
+                  <StatusChip>One-time</StatusChip>
+                  <UpgradeLink />
+                </span>
+              )}
             </div>
           </div>
         </Card>
@@ -1752,18 +1535,17 @@ function ReadonlyField({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Pro-only upgrade CTA — shared by the Claude and scan-cadence rows. */
-function UpgradeButton({ onUpgrade }: { onUpgrade: () => void }) {
+/** Upgrade CTA → pricing, shared by the cadence indicator and Settings rows. */
+function UpgradeLink() {
   return (
-    <button
-      type="button"
-      onClick={onUpgrade}
-      className="inline-flex items-center gap-[6px] whitespace-nowrap"
+    <Link
+      href="/ai-search/pricing"
+      className="inline-flex items-center gap-[6px] whitespace-nowrap no-underline"
       style={{ fontFamily: MONO, fontSize: 11, background: "var(--ink)", color: "var(--panel)", padding: "5px 10px" }}
     >
       <Lock size={11} color="var(--panel)" />
       Upgrade
-    </button>
+    </Link>
   );
 }
 

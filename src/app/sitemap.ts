@@ -26,6 +26,12 @@ const PAGES = [
     priority: 0.8,
     changeFrequency: "monthly" as const,
   },
+  {
+    paths: PATHS.pricing,
+    lastModified: "2026-08-13",
+    priority: 0.7,
+    changeFrequency: "monthly" as const,
+  },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

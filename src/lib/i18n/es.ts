@@ -30,6 +30,54 @@ export const es: Dictionary = {
     scanButton: "Scanea mi marca",
     scanAriaLabel: "Tu sitio web",
   },
+  pricing: {
+    eyebrow: "Precios",
+    headline: "Precios que escalan con tu visibilidad",
+    subhead:
+      "Empieza con un análisis gratuito. Mejora tu plan para seguimiento diario, más prompts y más marcas.",
+    billing: {
+      monthly: "Mensual",
+      yearly: "Anual",
+      yearlyNote: "2 meses gratis",
+    },
+    perMonth: "/mes",
+    perYear: "/año",
+    freePrice: "Gratis",
+    featured: "Más popular",
+    currentPlan: "Plan actual",
+    plans: {
+      free: {
+        name: "Free Scan",
+        tagline: "Cualquiera con curiosidad por su visibilidad en la IA.",
+        cta: "Empezar gratis",
+      },
+      starter: {
+        name: "Starter",
+        tagline: "Pequeñas empresas, creadores y founders en solitario.",
+        cta: "Elegir Starter",
+      },
+      pro: {
+        name: "Pro",
+        tagline: "Empresas que trabajan activamente su visibilidad en la IA.",
+        cta: "Elegir Pro",
+      },
+      business: {
+        name: "Business",
+        tagline: "Agencias y equipos que gestionan varias marcas.",
+        cta: "Elegir Business",
+      },
+    },
+    features: {
+      brand: "marca",
+      brands: "marcas",
+      prompts: "prompts",
+      oneTimeScan: "Análisis único",
+      dailyScans: "Análisis diarios",
+      weeklyReport: "Informe semanal",
+      chatgpt: "ChatGPT",
+      moreModelsSoon: "más modelos próximamente",
+    },
+  },
   footer: {
     tools: "Nuestras herramientas",
     languages: "Idiomas",
@@ -47,6 +95,11 @@ export const es: Dictionary = {
       ogTitle: "AI Search Monitor — ¿Recomienda la IA tu marca?",
       ogDescription:
         "Monitoriza con qué frecuencia los asistentes de IA recomiendan tu marca en ChatGPT, Claude, Gemini, Perplexity y Copilot.",
+    },
+    pricing: {
+      title: "Precios",
+      description:
+        "Planes sencillos para seguir la visibilidad de tu marca en las respuestas de IA. Empieza con un análisis gratuito; mejora tu plan para análisis diarios, más prompts y más marcas.",
     },
   },
 };

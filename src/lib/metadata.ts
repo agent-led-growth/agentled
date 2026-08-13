@@ -12,6 +12,7 @@ export type LocalePaths = { en: string; es: string };
 export const PATHS = {
   home: { en: "/", es: "/es" },
   aiSearch: { en: "/ai-search", es: "/es/ai-search" },
+  pricing: { en: "/ai-search/pricing", es: "/es/ai-search/pricing" },
 } as const satisfies Record<string, LocalePaths>;
 
 /**

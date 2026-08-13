@@ -15,13 +15,13 @@ export const AI_SEARCH_FAQ_ITEMS_ES: FaqItem[] = [
         AI Search Monitor es una herramienta de Agent-led Growth (agentled.co)
         que rastrea si los asistentes de IA te mencionan y te recomiendan cuando
         la gente hace preguntas en tu categoría. Cada día lanza prompts reales a
-        ChatGPT y Claude, revisa cada respuesta en busca de menciones de tu marca
+        ChatGPT, revisa cada respuesta en busca de menciones de tu marca
         y citas de tu dominio, y lo convierte en un índice de visibilidad que
         puedes seguir a lo largo del tiempo.
       </p>
     ),
     plain:
-      "AI Search Monitor es una herramienta de Agent-led Growth (agentled.co) que rastrea si los asistentes de IA te mencionan y te recomiendan cuando la gente hace preguntas en tu categoría. Cada día lanza prompts reales a ChatGPT y Claude, revisa cada respuesta en busca de menciones de tu marca y citas de tu dominio, y lo convierte en un índice de visibilidad que puedes seguir a lo largo del tiempo.",
+      "AI Search Monitor es una herramienta de Agent-led Growth (agentled.co) que rastrea si los asistentes de IA te mencionan y te recomiendan cuando la gente hace preguntas en tu categoría. Cada día lanza prompts reales a ChatGPT, revisa cada respuesta en busca de menciones de tu marca y citas de tu dominio, y lo convierte en un índice de visibilidad que puedes seguir a lo largo del tiempo.",
   },
   {
     q: "¿Qué puede rastrear el AI Search Monitor?",
@@ -58,28 +58,28 @@ export const AI_SEARCH_FAQ_ITEMS_ES: FaqItem[] = [
     q: "¿Qué asistentes de IA y modelos de lenguaje se monitorizan?",
     a: (
       <p>
-        ChatGPT y Claude por ahora, y pronto habrá más. Puedes ver tu puntuación
+        ChatGPT por ahora, y pronto habrá más modelos. Puedes ver tu puntuación
         por asistente o promediada entre todos. La visibilidad rara vez es
         idéntica entre modelos, y la diferencia entre ellos suele ser lo más útil
         del panel.
       </p>
     ),
     plain:
-      "ChatGPT y Claude por ahora, y pronto habrá más. Puedes ver tu puntuación por asistente o promediada entre todos. La visibilidad rara vez es idéntica entre modelos, y la diferencia entre ellos suele ser lo más útil del panel.",
+      "ChatGPT por ahora, y pronto habrá más modelos. Puedes ver tu puntuación por asistente o promediada entre todos. La visibilidad rara vez es idéntica entre modelos, y la diferencia entre ellos suele ser lo más útil del panel.",
   },
   {
     q: "¿Con qué frecuencia se actualiza mi visibilidad?",
     a: (
       <p>
-        A diario. Cada prompt se vuelve a lanzar una vez al día contra todos los
-        asistentes que monitorizas, y cada ejecución se añade a tu historial en
-        lugar de reemplazar la anterior. Las respuestas de IA son volátiles, así
-        que una sola comprobación no te dice casi nada. El muestreo diario es lo
-        que convierte el ruido en una tendencia.
+        En los planes de pago, a diario. Cada prompt se vuelve a lanzar una vez al
+        día y cada ejecución se añade a tu historial en lugar de reemplazar la
+        anterior. El análisis gratuito es una foto única. Las respuestas de IA son
+        volátiles, así que una sola comprobación no te dice casi nada, y el
+        muestreo diario es lo que convierte el ruido en una tendencia.
       </p>
     ),
     plain:
-      "A diario. Cada prompt se vuelve a lanzar una vez al día contra todos los asistentes que monitorizas, y cada ejecución se añade a tu historial en lugar de reemplazar la anterior. Las respuestas de IA son volátiles, así que una sola comprobación no te dice casi nada. El muestreo diario es lo que convierte el ruido en una tendencia.",
+      "En los planes de pago, a diario. Cada prompt se vuelve a lanzar una vez al día y cada ejecución se añade a tu historial en lugar de reemplazar la anterior. El análisis gratuito es una foto única. Las respuestas de IA son volátiles, así que una sola comprobación no te dice casi nada, y el muestreo diario es lo que convierte el ruido en una tendencia.",
   },
   {
     q: "¿En qué se diferencia esto de las herramientas de SEO tradicionales?",
@@ -101,16 +101,16 @@ export const AI_SEARCH_FAQ_ITEMS_ES: FaqItem[] = [
     q: "¿El AI Search Monitor es gratis?",
     a: (
       <p>
-        Sí, hay un análisis gratuito y no hace falta tarjeta de crédito. Introduce
-        tu dominio, observa cómo el análisis en vivo descubre tu categoría y tus
-        competidores, elige hasta tres temas e introduce tu email para abrir tu
-        panel. El plan gratuito mantiene esos temas actualizados a diario. Los
-        planes de pago añaden más prompts y un seguimiento más profundo de la
-        competencia.
+        Obtienes un análisis gratuito, y no hace falta tarjeta de crédito.
+        Introduce tu dominio, observa cómo el análisis en vivo descubre tu
+        categoría y tus competidores, elige hasta tres temas e introduce tu email
+        para abrir tu panel con tus primeros resultados. Ese primer análisis es
+        gratuito y único; el seguimiento diario continuo, más prompts y un análisis
+        más profundo de la competencia están en los planes de pago.
       </p>
     ),
     plain:
-      "Sí, hay un análisis gratuito y no hace falta tarjeta de crédito. Introduce tu dominio, observa cómo el análisis en vivo descubre tu categoría y tus competidores, elige hasta tres temas e introduce tu email para abrir tu panel. El plan gratuito mantiene esos temas actualizados a diario. Los planes de pago añaden más prompts y un seguimiento más profundo de la competencia.",
+      "Obtienes un análisis gratuito, y no hace falta tarjeta de crédito. Introduce tu dominio, observa cómo el análisis en vivo descubre tu categoría y tus competidores, elige hasta tres temas e introduce tu email para abrir tu panel con tus primeros resultados. Ese primer análisis es gratuito y único; el seguimiento diario continuo, más prompts y un análisis más profundo de la competencia están en los planes de pago.",
   },
   {
     q: "¿Por qué mi marca no aparece en las respuestas de ChatGPT?",
@@ -159,5 +159,62 @@ export const AI_SEARCH_FAQ_ITEMS_ES: FaqItem[] = [
     ),
     plain:
       "AI Search Monitor sugiere prompts a partir de tu sitio, tu categoría y tus competidores, y luego te los entrega. Cada prompt es totalmente editable. Añade los que tus compradores realmente preguntan, reescribe los que no acertaron y elimina cualquier cosa irrelevante. Los mejores prompts suelen ser los que escuchas en las llamadas de ventas, así que la lista está pensada para editarse, no para aceptarse tal cual.",
+  },
+  {
+    q: "¿Qué es un prompt?",
+    a: (
+      <p>
+        Un prompt es una pregunta que enviamos a un modelo de IA para comprobar
+        cómo aparece tu marca en su respuesta. En la práctica, un prompt es una
+        respuesta de IA monitorizada en un modelo: una sola pregunta, lanzada a
+        ChatGPT, produce una respuesta y cuenta como un prompt. Cada plan incluye
+        un número determinado de prompts: 9 en Free y Starter, 50 en Pro y 150 en
+        Business.
+      </p>
+    ),
+    plain:
+      "Un prompt es una pregunta que enviamos a un modelo de IA para comprobar cómo aparece tu marca en su respuesta. En la práctica, un prompt es una respuesta de IA monitorizada en un modelo: una sola pregunta, lanzada a ChatGPT, produce una respuesta y cuenta como un prompt. Cada plan incluye un número determinado de prompts: 9 en Free y Starter, 50 en Pro y 150 en Business.",
+  },
+  {
+    q: "¿Cuál es la diferencia entre prompts y modelos?",
+    a: (
+      <p>
+        Un prompt es la pregunta que se monitoriza; un modelo es el sistema de IA
+        que la responde, como ChatGPT. Hoy todos los prompts se ejecutan en
+        ChatGPT, y pronto habrá más modelos. Cuando una pregunta pueda ejecutarse
+        en más de un modelo, cada modelo cuenta como su propio prompt, porque
+        cada uno produce una respuesta distinta, así que la misma pregunta en dos
+        modelos son dos prompts. Un plan de 50 prompts podría cubrir, por
+        ejemplo, 25 preguntas en dos modelos.
+      </p>
+    ),
+    plain:
+      "Un prompt es la pregunta que se monitoriza; un modelo es el sistema de IA que la responde, como ChatGPT. Hoy todos los prompts se ejecutan en ChatGPT, y pronto habrá más modelos. Cuando una pregunta pueda ejecutarse en más de un modelo, cada modelo cuenta como su propio prompt, porque cada uno produce una respuesta distinta, así que la misma pregunta en dos modelos son dos prompts. Un plan de 50 prompts podría cubrir, por ejemplo, 25 preguntas en dos modelos.",
+  },
+  {
+    q: "¿Qué es una marca?",
+    a: (
+      <p>
+        Una marca es el sitio web o la URL que quieres monitorizar, como
+        agentled.co. Cada cuenta tiene su propio espacio privado para una marca,
+        con sus propios prompts, resultados e historial, de modo que dos personas
+        pueden monitorizar el mismo dominio de forma independiente. Starter y Pro
+        incluyen una marca; Business incluye hasta tres.
+      </p>
+    ),
+    plain:
+      "Una marca es el sitio web o la URL que quieres monitorizar, como agentled.co. Cada cuenta tiene su propio espacio privado para una marca, con sus propios prompts, resultados e historial, de modo que dos personas pueden monitorizar el mismo dominio de forma independiente. Starter y Pro incluyen una marca; Business incluye hasta tres.",
+  },
+  {
+    q: "¿Cómo pago?",
+    a: (
+      <p>
+        Los pagos se procesan de forma segura a través de Stripe. Según tu país,
+        Stripe admite distintos métodos de pago, y verás las opciones disponibles
+        para ti al finalizar la compra.
+      </p>
+    ),
+    plain:
+      "Los pagos se procesan de forma segura a través de Stripe. Según tu país, Stripe admite distintos métodos de pago, y verás las opciones disponibles para ti al finalizar la compra.",
   },
 ];
