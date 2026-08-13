@@ -89,13 +89,14 @@ export async function reapStaleRuns(brandId: string): Promise<void> {
   if (error) throw error;
 }
 
-/** pending -> running. */
+/** pending -> running. Guarded so it only advances a still-pending run. */
 export async function startRun(runId: string): Promise<void> {
   const admin = createAdminClient();
   const { error } = await admin
     .from("scan_runs")
     .update({ status: "running", started_at: new Date().toISOString() })
-    .eq("id", runId);
+    .eq("id", runId)
+    .eq("status", "pending");
   if (error) throw error;
 }
 
@@ -127,7 +128,9 @@ export async function completeRun(
       cost_usd: fields.costUsd ?? null,
       tokens: fields.tokens ?? null,
     })
-    .eq("id", runId);
+    .eq("id", runId)
+    // Only a running run terminalises — never un-fail a run reaped as stale.
+    .eq("status", "running");
   if (error) throw error;
 
   // Best-effort denormalised convenience. The due check reads the last COMPLETED
@@ -150,7 +153,9 @@ export async function failRun(runId: string, errorText: string): Promise<void> {
       completed_at: new Date().toISOString(),
       error: errorText.slice(0, 1000),
     })
-    .eq("id", runId);
+    .eq("id", runId)
+    // Only a running run fails here; a run already reaped stale stays as-is.
+    .eq("status", "running");
   if (error) throw error;
 }
 

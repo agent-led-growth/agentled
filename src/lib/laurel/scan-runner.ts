@@ -35,7 +35,7 @@ const DEFAULT_MAX_PROMPTS = 9;
 const SCAN_CONCURRENCY = 9;
 
 export type ScanRunResult =
-  | { skipped: true; reason: "already-scanned" | "no-prompts" }
+  | { skipped: true; reason: "no-prompts" }
   | { skipped: false; scanned: number; failed: number; model: string };
 
 /**
@@ -50,7 +50,8 @@ export async function runScan(
 ): Promise<ScanRunResult> {
   const brand = await getBrandById(brandId);
   if (!brand) throw new Error(`runScan: brand ${brandId} not found`);
-  if (brand.first_scan_completed_at) return { skipped: true, reason: "already-scanned" };
+  // No first-scan gate here: the executor applies the one-time guard for the
+  // onboarding trigger only, and recurring runs are meant to re-scan.
 
   const prompts = (await listPrompts(brandId))
     .filter((p) => p.active)

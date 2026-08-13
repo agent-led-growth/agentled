@@ -34,25 +34,33 @@ export async function POST(request: Request) {
   if (!isInternalRequest(request)) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
-  const { brandId, triggerEmail, runToken } = (await request.json().catch(() => ({}))) as {
+  const { brandId, triggerEmail, runToken, trigger } = (await request.json().catch(() => ({}))) as {
     brandId?: string;
     triggerEmail?: string | null;
     runToken?: string;
+    trigger?: "onboarding" | "scheduled" | "manual";
   };
   if (!brandId) return NextResponse.json({ error: "Missing brandId." }, { status: 400 });
+  const runTrigger = trigger ?? "onboarding";
 
   const brand = await getBrandById(brandId);
   if (!brand) return NextResponse.json({ error: "Brand not found." }, { status: 404 });
-  if (brand.first_scan_completed_at) {
-    return NextResponse.json({ ok: true, status: "already-scanned" });
-  }
-  // Run-token guard: only the run matching the current claim proceeds; a
-  // superseded or duplicate delivery (e.g. a queue redelivery) no-ops safely.
-  // Compare as instants, not strings — the token is a JS ISO ("…Z") while the DB
-  // serializes scan_started_at with a "+00:00" offset, so `!==` is always true.
-  const startedMs = brand.scan_started_at ? new Date(brand.scan_started_at).getTime() : NaN;
-  if (runToken && startedMs !== new Date(runToken).getTime()) {
-    return NextResponse.json({ ok: true, status: "superseded" });
+
+  // The one-time guards (first-scan lock + run-token) apply ONLY to the onboarding
+  // scan. Recurring runs (scheduled/manual) must re-scan, and are serialised by the
+  // scan_runs one-in-flight lock (createRun) instead of the brands claim.
+  if (runTrigger === "onboarding") {
+    if (brand.first_scan_completed_at) {
+      return NextResponse.json({ ok: true, status: "already-scanned" });
+    }
+    // Run-token guard: only the run matching the current claim proceeds; a
+    // superseded or duplicate delivery (e.g. a queue redelivery) no-ops safely.
+    // Compare as instants, not strings — the token is a JS ISO ("…Z") while the DB
+    // serializes scan_started_at with a "+00:00" offset, so `!==` is always true.
+    const startedMs = brand.scan_started_at ? new Date(brand.scan_started_at).getTime() : NaN;
+    if (runToken && startedMs !== new Date(runToken).getTime()) {
+      return NextResponse.json({ ok: true, status: "superseded" });
+    }
   }
 
   // Free a run stuck by a dead worker before claiming — otherwise its one-in-flight
@@ -60,7 +68,7 @@ export async function POST(request: Request) {
   // run is already in flight, e.g. a queue redelivery mid-run → no-op).
   await reapStaleRuns(brandId);
   const ownerId = await getBrandOwnerId(brandId);
-  const run = await createRun(brandId, ownerId, "onboarding");
+  const run = await createRun(brandId, ownerId, runTrigger);
   if (!run) return NextResponse.json({ ok: true, status: "in-progress" });
 
   try {

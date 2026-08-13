@@ -286,16 +286,21 @@ export async function getUserRecord(
   return { id: row.id, plan: planOf(row.plan) };
 }
 
-/** The plan for an app `users.id` (e.g. a brand owner), fail-closed to `free`. */
-export async function getPlanForUserId(userId: string): Promise<Plan> {
+/** Read + normalise `users.plan` by a unique column (unknown value → `free`). */
+async function readPlanBy(column: "id" | "auth_user_id", value: string): Promise<Plan> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("users")
     .select("plan")
-    .eq("id", userId)
+    .eq(column, value)
     .maybeSingle();
   if (error) throw error;
   return planOf((data as { plan: string | null } | null)?.plan);
+}
+
+/** The plan for an app `users.id` (e.g. a brand owner). Throws on a DB error. */
+export async function getPlanForUserId(userId: string): Promise<Plan> {
+  return readPlanBy("id", userId);
 }
 
 /**
@@ -307,7 +312,7 @@ export async function getPlanForUserId(userId: string): Promise<Plan> {
  */
 export async function getPlanForAuthUser(authUserId: string): Promise<Plan> {
   try {
-    return (await getUserRecord(authUserId))?.plan ?? "free";
+    return await readPlanBy("auth_user_id", authUserId);
   } catch (err) {
     console.error("getPlanForAuthUser: plan lookup failed, defaulting to free", err);
     return "free";
