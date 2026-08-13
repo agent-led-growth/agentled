@@ -150,4 +150,59 @@ export const AI_SEARCH_FAQ_ITEMS: FaqItem[] = [
     plain:
       "AI Search Monitor suggests prompts from your site, your category and your competitors, then hands them to you. Every prompt is fully editable. Add the ones your buyers actually ask, rewrite the ones that missed, remove anything irrelevant. The best prompts are usually the ones you hear on sales calls, so the list is meant to be edited rather than accepted.",
   },
+  {
+    q: "What is a prompt?",
+    a: (
+      <p>
+        A prompt is one question we send to an AI model to check how your brand
+        shows up in its answer. In practice, one prompt is one AI answer
+        monitored on one model: a single question, run on ChatGPT, produces one
+        answer and counts as one prompt. Each plan includes a set number of
+        prompts, 9 on Free and Starter, 50 on Pro and 150 on Business.
+      </p>
+    ),
+    plain:
+      "A prompt is one question we send to an AI model to check how your brand shows up in its answer. In practice, one prompt is one AI answer monitored on one model: a single question, run on ChatGPT, produces one answer and counts as one prompt. Each plan includes a set number of prompts, 9 on Free and Starter, 50 on Pro and 150 on Business.",
+  },
+  {
+    q: "What is the difference between prompts and models?",
+    a: (
+      <p>
+        A prompt is the question being monitored; a model is the AI system that
+        answers it, such as ChatGPT. Today every prompt runs on ChatGPT, with
+        more models coming soon. Once a question can run on more than one model,
+        each model counts as its own prompt, because each produces a separate
+        answer, so the same question on two models is two prompts. A 50-prompt
+        plan could then cover, say, 25 questions across two models.
+      </p>
+    ),
+    plain:
+      "A prompt is the question being monitored; a model is the AI system that answers it, such as ChatGPT. Today every prompt runs on ChatGPT, with more models coming soon. Once a question can run on more than one model, each model counts as its own prompt, because each produces a separate answer, so the same question on two models is two prompts. A 50-prompt plan could then cover, say, 25 questions across two models.",
+  },
+  {
+    q: "What is a brand?",
+    a: (
+      <p>
+        A brand is the website or URL you want to monitor, such as agentled.co.
+        Each account has its own private workspace for a brand, with its own
+        prompts, results and history, so two people can monitor the same domain
+        independently. Starter and Pro include one brand; Business includes up to
+        three.
+      </p>
+    ),
+    plain:
+      "A brand is the website or URL you want to monitor, such as agentled.co. Each account has its own private workspace for a brand, with its own prompts, results and history, so two people can monitor the same domain independently. Starter and Pro include one brand; Business includes up to three.",
+  },
+  {
+    q: "How do I pay?",
+    a: (
+      <p>
+        Payments are billed securely through Stripe. Depending on your country,
+        Stripe supports a range of payment methods, and you will see the options
+        available to you at checkout.
+      </p>
+    ),
+    plain:
+      "Payments are billed securely through Stripe. Depending on your country, Stripe supports a range of payment methods, and you will see the options available to you at checkout.",
+  },
 ];
