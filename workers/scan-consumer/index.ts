@@ -13,7 +13,13 @@ interface Env {
   INTERNAL_SECRET: string;
 }
 
-type ScanJob = { brandId: string; triggerEmail: string | null };
+// Onboarding messages carry triggerEmail (+ runToken); scheduled ones carry
+// `trigger`. The consumer only reads brandId and relays the whole body to the app.
+type ScanJob = {
+  brandId: string;
+  triggerEmail?: string | null;
+  trigger?: "onboarding" | "scheduled" | "manual";
+};
 
 // Minimal Cloudflare Queue consumer types — avoids a @cloudflare/workers-types
 // dependency (this file is bundled by wrangler, not the app build).

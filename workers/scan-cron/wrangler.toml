@@ -1,0 +1,18 @@
+# Standalone cron for the daily scan sweep. Deploy from this directory:
+#   wrangler deploy
+# Secret (server-to-server auth with the app; must match the app's INTERNAL_SECRET):
+#   wrangler secret put INTERNAL_SECRET
+name = "agentled-scan-cron"
+main = "index.ts"
+compatibility_date = "2026-07-31"
+
+[vars]
+APP_URL = "https://agentled.co"
+
+[observability]
+enabled = true
+
+# Hourly: enqueue any paid brand whose last completed scan is older than ~24h.
+# Staggered by design — each brand keeps its own daily slot off its last run.
+[triggers]
+crons = ["0 * * * *"]

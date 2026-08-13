@@ -174,6 +174,24 @@ export async function getLastCompletedRun(brandId: string): Promise<ScanRun | nu
   return (data as ScanRun | null) ?? null;
 }
 
+/**
+ * Brands due for a scheduled scan (via the 0013 SQL function): active, no
+ * in-flight run, and no completed run since `staleBefore`. Returns the owner's
+ * raw plan so the caller filters by `isDaily` — the daily/free decision stays in
+ * code (fail-closed), never in SQL.
+ */
+export async function listDueBrands(
+  staleBefore: string,
+): Promise<{ brandId: string; plan: string | null }[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc("due_brands_for_scan", { stale_before: staleBefore });
+  if (error) throw error;
+  return ((data ?? []) as { brand_id: string; plan: string | null }[]).map((r) => ({
+    brandId: r.brand_id,
+    plan: r.plan,
+  }));
+}
+
 /** A brand's runs, newest first — the history the dashboard trends read. */
 export async function listRunsForBrand(brandId: string, limit = 90): Promise<ScanRun[]> {
   const admin = createAdminClient();
