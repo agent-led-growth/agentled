@@ -10,14 +10,22 @@ Scope: turn AI Search Monitor into a paid product with free + 3 paid tiers.
 
 ## 1. The offer
 
-| Plan | Monthly | Yearly | Brands | Models | Prompts | Frequency |
-|---|---:|---:|---:|---|---:|---|
-| **Free Scan** | $0 | — | 1 | ChatGPT | 9 | One-time |
-| **Starter** | $25 | $250 | 1 | ChatGPT | 9 | Daily |
-| **Pro** | $90 | $900 | 1 | ChatGPT, more models coming soon | 50 | Daily |
-| **Business** | $270 | $2,700 | 3 | ChatGPT, more models coming soon | 150 | Daily |
+| Plan | Monthly | Yearly | Brands | Models | Prompts | Frequency | Report |
+|---|---:|---:|---:|---|---:|---|---|
+| **Free Scan** | $0 | — | 1 | ChatGPT | 9 | One-time | — |
+| **Starter** | $19 | $190 | 1 | ChatGPT | 9 | Daily | Weekly |
+| **Pro** | $90 | $900 | 1 | ChatGPT, more models coming soon | 50 | Daily | Weekly |
+| **Business** | $270 | $2,700 | 3 | ChatGPT, more models coming soon | 150 | Daily | Weekly |
+
+**Who each plan is for:**
+- **Free Scan** — anyone curious about their AI visibility
+- **Starter** — small businesses, creators, and solo founders
+- **Pro** — companies actively working on AI visibility
+- **Business** — agencies and teams managing multiple brands
 
 - Yearly = **monthly × 10** (2 months free).
+- Paid plans include a **Weekly report**.
+- The pricing page lives at **`/ai-search/pricing`** (+ `/es/ai-search/pricing`) — it is the AI Search Monitor's pricing only.
 - **Internal rule (never shown as Claude yet):** `1 question × 1 model = 1 prompt`.
   Today every prompt runs on ChatGPT, so Pro = 50 questions on ChatGPT. When more
   models arrive the **limits don't change** — a Pro user still gets 50 prompts/day
@@ -85,7 +93,7 @@ and Phase-2 gating have a home. Every gate calls a server-side helper (`limits(p
 - **No new migration here** — `users.plan` already exists; the Stripe mirror columns move to Epic 6, where they're actually needed.
 
 ### Epic 2 — Pricing surface & "clear views"
-- Public **`/pricing`** page: plan cards + monthly/yearly toggle + FAQ (content ready). CTAs point to checkout, wired for real in Epic 6 (placeholder/sign-in until then).
+- Public **`/ai-search/pricing`** page: plan cards + monthly/yearly toggle + FAQ (content ready). CTAs point to checkout, wired for real in Epic 6 (placeholder/sign-in until then).
 - **Update the `/ai-search` landing FAQ** with the pricing FAQs (what's a prompt,
   prompts vs models, what's a brand, how to pay) — edit
   `src/components/ai-search/faq-content.tsx`, keep each item's `plain` field in sync
@@ -170,8 +178,10 @@ one-time scan — worth a per-plan margin check before launch.
 
 ## 8. Content deliverables
 
-- **`src/app/(en)/ai-search/pricing.md`** — AI-search pricing details (plans + FAQ),
-  source of truth for the pricing UI. Uses "more models coming soon" (no Claude). *(Next.)*
+- **`/ai-search/pricing` page** (+ `/es/ai-search/pricing`) — the AI Search Monitor's
+  pricing surface. Prices in `src/lib/pricing.ts`; capabilities from `PLAN_FEATURES`;
+  localized copy (plan names, taglines/who-it's-for, feature labels) in the i18n
+  dictionaries. Uses "more models coming soon" (no Claude). *(Done — Epic 2.)*
 - **`/ai-search` landing FAQ update** — add the pricing FAQs to the existing FAQ
   system for discovery/SEO:
   - `src/components/ai-search/faq-content.tsx` (EN) — new items; each needs its

@@ -27,7 +27,7 @@ export const YEARLY_MONTHS = 10;
 
 /** USD prices for the paid tiers. `free` has no price and is intentionally absent. */
 export const PLAN_PRICING: Record<Exclude<Plan, "free">, { monthly: number; yearly: number }> = {
-  starter: { monthly: 25, yearly: 25 * YEARLY_MONTHS },
+  starter: { monthly: 19, yearly: 19 * YEARLY_MONTHS },
   pro: { monthly: 90, yearly: 90 * YEARLY_MONTHS },
   business: { monthly: 270, yearly: 270 * YEARLY_MONTHS },
 };

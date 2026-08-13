@@ -10,13 +10,16 @@ import { FEATURED_PLAN, PRICING_PLANS, priceFor, type Interval } from "@/lib/pri
 
 type PricingCopy = Dictionary["pricing"];
 
-/** The four capability lines shown on a plan card, composed from PLAN_FEATURES. */
+/** The capability lines shown on a plan card, composed from PLAN_FEATURES. */
 function featureLines(plan: Plan, f: PricingCopy["features"]): string[] {
   const feat = PLAN_FEATURES[plan];
+  const paid = plan !== "free";
   return [
     `${feat.brands} ${feat.brands === 1 ? f.brand : f.brands}`,
     `${feat.prompts} ${f.prompts}`,
     feat.frequency === "daily" ? f.dailyScans : f.oneTimeScan,
+    // Weekly report is a paid perk (Starter and up).
+    ...(paid ? [f.weeklyReport] : []),
     // Pro/Business are where extra models will land (Phase 2) — copy only.
     plan === "pro" || plan === "business" ? `${f.chatgpt}, ${f.moreModelsSoon}` : f.chatgpt,
   ];

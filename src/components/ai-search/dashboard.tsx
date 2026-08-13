@@ -1533,7 +1533,7 @@ function ReadonlyField({ label, value }: { label: string; value: string }) {
 function UpgradeLink() {
   return (
     <Link
-      href="/pricing"
+      href="/ai-search/pricing"
       className="inline-flex items-center gap-[6px] whitespace-nowrap no-underline"
       style={{ fontFamily: MONO, fontSize: 11, background: "var(--ink)", color: "var(--panel)", padding: "5px 10px" }}
     >

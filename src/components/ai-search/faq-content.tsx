@@ -67,14 +67,14 @@ export const AI_SEARCH_FAQ_ITEMS: FaqItem[] = [
     q: "How often is my visibility refreshed?",
     a: (
       <p>
-        Daily. Every prompt is re-run against every assistant you monitor once a
-        day, and each run is added to your history rather than replacing the last
-        one. AI answers are volatile, so one check tells you almost nothing. Daily
-        sampling is what turns noise into a trend.
+        On the paid plans, daily. Every prompt is re-run once a day and each run
+        is added to your history rather than replacing the last one. The free scan
+        is a one-time snapshot. AI answers are volatile, so one check tells you
+        almost nothing, and daily sampling is what turns noise into a trend.
       </p>
     ),
     plain:
-      "Daily. Every prompt is re-run against every assistant you monitor once a day, and each run is added to your history rather than replacing the last one. AI answers are volatile, so one check tells you almost nothing. Daily sampling is what turns noise into a trend.",
+      "On the paid plans, daily. Every prompt is re-run once a day and each run is added to your history rather than replacing the last one. The free scan is a one-time snapshot. AI answers are volatile, so one check tells you almost nothing, and daily sampling is what turns noise into a trend.",
   },
   {
     q: "How is this different from traditional SEO tools?",
@@ -95,15 +95,15 @@ export const AI_SEARCH_FAQ_ITEMS: FaqItem[] = [
     q: "Is the AI Search Monitor free?",
     a: (
       <p>
-        Yes, there is a free scan and no credit card is needed. Enter your domain,
+        You get a free scan, and no credit card is needed. Enter your domain,
         watch the live scan work out your category and competitors, pick up to
-        three topics, and enter your email to open your dashboard. The free tier
-        keeps those topics refreshed daily. Paid tiers add more prompts and deeper
-        competitor tracking.
+        three topics, and enter your email to open your dashboard with your first
+        results. That first scan is free and one-time; ongoing daily tracking,
+        more prompts and deeper competitor analysis are on the paid plans.
       </p>
     ),
     plain:
-      "Yes, there is a free scan and no credit card is needed. Enter your domain, watch the live scan work out your category and competitors, pick up to three topics, and enter your email to open your dashboard. The free tier keeps those topics refreshed daily. Paid tiers add more prompts and deeper competitor tracking.",
+      "You get a free scan, and no credit card is needed. Enter your domain, watch the live scan work out your category and competitors, pick up to three topics, and enter your email to open your dashboard with your first results. That first scan is free and one-time; ongoing daily tracking, more prompts and deeper competitor analysis are on the paid plans.",
   },
   {
     q: "Why is my brand not showing up in ChatGPT answers?",

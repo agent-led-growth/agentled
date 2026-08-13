@@ -14,7 +14,7 @@ const FAQ_ITEMS = {
 } as const;
 
 /**
- * The /pricing page, shared by the English and Spanish routes. Header + hero +
+ * The /ai-search/pricing page, shared by the English and Spanish routes. Header + hero +
  * plan grid on the marketing `--surface`, then the shared FAQ accordion. The FAQ
  * is visual only here — the AI-search landing owns the FAQPage JSON-LD, so we
  * don't emit a duplicate set.

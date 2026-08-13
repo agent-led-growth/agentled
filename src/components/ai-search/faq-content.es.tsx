@@ -71,15 +71,15 @@ export const AI_SEARCH_FAQ_ITEMS_ES: FaqItem[] = [
     q: "¿Con qué frecuencia se actualiza mi visibilidad?",
     a: (
       <p>
-        A diario. Cada prompt se vuelve a lanzar una vez al día contra todos los
-        asistentes que monitorizas, y cada ejecución se añade a tu historial en
-        lugar de reemplazar la anterior. Las respuestas de IA son volátiles, así
-        que una sola comprobación no te dice casi nada. El muestreo diario es lo
-        que convierte el ruido en una tendencia.
+        En los planes de pago, a diario. Cada prompt se vuelve a lanzar una vez al
+        día y cada ejecución se añade a tu historial en lugar de reemplazar la
+        anterior. El análisis gratuito es una foto única. Las respuestas de IA son
+        volátiles, así que una sola comprobación no te dice casi nada, y el
+        muestreo diario es lo que convierte el ruido en una tendencia.
       </p>
     ),
     plain:
-      "A diario. Cada prompt se vuelve a lanzar una vez al día contra todos los asistentes que monitorizas, y cada ejecución se añade a tu historial en lugar de reemplazar la anterior. Las respuestas de IA son volátiles, así que una sola comprobación no te dice casi nada. El muestreo diario es lo que convierte el ruido en una tendencia.",
+      "En los planes de pago, a diario. Cada prompt se vuelve a lanzar una vez al día y cada ejecución se añade a tu historial en lugar de reemplazar la anterior. El análisis gratuito es una foto única. Las respuestas de IA son volátiles, así que una sola comprobación no te dice casi nada, y el muestreo diario es lo que convierte el ruido en una tendencia.",
   },
   {
     q: "¿En qué se diferencia esto de las herramientas de SEO tradicionales?",
@@ -101,16 +101,16 @@ export const AI_SEARCH_FAQ_ITEMS_ES: FaqItem[] = [
     q: "¿El AI Search Monitor es gratis?",
     a: (
       <p>
-        Sí, hay un análisis gratuito y no hace falta tarjeta de crédito. Introduce
-        tu dominio, observa cómo el análisis en vivo descubre tu categoría y tus
-        competidores, elige hasta tres temas e introduce tu email para abrir tu
-        panel. El plan gratuito mantiene esos temas actualizados a diario. Los
-        planes de pago añaden más prompts y un seguimiento más profundo de la
-        competencia.
+        Obtienes un análisis gratuito, y no hace falta tarjeta de crédito.
+        Introduce tu dominio, observa cómo el análisis en vivo descubre tu
+        categoría y tus competidores, elige hasta tres temas e introduce tu email
+        para abrir tu panel con tus primeros resultados. Ese primer análisis es
+        gratuito y único; el seguimiento diario continuo, más prompts y un análisis
+        más profundo de la competencia están en los planes de pago.
       </p>
     ),
     plain:
-      "Sí, hay un análisis gratuito y no hace falta tarjeta de crédito. Introduce tu dominio, observa cómo el análisis en vivo descubre tu categoría y tus competidores, elige hasta tres temas e introduce tu email para abrir tu panel. El plan gratuito mantiene esos temas actualizados a diario. Los planes de pago añaden más prompts y un seguimiento más profundo de la competencia.",
+      "Obtienes un análisis gratuito, y no hace falta tarjeta de crédito. Introduce tu dominio, observa cómo el análisis en vivo descubre tu categoría y tus competidores, elige hasta tres temas e introduce tu email para abrir tu panel con tus primeros resultados. Ese primer análisis es gratuito y único; el seguimiento diario continuo, más prompts y un análisis más profundo de la competencia están en los planes de pago.",
   },
   {
     q: "¿Por qué mi marca no aparece en las respuestas de ChatGPT?",

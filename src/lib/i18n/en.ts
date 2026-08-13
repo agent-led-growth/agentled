@@ -46,22 +46,22 @@ export const en = {
     plans: {
       free: {
         name: "Free Scan",
-        tagline: "A one-time look at how AI answers about you.",
+        tagline: "Anyone curious about their AI visibility.",
         cta: "Start free scan",
       },
       starter: {
         name: "Starter",
-        tagline: "Daily tracking for one brand.",
+        tagline: "Small businesses, creators, and solo founders.",
         cta: "Get Starter",
       },
       pro: {
         name: "Pro",
-        tagline: "More prompts and deeper tracking.",
+        tagline: "Companies actively working on AI visibility.",
         cta: "Get Pro",
       },
       business: {
         name: "Business",
-        tagline: "Up to three brands, at scale.",
+        tagline: "Agencies and teams managing multiple brands.",
         cta: "Get Business",
       },
     },
@@ -71,6 +71,7 @@ export const en = {
       prompts: "prompts",
       oneTimeScan: "One-time scan",
       dailyScans: "Daily scans",
+      weeklyReport: "Weekly report",
       chatgpt: "ChatGPT",
       moreModelsSoon: "more models coming soon",
     },

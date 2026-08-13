@@ -47,22 +47,22 @@ export const es: Dictionary = {
     plans: {
       free: {
         name: "Free Scan",
-        tagline: "Una mirada única a cómo la IA responde sobre ti.",
+        tagline: "Cualquiera con curiosidad por su visibilidad en la IA.",
         cta: "Empezar gratis",
       },
       starter: {
         name: "Starter",
-        tagline: "Seguimiento diario para una marca.",
+        tagline: "Pequeñas empresas, creadores y founders en solitario.",
         cta: "Elegir Starter",
       },
       pro: {
         name: "Pro",
-        tagline: "Más prompts y seguimiento más profundo.",
+        tagline: "Empresas que trabajan activamente su visibilidad en la IA.",
         cta: "Elegir Pro",
       },
       business: {
         name: "Business",
-        tagline: "Hasta tres marcas, a escala.",
+        tagline: "Agencias y equipos que gestionan varias marcas.",
         cta: "Elegir Business",
       },
     },
@@ -72,6 +72,7 @@ export const es: Dictionary = {
       prompts: "prompts",
       oneTimeScan: "Análisis único",
       dailyScans: "Análisis diarios",
+      weeklyReport: "Informe semanal",
       chatgpt: "ChatGPT",
       moreModelsSoon: "más modelos próximamente",
     },
