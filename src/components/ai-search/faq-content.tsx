@@ -13,13 +13,13 @@ export const AI_SEARCH_FAQ_ITEMS: FaqItem[] = [
       <p>
         AI Search Monitor is a tool by Agent-led Growth (agentled.co) that tracks
         whether AI assistants mention and recommend you when people ask questions
-        in your category. It runs real prompts against ChatGPT and Claude every
-        day, checks each answer for mentions of your brand and citations of your
+        in your category. It runs real prompts against ChatGPT every day, checks
+        each answer for mentions of your brand and citations of your
         domain, and turns that into a visibility score you can watch over time.
       </p>
     ),
     plain:
-      "AI Search Monitor is a tool by Agent-led Growth (agentled.co) that tracks whether AI assistants mention and recommend you when people ask questions in your category. It runs real prompts against ChatGPT and Claude every day, checks each answer for mentions of your brand and citations of your domain, and turns that into a visibility score you can watch over time.",
+      "AI Search Monitor is a tool by Agent-led Growth (agentled.co) that tracks whether AI assistants mention and recommend you when people ask questions in your category. It runs real prompts against ChatGPT every day, checks each answer for mentions of your brand and citations of your domain, and turns that into a visibility score you can watch over time.",
   },
   {
     q: "What can the AI Search Monitor track?",
@@ -54,14 +54,14 @@ export const AI_SEARCH_FAQ_ITEMS: FaqItem[] = [
     q: "Which AI assistants and LLMs do you monitor?",
     a: (
       <p>
-        ChatGPT and Claude today, with more coming soon. You can view your score
+        ChatGPT today, with more models coming soon. You can view your score
         per assistant or averaged across them. Visibility is rarely identical
         across models, and the gap between them is usually the most useful thing
         on the dashboard.
       </p>
     ),
     plain:
-      "ChatGPT and Claude today, with more coming soon. You can view your score per assistant or averaged across them. Visibility is rarely identical across models, and the gap between them is usually the most useful thing on the dashboard.",
+      "ChatGPT today, with more models coming soon. You can view your score per assistant or averaged across them. Visibility is rarely identical across models, and the gap between them is usually the most useful thing on the dashboard.",
   },
   {
     q: "How often is my visibility refreshed?",

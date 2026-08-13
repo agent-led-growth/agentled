@@ -15,13 +15,13 @@ export const AI_SEARCH_FAQ_ITEMS_ES: FaqItem[] = [
         AI Search Monitor es una herramienta de Agent-led Growth (agentled.co)
         que rastrea si los asistentes de IA te mencionan y te recomiendan cuando
         la gente hace preguntas en tu categoría. Cada día lanza prompts reales a
-        ChatGPT y Claude, revisa cada respuesta en busca de menciones de tu marca
+        ChatGPT, revisa cada respuesta en busca de menciones de tu marca
         y citas de tu dominio, y lo convierte en un índice de visibilidad que
         puedes seguir a lo largo del tiempo.
       </p>
     ),
     plain:
-      "AI Search Monitor es una herramienta de Agent-led Growth (agentled.co) que rastrea si los asistentes de IA te mencionan y te recomiendan cuando la gente hace preguntas en tu categoría. Cada día lanza prompts reales a ChatGPT y Claude, revisa cada respuesta en busca de menciones de tu marca y citas de tu dominio, y lo convierte en un índice de visibilidad que puedes seguir a lo largo del tiempo.",
+      "AI Search Monitor es una herramienta de Agent-led Growth (agentled.co) que rastrea si los asistentes de IA te mencionan y te recomiendan cuando la gente hace preguntas en tu categoría. Cada día lanza prompts reales a ChatGPT, revisa cada respuesta en busca de menciones de tu marca y citas de tu dominio, y lo convierte en un índice de visibilidad que puedes seguir a lo largo del tiempo.",
   },
   {
     q: "¿Qué puede rastrear el AI Search Monitor?",
@@ -58,14 +58,14 @@ export const AI_SEARCH_FAQ_ITEMS_ES: FaqItem[] = [
     q: "¿Qué asistentes de IA y modelos de lenguaje se monitorizan?",
     a: (
       <p>
-        ChatGPT y Claude por ahora, y pronto habrá más. Puedes ver tu puntuación
+        ChatGPT por ahora, y pronto habrá más modelos. Puedes ver tu puntuación
         por asistente o promediada entre todos. La visibilidad rara vez es
         idéntica entre modelos, y la diferencia entre ellos suele ser lo más útil
         del panel.
       </p>
     ),
     plain:
-      "ChatGPT y Claude por ahora, y pronto habrá más. Puedes ver tu puntuación por asistente o promediada entre todos. La visibilidad rara vez es idéntica entre modelos, y la diferencia entre ellos suele ser lo más útil del panel.",
+      "ChatGPT por ahora, y pronto habrá más modelos. Puedes ver tu puntuación por asistente o promediada entre todos. La visibilidad rara vez es idéntica entre modelos, y la diferencia entre ellos suele ser lo más útil del panel.",
   },
   {
     q: "¿Con qué frecuencia se actualiza mi visibilidad?",
