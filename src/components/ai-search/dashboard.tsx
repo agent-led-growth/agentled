@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { capture, identifyUser } from "@/lib/analytics";
 import type { BrandMetrics } from "@/lib/laurel/metrics";
-import { isDaily } from "@/lib/plan";
+import { brandLimit, isDaily } from "@/lib/plan";
 import { createClient } from "@/lib/supabase/client";
 
 import { AnswerMarkdown } from "./answer-markdown";
@@ -191,7 +191,13 @@ export function Dashboard() {
   };
   const setTab = (t: Tab) => go({ tab: t });
   const setBrand = (id: string) => go({ brand: id });
-  const goNewBrand = () => router.push("/ai-search/onboarding");
+  // Adding a brand is gated by the plan's brand allowance: room left → onboard a
+  // new brand; at the limit → send them to pricing to upgrade (only Business,
+  // with 3 brands, can hold more than one).
+  const goNewBrand = () =>
+    router.push(
+      brands.length < brandLimit(plan) ? "/ai-search/onboarding" : "/ai-search/pricing",
+    );
   // Real sign-out: clear the Supabase session first, then leave the (gated)
   // dashboard. Previously this only navigated, so the user stayed signed in.
   const signOut = async () => {
@@ -1016,7 +1022,7 @@ function Chart({ v }: { v: ChartInput }) {
         </svg>
         <div className="flex justify-between pt-[8px]" style={{ fontFamily: MONO, fontSize: 10, color: "var(--dim)" }}>
           {V.xLabels.map((l, i) => (
-            <span key={l} className={i === 1 || i === 4 ? "hidden md:inline" : ""}>
+            <span key={i} className={i === 1 || i === 4 ? "hidden md:inline" : ""}>
               {l}
             </span>
           ))}
