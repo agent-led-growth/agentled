@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { Dashboard } from "@/components/ai-search/dashboard";
+import { NOINDEX } from "@/lib/metadata";
 
 export const metadata: Metadata = {
   title: "Dashboard",
-  robots: { index: false, follow: false },
+  robots: NOINDEX,
 };
 
 export default function DashboardPage() {

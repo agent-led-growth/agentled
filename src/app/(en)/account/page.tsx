@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { PageShell } from "@/components/page-shell";
+import { NOINDEX } from "@/lib/metadata";
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/supabase/session";
 
 export const metadata: Metadata = {
   title: "Your account",
-  robots: { index: false, follow: false },
+  robots: NOINDEX,
 };
 
 export default async function AccountPage() {
