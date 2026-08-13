@@ -15,12 +15,26 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: "/",
-        // Nothing here is useful to a crawler and /subscribed is noindex anyway.
-        disallow: ["/api/", "/subscribed"],
+        // No blanket `Allow: /` on purpose: everything is crawlable by default,
+        // so the public marketing pages — "/", "/ai-search" and their "/es"
+        // variants — stay open, while the disallows below are unambiguous for
+        // every parser (a leading `Allow: /` would let first-match crawlers
+        // skip the disallows entirely). None of these paths is a prefix of a
+        // landing, so no landing is shadowed.
+        //
+        // Gated / transactional pages: no crawl value, so keep them out of
+        // crawl budget. They are already noindex; this just stops bots
+        // fetching them at all.
+        disallow: [
+          "/api/",
+          "/subscribed",
+          "/home",
+          "/account",
+          "/ai-search/onboarding",
+          "/ai-search/dashboard",
+        ],
       },
     ],
     sitemap: `${SITE.url}/sitemap.xml`,
-    host: SITE.url,
   };
 }
