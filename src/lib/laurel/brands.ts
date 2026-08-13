@@ -2,6 +2,8 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 
+import { planOf, type Plan } from "@/lib/plan";
+
 import { normalizeDomain } from "./domain";
 import type { Brand, BrandEnrichment, BrandRole } from "./types";
 
@@ -261,6 +263,43 @@ export async function getUserIdByAuthId(authUserId: string): Promise<string | nu
     .maybeSingle();
   if (error) throw error;
   return data ? (data as { id: string }).id : null;
+}
+
+/**
+ * The app `users` row (internal id + resolved plan) for a Supabase Auth user, or
+ * null. One round-trip for callers that need both — e.g. plan gates that also key
+ * off the internal id (brand_users). Reads `users.plan` (migration 0011) with the
+ * service-role client; the plan is normalised via {@link planOf}.
+ */
+export async function getUserRecord(
+  authUserId: string,
+): Promise<{ id: string; plan: Plan } | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("users")
+    .select("id, plan")
+    .eq("auth_user_id", authUserId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const row = data as { id: string; plan: string | null };
+  return { id: row.id, plan: planOf(row.plan) };
+}
+
+/**
+ * The account plan for a Supabase Auth user, fail-closed to `free`. Any lookup
+ * error (e.g. before migration 0011 is applied, or a transient DB error) degrades
+ * to `free` rather than throwing, so resolving a plan can never take a page down.
+ * Server-side only — every plan gate should resolve the plan here, never trust a
+ * client value.
+ */
+export async function getPlanForAuthUser(authUserId: string): Promise<Plan> {
+  try {
+    return (await getUserRecord(authUserId))?.plan ?? "free";
+  } catch (err) {
+    console.error("getPlanForAuthUser: plan lookup failed, defaulting to free", err);
+    return "free";
+  }
 }
 
 /** Every brand a user belongs to, newest first. */
