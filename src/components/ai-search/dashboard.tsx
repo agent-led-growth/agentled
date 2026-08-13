@@ -24,6 +24,7 @@ import {
 import { DASH, formatMetrics, type DashboardData } from "./format";
 import { AI_MODELS, MODEL_COLOR } from "./model-marks";
 import { clearOnboarding, readOnboarding } from "./onboarding-store";
+import { PromptsManager } from "./prompts-manager";
 import { MONO, SANS, appTokens, toneVar } from "./tokens";
 
 type Tab = "overview" | "settings";
@@ -304,7 +305,7 @@ export function Dashboard() {
               ) : (
                 <>
                   {tab === "settings" ? (
-                    <Settings brand={currentBrand} data={data} plan={plan} />
+                    <Settings brand={currentBrand} plan={plan} />
                   ) : (
                     <MainView
                       data={data}
@@ -1448,14 +1449,11 @@ function PlatformScoreCard({ p }: { p: Prompt }) {
 // ── Settings ─────────────────────────────────────────────────────────────────
 function Settings({
   brand,
-  data,
   plan,
 }: {
   brand: BrandLite | null;
-  data: DashboardData;
   plan: string;
 }) {
-  const allPrompts = data.groups.flatMap((g) => g.items.map((p) => p.q));
   return (
     <div className="flex flex-col gap-[20px]">
       <div className="grid gap-[20px] md:grid-cols-2">
@@ -1500,22 +1498,8 @@ function Settings({
       </div>
 
       <Card className="flex flex-col gap-[16px] p-[22px_24px]">
-        <div className="flex flex-wrap items-start justify-between gap-[12px]">
-          <SectionHead title="Monitored prompts" sub="Add, remove or edit your prompts." />
-          <span
-            className="inline-flex items-center whitespace-nowrap text-[13px]"
-            style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "7px 12px" }}
-          >
-            + Add prompt
-          </span>
-        </div>
-        <div className="grid gap-x-[24px] gap-y-[13px] md:grid-cols-3">
-          {allPrompts.map((q, i) => (
-            <span key={i} className="text-[14px]" style={{ color: "var(--mut)" }}>
-              {q}
-            </span>
-          ))}
-        </div>
+        <SectionHead title="Monitored prompts" sub="Add, remove or edit the questions we monitor." />
+        <PromptsManager brandId={brand?.id ?? null} />
       </Card>
     </div>
   );

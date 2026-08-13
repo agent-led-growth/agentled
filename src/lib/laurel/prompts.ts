@@ -55,3 +55,53 @@ export async function setPromptActive(
     .eq("id", promptId);
   if (error) throw error;
 }
+
+/** Create one user-authored prompt (active, ungrouped). Used by the editor. */
+export async function createPrompt(brandId: string, text: string): Promise<Prompt> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("prompts")
+    .insert({ brand_id: brandId, text, active: true, topic_id: null })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data as Prompt;
+}
+
+/** Edit a prompt's question text. */
+export async function updatePromptText(promptId: string, text: string): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("prompts")
+    .update({ text, updated_at: new Date().toISOString() })
+    .eq("id", promptId);
+  if (error) throw error;
+}
+
+/** A single prompt by id, or null — used to verify account ownership on writes. */
+export async function getPromptById(promptId: string): Promise<Prompt | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("prompts")
+    .select("*")
+    .eq("id", promptId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as Prompt | null) ?? null;
+}
+
+/**
+ * Count active prompts across the given brands — the per-account usage total the
+ * prompt limit is enforced against (the limit is account-wide, not per brand).
+ */
+export async function countActivePrompts(brandIds: string[]): Promise<number> {
+  if (brandIds.length === 0) return 0;
+  const admin = createAdminClient();
+  const { count, error } = await admin
+    .from("prompts")
+    .select("id", { count: "exact", head: true })
+    .in("brand_id", brandIds)
+    .eq("active", true);
+  if (error) throw error;
+  return count ?? 0;
+}
