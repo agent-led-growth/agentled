@@ -286,6 +286,18 @@ export async function getUserRecord(
   return { id: row.id, plan: planOf(row.plan) };
 }
 
+/** The plan for an app `users.id` (e.g. a brand owner), fail-closed to `free`. */
+export async function getPlanForUserId(userId: string): Promise<Plan> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("users")
+    .select("plan")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  return planOf((data as { plan: string | null } | null)?.plan);
+}
+
 /**
  * The account plan for a Supabase Auth user, fail-closed to `free`. Any lookup
  * error (e.g. before migration 0011 is applied, or a transient DB error) degrades

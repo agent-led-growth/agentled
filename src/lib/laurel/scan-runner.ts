@@ -25,13 +25,14 @@ import type { Prompt } from "./types";
  */
 
 const PLATFORM: Platform = "chatgpt";
-const MAX_PROMPTS = 9; // free scan = 3 topics x 3; hard cap on metered calls
-// Run all prompts at once (MAX_PROMPTS is small). The search phase is nearly the
-// whole wall-clock, so full concurrency collapses it from several serial rounds
-// to one — a slow prompt no longer serializes behind others, and the run fits
-// inside a single queue-consumer invocation.
-const SEARCH_CONCURRENCY = MAX_PROMPTS;
-const EXTRACT_CONCURRENCY = MAX_PROMPTS;
+// Fallback cap when a caller passes none (free scan = 3 topics x 3). Callers pass
+// the owner's plan prompt limit, so paid brands scan all their prompts (50/150),
+// not just 9.
+const DEFAULT_MAX_PROMPTS = 9;
+// Bounded, decoupled from the prompt count: a 150-prompt paid run goes out in
+// batches rather than firing 150 web searches at once (rate limits + timeouts).
+// Small runs (≤ 9) still go in a single round.
+const SCAN_CONCURRENCY = 9;
 
 export type ScanRunResult =
   | { skipped: true; reason: "already-scanned" | "no-prompts" }
@@ -45,6 +46,7 @@ export type ScanRunResult =
 export async function runScan(
   brandId: string,
   runId: string | null = null,
+  maxPrompts: number = DEFAULT_MAX_PROMPTS,
 ): Promise<ScanRunResult> {
   const brand = await getBrandById(brandId);
   if (!brand) throw new Error(`runScan: brand ${brandId} not found`);
@@ -52,7 +54,7 @@ export async function runScan(
 
   const prompts = (await listPrompts(brandId))
     .filter((p) => p.active)
-    .slice(0, MAX_PROMPTS);
+    .slice(0, maxPrompts);
   if (prompts.length === 0) {
     await markFirstScanComplete(brandId);
     return { skipped: true, reason: "no-prompts" };
@@ -66,7 +68,7 @@ export async function runScan(
   type Searched =
     | { prompt: Prompt; ok: true; result: ScanResult }
     | { prompt: Prompt; ok: false; error: string };
-  const searched = await mapPool<Prompt, Searched>(prompts, SEARCH_CONCURRENCY, async (p) => {
+  const searched = await mapPool<Prompt, Searched>(prompts, SCAN_CONCURRENCY, async (p) => {
     try {
       return { prompt: p, ok: true, result: await runWebSearch(p.text) };
     } catch (err) {
@@ -79,7 +81,7 @@ export async function runScan(
   type Extracted =
     | { prompt: Prompt; ok: true; result: ScanResult; brands: ExtractedBrand[] }
     | { prompt: Prompt; ok: false; error: string };
-  const extracted = await mapPool<Searched, Extracted>(searched, EXTRACT_CONCURRENCY, async (s) => {
+  const extracted = await mapPool<Searched, Extracted>(searched, SCAN_CONCURRENCY, async (s) => {
     if (!s.ok) return { prompt: s.prompt, ok: false, error: s.error };
     try {
       const brands = await extractBrands({

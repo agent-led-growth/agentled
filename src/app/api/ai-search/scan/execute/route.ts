@@ -10,13 +10,16 @@ import {
   generatePrompts,
   getBrandById,
   getBrandOwnerId,
+  getPlanForUserId,
   insertPrompts,
   listPrompts,
   listSelectedTopics,
   markScanFailed,
+  reapStaleRuns,
   runScan,
   startRun,
 } from "@/lib/laurel";
+import { promptLimit } from "@/lib/plan";
 
 /**
  * Internal scan executor — the durable job body. Called ONLY by the scan-consumer
@@ -52,8 +55,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, status: "superseded" });
   }
 
-  // Open a run record for this scan. Idempotent: null when a run is already in
-  // flight for this brand (e.g. a queue redelivery mid-run) → no-op.
+  // Free a run stuck by a dead worker before claiming — otherwise its one-in-flight
+  // lock would block this brand forever. Then open a run (idempotent: null when a
+  // run is already in flight, e.g. a queue redelivery mid-run → no-op).
+  await reapStaleRuns(brandId);
   const ownerId = await getBrandOwnerId(brandId);
   const run = await createRun(brandId, ownerId, "onboarding");
   if (!run) return NextResponse.json({ ok: true, status: "in-progress" });
@@ -80,7 +85,10 @@ export async function POST(request: Request) {
       if (generated.length > 0) await insertPrompts(brandId, generated);
     }
 
-    const result = await runScan(brandId, run.id);
+    // Scan up to the owner's plan prompt limit (free 9, pro 50, business 150),
+    // not a hardcoded 9.
+    const plan = ownerId ? await getPlanForUserId(ownerId) : "free";
+    const result = await runScan(brandId, run.id, promptLimit(plan));
     if (!result.skipped && result.scanned > 0) {
       await completeRun(run.id, brandId, {
         model: result.model,
@@ -93,9 +101,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, status: "complete", result });
     }
 
-    // Ran but nothing landed (every prompt failed, or no prompts) — terminal.
+    if (result.skipped) {
+      // Nothing to scan (no prompts) — a completed-empty run, not a failure; the
+      // brand is already marked scanned by runScan, so keep the two consistent.
+      await completeRun(run.id, brandId, { model: null, promptsAttempted: 0, promptsCompleted: 0 });
+      return NextResponse.json({ ok: true, status: "empty" });
+    }
+
+    // Ran but every prompt failed — a genuine, retryable failure.
     console.warn("scan/execute: no results, marking failed", brandId, result);
-    await failRun(run.id, result.skipped ? `skipped: ${result.reason}` : "no results landed");
+    await failRun(run.id, "no results landed");
     await markScanFailed(brandId);
     return NextResponse.json({ ok: true, status: "failed" });
   } catch (err) {
