@@ -16,6 +16,14 @@ export type Plan = (typeof PLANS)[number];
 
 const KNOWN = new Set<string>(PLANS);
 
+/**
+ * Retired plan values, mapped to their nearest current tier so an already-set
+ * `users.plan` keeps working. `paid` predates the starter/pro/business split and
+ * was a single "has paid access" flag; treat it as `pro` (re-tier specific users
+ * by hand if needed). Without this, an old `paid` value would fail closed to free.
+ */
+const LEGACY: Record<string, Plan> = { paid: "pro" };
+
 /** Scan cadence a plan grants. */
 export type Frequency = "one-time" | "daily";
 
@@ -26,16 +34,20 @@ export type Frequency = "one-time" | "daily";
  */
 export type Model = "chatgpt";
 
-/** What a plan grants. Capabilities live here in code, never in the DB. */
+/**
+ * What a plan grants. Capabilities live here in code, never in the DB. Fields are
+ * `readonly` so `planFeatures()` can hand out the shared PLAN_FEATURES entry
+ * without a caller mutating it and poisoning every later lookup.
+ */
 export interface PlanFeatures {
   /** Max brands an account may keep active. */
-  brands: number;
+  readonly brands: number;
   /** Max prompts (questions in Phase 1) across the account's active brand(s). */
-  prompts: number;
+  readonly prompts: number;
   /** Scan cadence. */
-  frequency: Frequency;
+  readonly frequency: Frequency;
   /** Models prompts run on (ChatGPT-only in Phase 1). */
-  models: readonly Model[];
+  readonly models: readonly Model[];
 }
 
 export const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
@@ -47,7 +59,9 @@ export const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
 
 /** Resolve a raw users.plan value to a known Plan, defaulting to `free`. */
 export function planOf(plan: string | null | undefined): Plan {
-  return plan && KNOWN.has(plan) ? (plan as Plan) : "free";
+  if (!plan) return "free";
+  if (KNOWN.has(plan)) return plan as Plan;
+  return LEGACY[plan] ?? "free";
 }
 
 /** The capabilities of a (raw or resolved) plan. Fail-closed via {@link planOf}. */
