@@ -21,6 +21,10 @@ export async function insertScan(row: {
   raw: unknown;
   status: ScanStatus;
   error?: string | null;
+  /** The run this result belongs to (0012); null for legacy one-time rows. */
+  runId?: string | null;
+  /** Snapshot of the exact question run — immune to later prompt edits (0012). */
+  promptText?: string | null;
 }): Promise<string> {
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -34,6 +38,8 @@ export async function insertScan(row: {
       raw: row.raw ?? null,
       status: row.status,
       error: row.error ?? null,
+      run_id: row.runId ?? null,
+      prompt_text: row.promptText ?? null,
     })
     .select("id")
     .single();

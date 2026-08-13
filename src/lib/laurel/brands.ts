@@ -302,6 +302,19 @@ export async function getPlanForAuthUser(authUserId: string): Promise<Plan> {
   }
 }
 
+/** The brand's owner (role `owner`, else the first member) — the run's `user_id`. */
+export async function getBrandOwnerId(brandId: string): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("brand_users")
+    .select("user_id, role")
+    .eq("brand_id", brandId);
+  if (error) throw error;
+  const rows = (data ?? []) as { user_id: string; role: string }[];
+  if (rows.length === 0) return null;
+  return (rows.find((r) => r.role === "owner") ?? rows[0]).user_id;
+}
+
 /** Every brand a user belongs to, newest first. */
 export async function getBrandsForUser(authUserId: string): Promise<Brand[]> {
   const admin = createAdminClient();

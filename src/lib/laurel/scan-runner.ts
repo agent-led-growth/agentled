@@ -35,9 +35,17 @@ const EXTRACT_CONCURRENCY = MAX_PROMPTS;
 
 export type ScanRunResult =
   | { skipped: true; reason: "already-scanned" | "no-prompts" }
-  | { skipped: false; scanned: number; failed: number };
+  | { skipped: false; scanned: number; failed: number; model: string };
 
-export async function runScan(brandId: string): Promise<ScanRunResult> {
+/**
+ * `runId`, when given (0012), tags every result row with its run and snapshots the
+ * prompt text, so runs accumulate as history instead of overwriting and a later
+ * prompt edit can't re-label past answers.
+ */
+export async function runScan(
+  brandId: string,
+  runId: string | null = null,
+): Promise<ScanRunResult> {
   const brand = await getBrandById(brandId);
   if (!brand) throw new Error(`runScan: brand ${brandId} not found`);
   if (brand.first_scan_completed_at) return { skipped: true, reason: "already-scanned" };
@@ -108,6 +116,8 @@ export async function runScan(brandId: string): Promise<ScanRunResult> {
         raw: null,
         status: "failed",
         error: e.error,
+        runId,
+        promptText: e.prompt.text,
       });
       failed += 1;
       continue;
@@ -121,6 +131,8 @@ export async function runScan(brandId: string): Promise<ScanRunResult> {
       answerText: e.result.answerText,
       raw: e.result.raw,
       status: "ok",
+      runId,
+      promptText: e.prompt.text,
     });
 
     await insertMentions(
@@ -155,7 +167,7 @@ export async function runScan(brandId: string): Promise<ScanRunResult> {
   // Only lock the brand as scanned if something actually landed; a run where
   // every prompt failed (transient upstream) stays retryable.
   if (scanned > 0) await markFirstScanComplete(brandId);
-  return { skipped: false, scanned, failed };
+  return { skipped: false, scanned, failed, model: registry.scan.model };
 }
 
 /** A short, storable failure reason: which stage broke and the error message. */

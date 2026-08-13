@@ -3,14 +3,19 @@ import { NextResponse } from "next/server";
 import { sendScanReadyEmail } from "@/lib/email/scan-ready";
 import { isInternalRequest } from "@/lib/internal-auth";
 import {
+  completeRun,
+  createRun,
   deleteBrandScans,
+  failRun,
   generatePrompts,
   getBrandById,
+  getBrandOwnerId,
   insertPrompts,
   listPrompts,
   listSelectedTopics,
   markScanFailed,
   runScan,
+  startRun,
 } from "@/lib/laurel";
 
 /**
@@ -47,9 +52,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, status: "superseded" });
   }
 
+  // Open a run record for this scan. Idempotent: null when a run is already in
+  // flight for this brand (e.g. a queue redelivery mid-run) → no-op.
+  const ownerId = await getBrandOwnerId(brandId);
+  const run = await createRun(brandId, ownerId, "onboarding");
+  if (!run) return NextResponse.json({ ok: true, status: "in-progress" });
+
   try {
+    await startRun(run.id);
+
     // Fresh slate each attempt — the queue may retry, and runScan writes rows
     // only at the end, so clearing partials keeps a re-run from duplicating.
+    // (Slice 3 scopes this to the run once recurring history accumulates.)
     await deleteBrandScans(brandId);
 
     // Generate prompts from the selected topics if none exist yet.
@@ -66,20 +80,27 @@ export async function POST(request: Request) {
       if (generated.length > 0) await insertPrompts(brandId, generated);
     }
 
-    const result = await runScan(brandId);
+    const result = await runScan(brandId, run.id);
     if (!result.skipped && result.scanned > 0) {
+      await completeRun(run.id, brandId, {
+        model: result.model,
+        promptsAttempted: result.scanned + result.failed,
+        promptsCompleted: result.scanned,
+      });
       if (triggerEmail) {
         await sendScanReadyEmail(triggerEmail, brand.name?.trim() || brand.domain);
       }
       return NextResponse.json({ ok: true, status: "complete", result });
     }
 
-    // Ran but nothing landed (every prompt failed) — terminal, and recorded.
+    // Ran but nothing landed (every prompt failed, or no prompts) — terminal.
     console.warn("scan/execute: no results, marking failed", brandId, result);
+    await failRun(run.id, result.skipped ? `skipped: ${result.reason}` : "no results landed");
     await markScanFailed(brandId);
     return NextResponse.json({ ok: true, status: "failed" });
   } catch (err) {
-    // Unexpected crash — let the queue retry; its final attempt records failure.
+    // Unexpected crash — record it on the run and let the queue retry.
+    await failRun(run.id, err instanceof Error ? err.message : String(err)).catch(() => {});
     console.error("scan/execute: crashed", brandId, err);
     return NextResponse.json({ error: "Scan crashed." }, { status: 500 });
   }
