@@ -9,6 +9,7 @@ const abs = (path: string) => `${SITE.url}${path === "/" ? "" : path}`;
 const PAGES = [
   { paths: PATHS.home, priority: 1, changeFrequency: "weekly" as const },
   { paths: PATHS.aiSearch, priority: 0.8, changeFrequency: "monthly" as const },
+  { paths: PATHS.pricing, priority: 0.7, changeFrequency: "monthly" as const },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

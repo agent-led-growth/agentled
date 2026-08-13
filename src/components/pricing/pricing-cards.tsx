@@ -7,6 +7,7 @@ import type { Dictionary, Locale } from "@/lib/i18n";
 import { PATHS } from "@/lib/metadata";
 import { PLAN_FEATURES, type Plan } from "@/lib/plan";
 import { FEATURED_PLAN, PRICING_PLANS, priceFor, type Interval } from "@/lib/pricing";
+import { createClient } from "@/lib/supabase/client";
 
 type PricingCopy = Dictionary["pricing"];
 
@@ -40,13 +41,20 @@ export function PricingCards({ copy, locale }: { copy: PricingCopy; locale: Loca
   // Mark the signed-in user's current paid plan. Fetching client-side keeps
   // /pricing statically prerenderable; logged-out and free users resolve to
   // "free", so nothing is marked (free is the default, not a highlighted state).
+  // We check the session locally first (no network) and skip the request
+  // entirely for anonymous visitors — the common case on a public page.
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
-    fetch("/api/ai-search/brands")
-      .then((r) => r.json())
-      .then((d: { plan?: string }) => {
-        if (active) setCurrentPlan(d.plan ?? "free");
+    createClient()
+      .auth.getSession()
+      .then(({ data }) => {
+        if (!active || !data.session) return;
+        return fetch("/api/ai-search/plan")
+          .then((r) => r.json())
+          .then((d: { plan?: string }) => {
+            if (active) setCurrentPlan(d.plan ?? "free");
+          });
       })
       .catch(() => {});
     return () => {
