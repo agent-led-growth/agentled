@@ -128,6 +128,14 @@ and Phase-2 gating have a home. Every gate calls a server-side helper (`limits(p
   queue → the existing consumer runs them (reuses the durable Phase-A scan).
 - Cron host: an OpenNext `scheduled` handler **or** a small dedicated cron worker
   (like the scan-consumer) — TBD during build.
+- **Edited-prompt history (v1 = snapshot + reset-on-edit).** Each scan result
+  **snapshots the `prompt_text` it actually ran** (immutable, like the run itself),
+  so a later edit can never re-label past data. Editing a prompt stays an in-place
+  `text` update (Epic 3); the **trend plots only points whose snapshot matches the
+  prompt's current text**, so an edit cleanly starts the line fresh — no versions
+  table, no judging typo-vs-pivot. Old answers are kept for audit, never blended in.
+  Build this *before* daily history accumulates (in-place edits are harmless today
+  only because there's no history yet).
 
 ### Epic 5 — Brand limits & downgrade
 - Enforce brand cap **per account** at creation (1/1/1/3) with an "upgrade for more brands" CTA.
@@ -171,9 +179,12 @@ one-time scan — worth a per-plan margin check before launch.
     `prompts_attempted`, `prompts_completed`,
   - `started_at`, `completed_at`, `error`, and usage/cost metadata (tokens, est. cost).
   - `scans.run_id` FK links results to the run.
+  - **`scans.prompt_text`** — snapshot of the question actually run (Epic 4), so
+    editing a prompt never re-labels past results; trends match on it (reset-on-edit).
 - `brands`: + `next_scan_at`, `last_scan_at`, `is_active` (Epics 4, 5). **No new
   uniqueness on domain.**
-- `prompts`: user-owned **questions** only (no model column in Phase 1).
+- `prompts`: user-owned **questions** only (no model column in Phase 1). Editing is
+  an in-place `text` update; history integrity comes from `scans.prompt_text` above.
 - Every new table gets RLS with explicit policies (repo rule), scoped via `is_brand_member`.
 
 ## 8. Content deliverables
