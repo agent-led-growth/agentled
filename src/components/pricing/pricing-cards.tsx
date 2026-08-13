@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { Dictionary, Locale } from "@/lib/i18n";
 import { PATHS } from "@/lib/metadata";
@@ -37,6 +37,23 @@ export function PricingCards({ copy, locale }: { copy: PricingCopy; locale: Loca
   const [interval, setInterval] = useState<Interval>("monthly");
   const startHref = PATHS.aiSearch[locale];
 
+  // Mark the signed-in user's current paid plan. Fetching client-side keeps
+  // /pricing statically prerenderable; logged-out and free users resolve to
+  // "free", so nothing is marked (free is the default, not a highlighted state).
+  const [currentPlan, setCurrentPlan] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/ai-search/brands")
+      .then((r) => r.json())
+      .then((d: { plan?: string }) => {
+        if (active) setCurrentPlan(d.plan ?? "free");
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <div className="flex flex-col gap-[32px] md:gap-[44px]">
       <BillingToggle copy={copy} interval={interval} onChange={setInterval} />
@@ -45,12 +62,16 @@ export function PricingCards({ copy, locale }: { copy: PricingCopy; locale: Loca
         {PRICING_PLANS.map((plan) => {
           const price = priceFor(plan, interval);
           const featured = plan === FEATURED_PLAN;
+          // Only a paid current plan is marked — free is the default, and
+          // logged-out users resolve to "free", so they see nothing different.
+          const isCurrent = currentPlan !== "free" && currentPlan === plan;
+          const highlight = featured || isCurrent;
           const p = copy.plans[plan];
           return (
             <div
               key={plan}
               className={`flex flex-col gap-[20px] border p-[24px] ${
-                featured
+                highlight
                   ? "border-[var(--accent)] bg-[var(--field-bg)]"
                   : "border-[var(--border-hairline)] bg-[var(--surface)]"
               }`}
@@ -59,11 +80,15 @@ export function PricingCards({ copy, locale }: { copy: PricingCopy; locale: Loca
                 <h3 className="text-[19px] font-semibold text-[var(--text-primary)]">
                   {p.name}
                 </h3>
-                {featured && (
+                {isCurrent ? (
+                  <span className="font-mono text-[10px] tracking-[0.14em] text-[var(--accent)] uppercase">
+                    {copy.currentPlan}
+                  </span>
+                ) : featured ? (
                   <span className="font-mono text-[10px] tracking-[0.14em] text-[var(--accent)] uppercase">
                     {copy.featured}
                   </span>
-                )}
+                ) : null}
               </div>
 
               <p className="min-h-[40px] text-[14px] leading-[1.4] text-[var(--text-muted)]">
@@ -81,16 +106,25 @@ export function PricingCards({ copy, locale }: { copy: PricingCopy; locale: Loca
                 )}
               </div>
 
-              <Link
-                href={startHref}
-                className={`block w-full border px-[16px] py-[11px] text-center text-[14px] font-medium no-underline transition-colors ${
-                  featured
-                    ? "border-transparent bg-[var(--btn-bg)] text-[var(--btn-fg)] hover:opacity-90"
-                    : "border-[var(--border-hairline)] text-[var(--text-primary)] hover:border-[var(--text-faint)]"
-                }`}
-              >
-                {p.cta}
-              </Link>
+              {isCurrent ? (
+                <span
+                  aria-current="true"
+                  className="block w-full border border-[var(--accent)] px-[16px] py-[11px] text-center text-[14px] font-medium text-[var(--accent)]"
+                >
+                  {copy.currentPlan}
+                </span>
+              ) : (
+                <Link
+                  href={startHref}
+                  className={`block w-full border px-[16px] py-[11px] text-center text-[14px] font-medium no-underline transition-colors ${
+                    featured
+                      ? "border-transparent bg-[var(--btn-bg)] text-[var(--btn-fg)] hover:opacity-90"
+                      : "border-[var(--border-hairline)] text-[var(--text-primary)] hover:border-[var(--text-faint)]"
+                  }`}
+                >
+                  {p.cta}
+                </Link>
+              )}
 
               <ul className="flex list-none flex-col gap-[10px] border-t border-[var(--border-hairline)] pt-[18px]">
                 {featureLines(plan, copy.features).map((line) => (

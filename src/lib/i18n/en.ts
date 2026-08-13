@@ -43,6 +43,7 @@ export const en = {
     perYear: "/yr",
     freePrice: "Free",
     featured: "Most popular",
+    currentPlan: "Current plan",
     plans: {
       free: {
         name: "Free Scan",

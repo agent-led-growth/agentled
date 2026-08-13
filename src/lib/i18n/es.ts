@@ -44,6 +44,7 @@ export const es: Dictionary = {
     perYear: "/año",
     freePrice: "Gratis",
     featured: "Más popular",
+    currentPlan: "Plan actual",
     plans: {
       free: {
         name: "Free Scan",
