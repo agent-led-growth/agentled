@@ -6,9 +6,13 @@ import { SITE } from "@/lib/site";
 /** Absolute URL for a route path (root has no trailing segment). */
 const abs = (path: string) => `${SITE.url}${path === "/" ? "" : path}`;
 
-// `lastModified` is a real content date, not build time — bump a page's date
-// only when its content meaningfully changes. Using `new Date()` here would
-// reset every timestamp on every deploy and teach crawlers to distrust it.
+// `lastModified` is a real content date (YYYY-MM-DD), not build time: using
+// `new Date()` would reset every timestamp on every deploy and teach crawlers
+// to distrust lastmod. Bump a page's date when the components that render it
+// change — for `home` that's Hero + Faq + FAQ_ITEMS, for `aiSearch` the
+// AiSearchLanding + AI_SEARCH_FAQ_ITEMS. Both locales of a page share one date
+// on purpose: EN and ES render the same components, so their content changes
+// together.
 const PAGES = [
   {
     paths: PATHS.home,

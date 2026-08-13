@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 
 import { PageShell } from "@/components/page-shell";
+import { NOINDEX } from "@/lib/metadata";
 
 export const metadata: Metadata = {
   title: "Subscription confirmed",
   // Transactional page — nothing here should ever appear in search results.
-  robots: { index: false, follow: false },
+  robots: NOINDEX,
 };
 
 const COPY = {
