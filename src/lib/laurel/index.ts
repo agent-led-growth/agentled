@@ -8,6 +8,7 @@ export * from "./domain";
 export * from "./brands";
 export * from "./topics";
 export * from "./prompts";
+export * from "./scan-runs";
 export * from "./enrichment";
 export * from "./claim";
 export * from "./prompt-gen";

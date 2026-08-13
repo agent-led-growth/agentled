@@ -21,6 +21,10 @@ export interface Brand {
   scan_failed_at: string | null;
   created_at: string;
   claimed_at: string | null;
+  // Scheduling (0012): last_scan_at anchors the daily-sweep due check; is_active
+  // lets a row be paused (Epic 5) without losing it or its history.
+  last_scan_at: string | null;
+  is_active: boolean;
 }
 
 export interface Topic {
@@ -41,6 +45,27 @@ export interface Prompt {
   sort_order: number | null;
   created_at: string;
   updated_at: string;
+}
+
+/** A scan run — one execution of a brand's prompts (0012). */
+export type ScanRunStatus = "pending" | "running" | "completed" | "failed";
+export type ScanRunTrigger = "onboarding" | "scheduled" | "manual";
+
+export interface ScanRun {
+  id: string;
+  brand_id: string;
+  user_id: string | null;
+  status: ScanRunStatus;
+  trigger: ScanRunTrigger;
+  model: string | null;
+  prompts_attempted: number;
+  prompts_completed: number;
+  error: string | null;
+  cost_usd: number | null;
+  tokens: number | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
 }
 
 /** Fields enrichment fills in on an already-created brand. */
