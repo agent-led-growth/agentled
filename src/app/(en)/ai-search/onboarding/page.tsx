@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 
 import { OnboardingFlow } from "@/components/ai-search/onboarding-flow";
+import { NOINDEX } from "@/lib/metadata";
 
 export const metadata: Metadata = {
   title: "Set up your monitor",
-  robots: { index: false, follow: false },
+  robots: NOINDEX,
 };
 
 export default async function OnboardingPage({

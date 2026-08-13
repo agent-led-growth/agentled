@@ -6,12 +6,13 @@ import { HomeScanForm } from "@/components/home/home-scan-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { hasActiveBrand } from "@/lib/laurel";
+import { NOINDEX } from "@/lib/metadata";
 import { SUBSTACK_URL, getSubstackPosts } from "@/lib/substack";
 import { getUser } from "@/lib/supabase/session";
 
 export const metadata: Metadata = {
   title: "Home",
-  robots: { index: false, follow: false },
+  robots: NOINDEX,
 };
 
 const eyebrow =

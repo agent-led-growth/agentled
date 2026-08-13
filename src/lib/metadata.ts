@@ -15,6 +15,30 @@ export const PATHS = {
 } as const satisfies Record<string, LocalePaths>;
 
 /**
+ * Gated / app routes: noindex, and kept out of crawl budget. Single source of
+ * truth — `robots.ts` derives its Disallow list from this, and every page here
+ * sets `robots: NOINDEX` in its metadata. Add a route here (and spread NOINDEX
+ * in its page) whenever it must not be indexed or crawled, so the two never
+ * drift apart.
+ *
+ * Safe to Disallow despite being noindex: none has a crawlable inbound link
+ * (they are reached via client-side redirects / router.push, never an
+ * `<a href>`), so none is in the index for a Disallow to strand. Were that to
+ * change for a route, keep it crawlable+noindex until it drops out, then add it
+ * here.
+ */
+export const GATED_PATHS = [
+  "/home",
+  "/account",
+  "/subscribed",
+  "/ai-search/onboarding",
+  "/ai-search/dashboard",
+] as const;
+
+/** Shared robots directive for the pages listed in GATED_PATHS. */
+export const NOINDEX: Metadata["robots"] = { index: false, follow: false };
+
+/**
  * Per-page `alternates`: self-canonical for `current`, plus a reciprocal
  * hreflang set (both languages + x-default → English). Every localized page
  * must set this so Google pairs the right-language URLs.

@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 
+import { GATED_PATHS } from "@/lib/metadata";
 import { SITE } from "@/lib/site";
 
 /**
@@ -15,12 +16,19 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: "/",
-        // Nothing here is useful to a crawler and /subscribed is noindex anyway.
-        disallow: ["/api/", "/subscribed"],
+        // No blanket `Allow: /` on purpose: everything is crawlable by default,
+        // so the public marketing pages — "/", "/ai-search" and their "/es"
+        // variants — stay open, while the disallows below are unambiguous for
+        // every parser (a leading `Allow: /` would let first-match crawlers
+        // skip the disallows entirely). None of the gated paths is a prefix of
+        // a landing, so no landing is shadowed.
+        //
+        // The gated/app routes come from GATED_PATHS so this list can't drift
+        // from the pages' own noindex metadata; `/api/` route handlers have no
+        // crawl value either. See GATED_PATHS for why disallowing them is safe.
+        disallow: ["/api/", ...GATED_PATHS],
       },
     ],
     sitemap: `${SITE.url}/sitemap.xml`,
-    host: SITE.url,
   };
 }
