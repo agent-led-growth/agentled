@@ -192,6 +192,30 @@ export async function listDueBrands(
   }));
 }
 
+/**
+ * The brand's completed runs, newest first (id + completed_at) — the history the
+ * dashboard trends and deltas read. Only completed runs, so partial/failed runs
+ * never pollute the charts.
+ */
+export async function listCompletedRuns(
+  brandId: string,
+  limit = 12,
+): Promise<{ id: string; completed_at: string }[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("scan_runs")
+    .select("id, completed_at")
+    .eq("brand_id", brandId)
+    .eq("status", "completed")
+    .order("completed_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return ((data ?? []) as { id: string; completed_at: string }[]).map((r) => ({
+    id: r.id,
+    completed_at: r.completed_at,
+  }));
+}
+
 /** A brand's runs, newest first — the history the dashboard trends read. */
 export async function listRunsForBrand(brandId: string, limit = 90): Promise<ScanRun[]> {
   const admin = createAdminClient();

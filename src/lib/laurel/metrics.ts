@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 import { getBrandById } from "./brands";
 import { isOwnDomain, normalizeDomain } from "./domain";
+import { listCompletedRuns } from "./scan-runs";
 
 /**
  * Dashboard metrics — aggregates the scan-output tables into every number the
@@ -91,16 +92,90 @@ export interface BrandMetrics {
   citationTotal: number;
   citationRankValue: number;
   citationDomains: DomainMetric[];
+  // History (Slice 4). trend is chronological (oldest → newest); deltas compare
+  // the latest completed run to the previous, null when there's no prior run.
+  trend: TrendPoint[];
+  visibilityDelta: number | null;
+  citationDelta: number | null;
+  rankDelta: number | null; // positive = moved up (rank got smaller)
 }
 
+export interface TrendPoint {
+  at: string; // ISO completed_at
+  visibility: number; // 0..1
+  citationShare: number; // 0..1
+}
+
+/** The headline numbers for one completed run — everything except history/deltas. */
+type RunMetrics = Omit<
+  BrandMetrics,
+  "trend" | "visibilityDelta" | "citationDelta" | "rankDelta"
+>;
+
 export async function getBrandMetrics(brandId: string): Promise<BrandMetrics> {
-  const admin = createAdminClient();
   const brand = await getBrandById(brandId);
   const ownDomain = brand ? normalizeDomain(brand.domain) : "";
   const brandName = brand?.name?.trim() || brand?.domain || "You";
 
+  // History means many runs' rows now coexist under one brand — scope the
+  // headline numbers to the LATEST completed run, and read deltas/trend across
+  // the run series. Only completed runs count (partial/failed never pollute).
+  const completedRuns = await listCompletedRuns(brandId);
+  if (completedRuns.length === 0) return emptyMetrics();
+
+  const current = await computeRunMetrics(brandId, completedRuns[0].id, ownDomain, brandName);
+  const previous = completedRuns[1]
+    ? await computeRunMetrics(brandId, completedRuns[1].id, ownDomain, brandName)
+    : null;
+  const trend = await computeTrend(brandId, completedRuns, ownDomain);
+
+  return {
+    ...current,
+    trend,
+    visibilityDelta: previous ? current.visibility - previous.visibility : null,
+    citationDelta: previous ? current.citationShare - previous.citationShare : null,
+    rankDelta: previous ? previous.rankValue - current.rankValue : null,
+  };
+}
+
+/** The zero state before any scan has completed. */
+function emptyMetrics(): BrandMetrics {
+  return {
+    platform: PLATFORM,
+    scanned: false,
+    answers: 0,
+    visibility: 0,
+    visibilityNamed: 0,
+    rankValue: 0,
+    leaderboard: [],
+    groups: [],
+    citationShare: 0,
+    citationOwn: 0,
+    citationTotal: 0,
+    citationRankValue: 0,
+    citationDomains: [],
+    trend: [],
+    visibilityDelta: null,
+    citationDelta: null,
+    rankDelta: null,
+  };
+}
+
+/**
+ * Every headline number for ONE completed run. Formulas are identical to before;
+ * the only change is scoping the scans read to `run_id` — mentions/citations are
+ * already restricted to this run's ok scans via `okScanIds`.
+ */
+async function computeRunMetrics(
+  brandId: string,
+  runId: string,
+  ownDomain: string,
+  brandName: string,
+): Promise<RunMetrics> {
+  const admin = createAdminClient();
+
   const [scansR, mentionsR, citationsR, competitorsR, promptsR, topicsR] = await Promise.all([
-    admin.from("scans").select("id,prompt_id,answer_text,status").eq("brand_id", brandId).eq("platform", PLATFORM),
+    admin.from("scans").select("id,prompt_id,answer_text,status").eq("brand_id", brandId).eq("run_id", runId).eq("platform", PLATFORM),
     admin.from("mentions").select("scan_id,competitor_id,is_self,position,mentioned_name").eq("brand_id", brandId).eq("platform", PLATFORM),
     admin.from("citations").select("scan_id,domain,url,title,is_own_domain").eq("brand_id", brandId).eq("platform", PLATFORM),
     admin.from("competitors").select("id,name").eq("brand_id", brandId).eq("hidden", false),
@@ -238,7 +313,7 @@ export async function getBrandMetrics(brandId: string): Promise<BrandMetrics> {
 
   return {
     platform: PLATFORM,
-    scanned: Boolean(brand?.first_scan_completed_at) && answers > 0,
+    scanned: answers > 0,
     answers,
     visibility,
     visibilityNamed,
@@ -251,6 +326,63 @@ export async function getBrandMetrics(brandId: string): Promise<BrandMetrics> {
     citationRankValue,
     citationDomains: domainList,
   };
+}
+
+/**
+ * The per-run headline series (visibility + citation share), chronological
+ * (oldest → newest), for the trend lines. One batched read over every completed
+ * run's ok scans, then grouped by run in JS.
+ */
+async function computeTrend(
+  brandId: string,
+  completedRuns: { id: string; completed_at: string }[],
+  ownDomain: string,
+): Promise<TrendPoint[]> {
+  const admin = createAdminClient();
+  const runIds = completedRuns.map((r) => r.id);
+
+  const scansR = await admin
+    .from("scans")
+    .select("id,run_id")
+    .eq("brand_id", brandId)
+    .in("run_id", runIds)
+    .eq("platform", PLATFORM)
+    .eq("status", "ok");
+  const tScans = (scansR.data ?? []) as { id: string; run_id: string }[];
+  const scansByRun = groupBy(tScans, (s) => s.run_id);
+  const scanToRun = new Map(tScans.map((s) => [s.id, s.run_id]));
+  const scanIds = tScans.map((s) => s.id);
+
+  const selfScanIds = new Set<string>();
+  let citationsByRun = new Map<string, { run: string; domain: string }[]>();
+  if (scanIds.length > 0) {
+    const [mR, cR] = await Promise.all([
+      admin.from("mentions").select("scan_id").eq("is_self", true).in("scan_id", scanIds),
+      admin.from("citations").select("scan_id,domain").in("scan_id", scanIds),
+    ]);
+    for (const m of (mR.data ?? []) as { scan_id: string }[]) selfScanIds.add(m.scan_id);
+    const cites: { run: string; domain: string }[] = [];
+    for (const c of (cR.data ?? []) as { scan_id: string; domain: string }[]) {
+      const run = scanToRun.get(c.scan_id);
+      if (run) cites.push({ run, domain: c.domain });
+    }
+    citationsByRun = groupBy(cites, (c) => c.run);
+  }
+
+  // completedRuns is newest-first; reverse for a left-to-right timeline.
+  return [...completedRuns].reverse().map((run) => {
+    const rs = scansByRun.get(run.id) ?? [];
+    const answers = rs.length;
+    const named = rs.filter((s) => selfScanIds.has(s.id)).length;
+    const cites = citationsByRun.get(run.id) ?? [];
+    const total = cites.length;
+    const own = cites.filter((c) => isOwnDomain(ownDomain, c.domain)).length;
+    return {
+      at: run.completed_at,
+      visibility: answers ? named / answers : 0,
+      citationShare: total ? own / total : 0,
+    };
+  });
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────
