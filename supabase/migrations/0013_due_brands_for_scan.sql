@@ -25,6 +25,11 @@ as $$
     join public.brand_users bu on bu.brand_id = b.id
     join public.users u on u.id = bu.user_id
     where b.is_active
+      -- Coarse pre-filter: free never scans on a schedule, so drop it in SQL
+      -- rather than returning every free brand for the caller to discard. The
+      -- authoritative daily/free decision still happens in code (isDaily),
+      -- fail-closed for any unrecognised plan value.
+      and u.plan is distinct from 'free'
       and not exists (
         select 1 from public.scan_runs r
         where r.brand_id = b.id and r.status in ('pending', 'running')
