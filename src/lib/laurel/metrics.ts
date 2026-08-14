@@ -128,7 +128,11 @@ export async function getBrandMetrics(brandId: string, sinceIso: string): Promis
     ? await computeRunMetrics(brandId, allRuns[1].id, ownDomain, brandName)
     : null;
 
-  const windowRuns = allRuns.filter((r) => r.completed_at >= sinceIso);
+  // Compare instants, not ISO strings: PostgREST serializes completed_at with a
+  // "+00:00" offset while sinceIso is toISOString()'s "…Z", so a string compare
+  // is unreliable (the same offset-format gotcha as the run-token check).
+  const sinceMs = new Date(sinceIso).getTime();
+  const windowRuns = allRuns.filter((r) => new Date(r.completed_at).getTime() >= sinceMs);
   const trend = await computeTrend(windowRuns, ownDomain);
 
   return {
@@ -166,8 +170,8 @@ function emptyMetrics(): BrandMetrics {
 
 /**
  * Every headline number for ONE completed run. Formulas are identical to before;
- * the only change is scoping the scans read to `run_id` — mentions/citations are
- * already restricted to this run's ok scans via `okScanIds`.
+ * scans, mentions and citations are all scoped to `run_id` (mentions/citations
+ * carry run_id since 0014), then restricted to this run's ok scans via `okScanIds`.
  */
 async function computeRunMetrics(
   brandId: string,
