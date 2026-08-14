@@ -112,25 +112,28 @@ type RunMetrics = Omit<
   "trend" | "visibilityDelta" | "citationDelta" | "rankDelta"
 >;
 
-export async function getBrandMetrics(brandId: string): Promise<BrandMetrics> {
+export async function getBrandMetrics(brandId: string, sinceIso: string): Promise<BrandMetrics> {
   const brand = await getBrandById(brandId);
   const ownDomain = brand ? normalizeDomain(brand.domain) : "";
   const brandName = brand?.name?.trim() || brand?.domain || "You";
 
-  // History means many runs' rows now coexist under one brand — scope the
-  // headline numbers to the LATEST completed run, and read deltas/trend across
-  // the run series. Only completed runs count (partial/failed never pollute).
-  const completedRuns = await listCompletedRuns(brandId);
-  if (completedRuns.length === 0) return emptyMetrics();
+  // Runs accumulate as history. Headline + deltas use the latest vs previous
+  // COMPLETED run (unbounded, so a brand always shows its most recent scan); the
+  // trend is bounded to the selected date window. Only completed runs count.
+  const allRuns = await listCompletedRuns(brandId, 100);
+  if (allRuns.length === 0) return emptyMetrics();
 
-  const current = await computeRunMetrics(brandId, completedRuns[0].id, ownDomain, brandName);
-  const previous = completedRuns[1]
-    ? await computeRunMetrics(brandId, completedRuns[1].id, ownDomain, brandName)
+  const current = await computeRunMetrics(brandId, allRuns[0].id, ownDomain, brandName);
+  const previous = allRuns[1]
+    ? await computeRunMetrics(brandId, allRuns[1].id, ownDomain, brandName)
     : null;
-  const trend = await computeTrend(brandId, completedRuns, ownDomain);
+
+  const windowRuns = allRuns.filter((r) => r.completed_at >= sinceIso);
+  const trend = await computeTrend(windowRuns, ownDomain);
 
   return {
     ...current,
+    scanned: true, // a completed run exists — independent of its answer count (K4)
     trend,
     visibilityDelta: previous ? current.visibility - previous.visibility : null,
     citationDelta: previous ? current.citationShare - previous.citationShare : null,
@@ -176,8 +179,8 @@ async function computeRunMetrics(
 
   const [scansR, mentionsR, citationsR, competitorsR, promptsR, topicsR] = await Promise.all([
     admin.from("scans").select("id,prompt_id,answer_text,status").eq("brand_id", brandId).eq("run_id", runId).eq("platform", PLATFORM),
-    admin.from("mentions").select("scan_id,competitor_id,is_self,position,mentioned_name").eq("brand_id", brandId).eq("platform", PLATFORM),
-    admin.from("citations").select("scan_id,domain,url,title,is_own_domain").eq("brand_id", brandId).eq("platform", PLATFORM),
+    admin.from("mentions").select("scan_id,competitor_id,is_self,position,mentioned_name").eq("run_id", runId).eq("platform", PLATFORM),
+    admin.from("citations").select("scan_id,domain,url,title,is_own_domain").eq("run_id", runId).eq("platform", PLATFORM),
     admin.from("competitors").select("id,name").eq("brand_id", brandId).eq("hidden", false),
     admin.from("prompts").select("id,text,topic_id,active").eq("brand_id", brandId),
     admin.from("topics").select("id,label,selected,sort_order").eq("brand_id", brandId),
@@ -334,49 +337,34 @@ async function computeRunMetrics(
  * run's ok scans, then grouped by run in JS.
  */
 async function computeTrend(
-  brandId: string,
-  completedRuns: { id: string; completed_at: string }[],
+  windowRuns: { id: string; completed_at: string }[],
   ownDomain: string,
 ): Promise<TrendPoint[]> {
+  if (windowRuns.length === 0) return [];
   const admin = createAdminClient();
-  const runIds = completedRuns.map((r) => r.id);
+  const runIds = windowRuns.map((r) => r.id);
 
-  const scansR = await admin
-    .from("scans")
-    .select("id,run_id")
-    .eq("brand_id", brandId)
-    .in("run_id", runIds)
-    .eq("platform", PLATFORM)
-    .eq("status", "ok");
-  const tScans = (scansR.data ?? []) as { id: string; run_id: string }[];
-  const scansByRun = groupBy(tScans, (s) => s.run_id);
-  const scanToRun = new Map(tScans.map((s) => [s.id, s.run_id]));
-  const scanIds = tScans.map((s) => s.id);
+  // Everything scopes by run_id (a handful of ids), never a huge scan_id list.
+  const [scansR, mentionsR, citationsR] = await Promise.all([
+    admin.from("scans").select("id,run_id").in("run_id", runIds).eq("platform", PLATFORM).eq("status", "ok"),
+    admin.from("mentions").select("scan_id").in("run_id", runIds).eq("is_self", true),
+    admin.from("citations").select("run_id,domain").in("run_id", runIds),
+  ]);
+  const scans = (scansR.data ?? []) as { id: string; run_id: string }[];
+  const selfScanIds = new Set(((mentionsR.data ?? []) as { scan_id: string }[]).map((m) => m.scan_id));
+  const cites = (citationsR.data ?? []) as { run_id: string; domain: string }[];
 
-  const selfScanIds = new Set<string>();
-  let citationsByRun = new Map<string, { run: string; domain: string }[]>();
-  if (scanIds.length > 0) {
-    const [mR, cR] = await Promise.all([
-      admin.from("mentions").select("scan_id").eq("is_self", true).in("scan_id", scanIds),
-      admin.from("citations").select("scan_id,domain").in("scan_id", scanIds),
-    ]);
-    for (const m of (mR.data ?? []) as { scan_id: string }[]) selfScanIds.add(m.scan_id);
-    const cites: { run: string; domain: string }[] = [];
-    for (const c of (cR.data ?? []) as { scan_id: string; domain: string }[]) {
-      const run = scanToRun.get(c.scan_id);
-      if (run) cites.push({ run, domain: c.domain });
-    }
-    citationsByRun = groupBy(cites, (c) => c.run);
-  }
+  const scansByRun = groupBy(scans, (s) => s.run_id);
+  const citesByRun = groupBy(cites, (c) => c.run_id);
 
-  // completedRuns is newest-first; reverse for a left-to-right timeline.
-  return [...completedRuns].reverse().map((run) => {
+  // windowRuns is newest-first; reverse for a left-to-right timeline.
+  return [...windowRuns].reverse().map((run) => {
     const rs = scansByRun.get(run.id) ?? [];
     const answers = rs.length;
     const named = rs.filter((s) => selfScanIds.has(s.id)).length;
-    const cites = citationsByRun.get(run.id) ?? [];
-    const total = cites.length;
-    const own = cites.filter((c) => isOwnDomain(ownDomain, c.domain)).length;
+    const rc = citesByRun.get(run.id) ?? [];
+    const total = rc.length;
+    const own = rc.filter((c) => isOwnDomain(ownDomain, c.domain)).length;
     return {
       at: run.completed_at,
       visibility: answers ? named / answers : 0,

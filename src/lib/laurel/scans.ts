@@ -106,6 +106,7 @@ export async function insertMentions(
     position: number | null;
     platform: Platform;
   }[],
+  runId: string | null = null,
 ): Promise<void> {
   if (rows.length === 0) return;
   const admin = createAdminClient();
@@ -113,6 +114,7 @@ export async function insertMentions(
     rows.map((r) => ({
       scan_id: r.scanId,
       brand_id: r.brandId,
+      run_id: runId,
       competitor_id: r.competitorId,
       is_self: r.isSelf,
       mentioned_name: r.mentionedName,
@@ -134,6 +136,7 @@ export async function insertCitations(
     isOwnDomain: boolean;
     position: number | null;
   }[],
+  runId: string | null = null,
 ): Promise<void> {
   if (rows.length === 0) return;
   const admin = createAdminClient();
@@ -141,6 +144,7 @@ export async function insertCitations(
     rows.map((r) => ({
       scan_id: r.scanId,
       brand_id: r.brandId,
+      run_id: runId,
       platform: r.platform,
       url: r.url,
       domain: r.domain,

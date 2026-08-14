@@ -46,6 +46,11 @@ export async function GET(request: Request) {
     !failed &&
     brand.scan_started_at != null &&
     Date.now() - new Date(brand.scan_started_at).getTime() < SCAN_STALE_MS;
-  const metrics = scannedAt ? await getBrandMetrics(brandId) : null;
+  // Trend window (the dashboard date filter); default 7 days.
+  const rangeDays: Record<string, number> = { "7d": 7, "30d": 30, "90d": 90 };
+  const days = rangeDays[new URL(request.url).searchParams.get("range") ?? "7d"] ?? 7;
+  const sinceIso = new Date(Date.now() - days * 86_400_000).toISOString();
+
+  const metrics = scannedAt ? await getBrandMetrics(brandId, sinceIso) : null;
   return NextResponse.json({ scannedAt, scanning, failed, metrics });
 }

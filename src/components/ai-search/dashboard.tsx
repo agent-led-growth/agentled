@@ -86,6 +86,7 @@ export function Dashboard() {
   const [plan, setPlan] = useState<string>("free");
   const [scanState, setScanState] = useState<ScanState>("loading");
   const [data, setData] = useState<DashboardData | null>(null);
+  const [range, setRange] = useState<Range>("7d"); // trend date window
   // Bumped by the "try again" action on a failed scan to re-run the effect.
   const [retryNonce, setRetryNonce] = useState(0);
   // Left nav is a jump-nav over the combined view: the section in view
@@ -128,7 +129,7 @@ export function Dashboard() {
       setScanState("loading");
       setData(null);
       try {
-        let payload = await fetchMetrics(currentBrandId);
+        let payload = await fetchMetrics(currentBrandId, range);
         if (!active) return;
         // A previously-failed scan shows an error and waits for a manual retry —
         // never auto-re-fires (that would loop on a brand that can't scan).
@@ -143,7 +144,7 @@ export function Dashboard() {
               body: JSON.stringify({ brandId: currentBrandId }),
             }).catch(() => {});
           }
-          payload = await pollUntilScanned(currentBrandId, () => active);
+          payload = await pollUntilScanned(currentBrandId, () => active, range);
           if (!active) return;
         }
         if (payload.scannedAt && payload.metrics && payload.metrics.answers > 0) {
@@ -163,7 +164,7 @@ export function Dashboard() {
     return () => {
       active = false;
     };
-  }, [checked, gated, currentBrandId, retryNonce]);
+  }, [checked, gated, currentBrandId, retryNonce, range]);
 
   // "Try again" on a failed scan: re-run scan/run (claiming clears the failure
   // and re-enqueues), then re-run the effect to poll the fresh attempt.
@@ -294,7 +295,7 @@ export function Dashboard() {
           />
           <div ref={scrollRef} className="min-w-0 flex-1 pb-[84px] md:overflow-y-auto md:pb-0">
             <TitleRow current={currentBrand} brands={brands} onSwitch={setBrand} />
-            <FilterBar tab={tab} plan={plan} />
+            <FilterBar tab={tab} plan={plan} range={range} onRange={setRange} />
             <div className="px-[20px] py-[24px] md:px-[28px]">
               {scanState !== "ready" || !data ? (
                 <ScanNotice
@@ -335,6 +336,14 @@ export function Dashboard() {
 
 type ScanState = "loading" | "scanning" | "slow" | "ready" | "empty" | "error";
 
+/** Trend date window (the dashboard filter). Bounds the chart only. */
+type Range = "7d" | "30d" | "90d";
+const RANGES: { value: Range; label: string }[] = [
+  { value: "7d", label: "Last 7 days" },
+  { value: "30d", label: "Last 30 days" },
+  { value: "90d", label: "Last 90 days" },
+];
+
 type MetricsPayload = {
   scannedAt: string | null;
   scanning: boolean;
@@ -342,8 +351,8 @@ type MetricsPayload = {
   metrics: BrandMetrics | null;
 };
 
-async function fetchMetrics(brandId: string): Promise<MetricsPayload> {
-  const res = await fetch(`/api/ai-search/metrics?brand=${brandId}`);
+async function fetchMetrics(brandId: string, range: Range): Promise<MetricsPayload> {
+  const res = await fetch(`/api/ai-search/metrics?brand=${brandId}&range=${range}`);
   if (!res.ok) throw new Error("metrics fetch failed");
   return res.json();
 }
@@ -352,13 +361,14 @@ async function fetchMetrics(brandId: string): Promise<MetricsPayload> {
 async function pollUntilScanned(
   brandId: string,
   active: () => boolean,
+  range: Range,
 ): Promise<MetricsPayload> {
   const deadline = Date.now() + 3 * 60_000;
-  let payload = await fetchMetrics(brandId);
+  let payload = await fetchMetrics(brandId, range);
   while (!payload.scannedAt && !payload.failed && active() && Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 4000));
     if (!active()) break;
-    payload = await fetchMetrics(brandId);
+    payload = await fetchMetrics(brandId, range);
   }
   return payload;
 }
@@ -666,8 +676,18 @@ function BrandSwitcher({
   );
 }
 
-function FilterBar({ tab, plan }: { tab: Tab; plan: string }) {
-  // Date range rides on the analytics tabs; the cadence indicator only belongs
+function FilterBar({
+  tab,
+  plan,
+  range,
+  onRange,
+}: {
+  tab: Tab;
+  plan: string;
+  range: Range;
+  onRange: (r: Range) => void;
+}) {
+  // The date range bounds the trend window; the cadence indicator only belongs
   // on Overview. Phase 1 is ChatGPT-only, so there is no platform selector.
   const showDates = tab !== "settings";
   const showCadence = tab === "overview";
@@ -677,11 +697,19 @@ function FilterBar({ tab, plan }: { tab: Tab; plan: string }) {
       style={{ borderBottom: "1px solid var(--line)" }}
     >
       {showDates && (
-        <>
-          <Chip>Last 7 days ⌄</Chip>
-          <span style={{ fontSize: 13, color: "var(--dim)" }}>vs.</span>
-          <Chip>Previous period ⌄</Chip>
-        </>
+        <select
+          aria-label="Date range"
+          value={range}
+          onChange={(e) => onRange(e.target.value as Range)}
+          className="cursor-pointer text-[13px]"
+          style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "7px 12px", color: "var(--mut)" }}
+        >
+          {RANGES.map((r) => (
+            <option key={r.value} value={r.value}>
+              {r.label}
+            </option>
+          ))}
+        </select>
       )}
       {showCadence && (
         <div className="ml-auto flex items-center gap-[8px]">
@@ -753,20 +781,6 @@ function Lock({ size = 12, color = "var(--dim)" }: { size?: number; color?: stri
   );
 }
 
-function Chip({ children }: { children: React.ReactNode }) {
-  return (
-    <span
-      className="inline-flex items-center whitespace-nowrap text-[13px]"
-      style={{
-        background: "var(--panel)",
-        border: "1px solid var(--line)",
-        padding: "7px 12px",
-      }}
-    >
-      {children}
-    </span>
-  );
-}
 
 // ── Shared bits ──────────────────────────────────────────────────────────────
 function Delta({ v, size = 12 }: { v: string; size?: number }) {
@@ -887,8 +901,7 @@ function MainView({
             </div>
             <Chart v={data.visibility} />
             <div className="flex items-center gap-[22px] pt-[4px]">
-              <Legend color="var(--pos)" label="Current period" />
-              <Legend color="var(--dim)" label="Previous period" dashed />
+              <Legend color="var(--pos)" label="Trend" />
             </div>
           </div>
           <div className="flex flex-col gap-[16px] p-[22px_24px] md:border-l" style={{ borderColor: "var(--line)" }}>
@@ -1062,8 +1075,7 @@ function CitationSection({
             </div>
             <Chart v={data.citation} />
             <div className="flex items-center gap-[22px] pt-[4px]">
-              <Legend color="var(--pos)" label="Current period" />
-              <Legend color="var(--dim)" label="Previous period" dashed />
+              <Legend color="var(--pos)" label="Trend" />
             </div>
           </div>
 

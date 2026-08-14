@@ -150,6 +150,7 @@ export async function runScan(
         position: b.position > 0 ? b.position : idx + 1,
         platform: PLATFORM,
       })),
+      runId,
     );
 
     await insertCitations(
@@ -163,6 +164,7 @@ export async function runScan(
         isOwnDomain: c.isOwnDomain,
         position: c.position,
       })),
+      runId,
     );
     scanned += 1;
   }
