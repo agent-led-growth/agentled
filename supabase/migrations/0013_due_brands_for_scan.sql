@@ -15,21 +15,32 @@ returns table (brand_id uuid, plan text)
 language sql
 stable
 as $$
-  select b.id, u.plan
-  from public.brands b
-  join public.brand_users bu on bu.brand_id = b.id and bu.role = 'owner'
-  join public.users u on u.id = bu.user_id
-  where b.is_active
-    and not exists (
-      select 1 from public.scan_runs r
-      where r.brand_id = b.id and r.status in ('pending', 'running')
-    )
-    and not exists (
-      select 1 from public.scan_runs r
-      where r.brand_id = b.id
-        and r.status = 'completed'
-        and r.completed_at > stale_before
-    );
+  with due as (
+    -- One row per brand: prefer the 'owner' member, else any member, so a brand
+    -- with only non-owner members is never silently skipped. distinct on requires
+    -- brand_id first in the order by.
+    select distinct on (b.id)
+      b.id as brand_id, u.plan, b.last_scan_at
+    from public.brands b
+    join public.brand_users bu on bu.brand_id = b.id
+    join public.users u on u.id = bu.user_id
+    where b.is_active
+      and not exists (
+        select 1 from public.scan_runs r
+        where r.brand_id = b.id and r.status in ('pending', 'running')
+      )
+      and not exists (
+        select 1 from public.scan_runs r
+        where r.brand_id = b.id
+          and r.status = 'completed'
+          and r.completed_at > stale_before
+      )
+    order by b.id, (bu.role = 'owner') desc
+  )
+  -- Most overdue first (never-scanned, then oldest last_scan_at) so a per-tick
+  -- cap is fair — last_scan_at is only an ordering hint, never the due check.
+  select brand_id, plan from due
+  order by last_scan_at asc nulls first;
 $$;
 
 -- Called only by the service-role scan sweep (never a browser); the anon role

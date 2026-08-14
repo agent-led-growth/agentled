@@ -1,7 +1,7 @@
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { NextResponse } from "next/server";
 
 import { claimScan, getBrandById, getUserIdByAuthId, releaseScan } from "@/lib/laurel";
+import { enqueueScan } from "@/lib/scan-queue";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -50,13 +50,9 @@ export async function POST(request: Request) {
   }
 
   // Hand the run to the durable queue; the scan-consumer worker executes it via
-  // the internal /scan/execute route, with retries + dead-letter. (Typed locally
-  // — the full `wrangler types` runtime output overrides Response.json().)
-  const env = getCloudflareContext().env as unknown as {
-    SCAN_QUEUE: { send(body: unknown): Promise<void> };
-  };
+  // the internal /scan/execute route, with retries + dead-letter.
   try {
-    await env.SCAN_QUEUE.send({ brandId, triggerEmail: user.email ?? null, runToken });
+    await enqueueScan({ brandId, triggerEmail: user.email ?? null, runToken });
   } catch (err) {
     // Enqueue failed after the claim — release the lock so it isn't orphaned.
     console.error("scan/run: enqueue failed", brandId, err);
