@@ -78,13 +78,29 @@ export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
         </div>
 
         {/* Link columns */}
-        <div className="flex gap-[56px] md:gap-[80px]">
+        <div className="flex flex-wrap gap-x-[48px] gap-y-[32px] md:gap-x-[80px]">
           <div className="flex flex-col gap-[16px]">
             <p className={columnLabel}>{t.tools}</p>
             <ul className="flex list-none flex-col gap-[12px]">
               <li>
                 <Link href={PATHS.aiSearch[locale]} className={footerLink}>
                   AI Search Monitor
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          <div className="flex flex-col gap-[16px]">
+            <p className={columnLabel}>{t.company}</p>
+            <ul className="flex list-none flex-col gap-[12px]">
+              <li>
+                <Link href="/privacy" className={footerLink}>
+                  {t.privacy}
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms" className={footerLink}>
+                  {t.terms}
                 </Link>
               </li>
             </ul>

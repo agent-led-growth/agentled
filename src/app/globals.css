@@ -95,6 +95,48 @@ body {
 }
 
 /*
+ * Long-form prose for legal pages (Privacy, Terms). Colours use the semantic
+ * --text-* vars so it reads correctly in both themes.
+ */
+.legal-prose {
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1.7;
+}
+.legal-prose p {
+  margin-bottom: 1em;
+}
+.legal-prose ul {
+  list-style: disc;
+  margin-bottom: 1em;
+  padding-left: 1.3em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+}
+.legal-prose h2 {
+  margin-top: 1.8em;
+  margin-bottom: 0.4em;
+  color: var(--text-primary);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.legal-prose a {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s;
+}
+.legal-prose a:hover {
+  color: var(--accent);
+}
+.legal-prose strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/*
  * Canvas masks. Mobile is full-bleed and thinned through the middle band where
  * the copy sits; light mobile needs a stronger mask because the dark traces on
  * a pale background are higher contrast than lime on near-black.

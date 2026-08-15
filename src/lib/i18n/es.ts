@@ -92,6 +92,9 @@ export const es: Dictionary = {
   },
   footer: {
     tools: "Nuestras herramientas",
+    company: "Empresa",
+    privacy: "Política de privacidad",
+    terms: "Términos y condiciones",
     languages: "Idiomas",
   },
   meta: {

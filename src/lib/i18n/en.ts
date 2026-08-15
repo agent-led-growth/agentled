@@ -91,6 +91,9 @@ export const en = {
   },
   footer: {
     tools: "Our Tools",
+    company: "Company",
+    privacy: "Privacy Policy",
+    terms: "Terms & Conditions",
     languages: "Languages",
   },
   meta: {
