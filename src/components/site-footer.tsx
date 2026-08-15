@@ -8,8 +8,7 @@ import { SOCIALS } from "./socials";
 const COMPANY = "Campo Base Labs SL";
 const YEAR = 2026;
 
-const columnLabel =
-  "font-mono text-[10.5px] tracking-[0.2em] text-[var(--text-faint)] uppercase md:text-[11px]";
+const columnLabel = "eyebrow text-[var(--text-faint)]";
 const footerLink =
   "text-[14px] text-[var(--text-muted)] no-underline transition-colors hover:text-[var(--text-primary)] md:text-[15px]";
 
@@ -32,8 +31,8 @@ export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
       <div className="flex flex-col gap-[40px] md:flex-row md:justify-between md:gap-[80px]">
         {/* Brand block */}
         <div className="flex flex-col gap-[22px]">
-          <p className="font-mono text-[11px] tracking-[0.12em] text-[var(--text-faint)] uppercase md:text-[12px]">
-            {COMPANY}, {YEAR}
+          <p className="eyebrow text-[var(--text-faint)]">
+            {COMPANY}, <span className="num">{YEAR}</span>
           </p>
 
           <nav aria-label="Social links">

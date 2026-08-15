@@ -52,7 +52,7 @@ function LanguageToggle({
   return (
     <div
       aria-label="Language"
-      className="flex items-center gap-[7px] font-mono text-[12px] tracking-[0.08em] uppercase md:text-[13px]"
+      className="flex items-center gap-[7px] font-display text-[13px] md:text-[14px]"
     >
       {LOCALES.map((l, i) => (
         <span key={l.code} className="flex items-center gap-[7px]">

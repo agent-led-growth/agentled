@@ -23,7 +23,7 @@ export function PageShell({
         </div>
 
         <div className="my-auto flex max-w-[700px] flex-col gap-[20px] md:gap-[26px]">
-          <p className="font-mono text-[10.5px] tracking-[0.2em] text-[var(--text-faint)] uppercase md:text-[12px]">
+          <p className="eyebrow text-[var(--text-faint)]">
             {eyebrow}
           </p>
           <h1 className="text-[clamp(40px,5.4vw,68px)] leading-[0.95] font-bold tracking-[-0.055em] text-[var(--text-primary)]">

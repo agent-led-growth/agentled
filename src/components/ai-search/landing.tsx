@@ -10,7 +10,7 @@ import { AI_SEARCH_FAQ_ITEMS_ES } from "./faq-content.es";
 import { ModelMarks } from "./model-marks";
 import { RedirectIfScanned } from "./redirect-if-scanned";
 import { ScanForm } from "./scan-form";
-import { MONO, marketingTokens } from "./tokens";
+import { SANS, marketingTokens } from "./tokens";
 import { WaveCanvas } from "./wave-canvas";
 
 const FAQ_ITEMS = {
@@ -68,12 +68,11 @@ export function AiSearchLanding({ locale }: { locale: Locale }) {
 
                 <div className="flex flex-col gap-[14px]">
                   <span
-                    className="uppercase"
                     style={{
-                      fontFamily: MONO,
-                      fontSize: 10.5,
-                      letterSpacing: "0.2em",
-                      color: "var(--dim)",
+                      fontFamily: SANS,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "var(--muted)",
                     }}
                   >
                     {t.modelsEyebrow}
@@ -88,11 +87,10 @@ export function AiSearchLanding({ locale }: { locale: Locale }) {
                 style={{ height: 620, placeItems: "center" }}
               >
                 <span
-                  className="uppercase"
                   style={{
-                    fontFamily: MONO,
-                    fontSize: 12,
-                    letterSpacing: "0.2em",
+                    fontFamily: SANS,
+                    fontSize: 13,
+                    fontWeight: 600,
                     color: "var(--signal)",
                   }}
                 >

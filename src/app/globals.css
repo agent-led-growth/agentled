@@ -74,6 +74,27 @@ body {
 }
 
 /*
+ * Eyebrow / kicker label. Replaces the old small all-caps mono treatment
+ * (hard to read, off-brand): sentence-case Space Grotesk, bumped size.
+ * Colour stays per-use (e.g. text-[var(--text-faint)] / text-[var(--accent)]).
+ */
+@utility eyebrow {
+  font-family: var(--font-display);
+  font-size: 0.8125rem; /* 13px */
+  font-weight: 600;
+}
+
+/*
+ * Numeric runs in the mono face. Digits only: in mixed text wrap just the
+ * number (e.g. <span class="num">2026</span>); on all-number values apply it
+ * to the element. tabular-nums keeps columns aligned.
+ */
+@utility num {
+  font-family: var(--font-jetbrains-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
  * Canvas masks. Mobile is full-bleed and thinned through the middle band where
  * the copy sits; light mobile needs a stronger mask because the dark traces on
  * a pale background are higher contrast than lime on near-black.
