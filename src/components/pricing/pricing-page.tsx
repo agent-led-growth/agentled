@@ -6,6 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 import { getDictionary, type Locale } from "@/lib/i18n";
 import { PATHS } from "@/lib/metadata";
 
+import { BackToDashboard } from "./back-to-dashboard";
 import { PricingCards } from "./pricing-cards";
 
 const FAQ_ITEMS = {
@@ -41,6 +42,8 @@ export function PricingPage({ locale }: { locale: Locale }) {
           </header>
 
           <PricingCards copy={t} locale={locale} />
+
+          <BackToDashboard label={t.backToDashboard} />
         </div>
       </main>
 

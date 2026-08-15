@@ -16,7 +16,8 @@ const pct1 = (frac: number) => `${(frac * 100).toFixed(1)}%`;
 const pct0 = (frac: number) => `${Math.round(frac * 100)}%`;
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const shortDate = (iso: string) => {
+/** A run timestamp as "14 Aug" (UTC) — shared by the trend axis and the answer-nav chips. */
+export const shortDate = (iso: string) => {
   const d = new Date(iso);
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
 };
@@ -164,6 +165,7 @@ export function toGroups(m: BrandMetrics): Group[] {
     cite: pct1(g.cite),
     dCite: DASH,
     items: g.items.map((p) => ({
+      promptId: p.promptId,
       q: p.q,
       rank: DASH, // per-prompt rank dropped — every named brand ties at 100%
       score: pct0(p.score),

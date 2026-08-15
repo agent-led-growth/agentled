@@ -28,6 +28,23 @@ export const env = {
   // Shared secret guarding the internal scan-execute/-fail routes, which the
   // scan-consumer worker calls server-to-server (no user session).
   internalSecret: () => required("INTERNAL_SECRET", process.env.INTERNAL_SECRET),
+  // Stripe billing (Epic 6). Secret key for the API, webhook secret for verifying
+  // the signature on /api/stripe/webhook. Both required only where actually used
+  // (checkout/portal/webhook), so a project without billing configured still runs.
+  stripeSecretKey: () => required("STRIPE_SECRET_KEY", process.env.STRIPE_SECRET_KEY),
+  stripeWebhookSecret: () =>
+    required("STRIPE_WEBHOOK_SECRET", process.env.STRIPE_WEBHOOK_SECRET),
+  // Optional: a dedicated Customer Portal configuration scoped to the agentled
+  // plans. Set in production (a shared Stripe account has other businesses' products
+  // in the default portal config); when absent the portal falls back to the account
+  // default, which is fine for local test mode.
+  stripePortalConfigurationId: (): string | undefined =>
+    process.env.STRIPE_PORTAL_CONFIGURATION_ID,
+  // The six Stripe price ids (starter/pro/business × monthly/yearly). Env-driven so
+  // swapping the local $0.10 test prices for the real live prices is a config change,
+  // never a code change. Read through the price map in src/lib/stripe/prices.ts.
+  stripePriceId: (key: string): string | undefined =>
+    process.env[`STRIPE_PRICE_${key}`],
   // Optional: authenticates the Jina Reader. Keyless works from residential IPs
   // (local dev) but is refused from Cloudflare's egress; set it in production.
   jinaApiKey: (): string | undefined => process.env.JINA_API_KEY,

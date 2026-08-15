@@ -27,8 +27,10 @@ for email. Package manager is **pnpm**.
   `server.ts` in Server Components / Actions / Route Handlers, `admin.ts`
   only in trusted server code (it bypasses RLS).
 - Every new table gets Row Level Security enabled with explicit policies.
-- Secrets never land in the repo. `.env.local` locally,
-  `wrangler secret put` in production.
+- Secrets never land in the repo. `.env.local` for `next dev`,
+  `.dev.vars` for the local wrangler stack (`opennextjs-cloudflare build` +
+  `wrangler dev` — the app plus the `workers/*` consumer/cron; each reads its own
+  `.dev.vars`, all git-ignored), and `wrangler secret put` in production.
 - Before declaring work done: `pnpm typecheck` and `pnpm lint` must pass.
 - Theme is `data-theme` on `<html>`, never a class, and the next/font variables
   must stay on `<html>` or `--font-display` resolves to empty at `:root` and the

@@ -35,6 +35,18 @@ export const es: Dictionary = {
     headline: "Precios que escalan con tu visibilidad",
     subhead:
       "Empieza con un análisis gratuito. Mejora tu plan para seguimiento diario, más prompts y más marcas.",
+    backToDashboard: "Volver a Mi Panel",
+    checkout: {
+      signInTitle: "Inicia sesión para continuar",
+      signInSub:
+        "Introduce tu email y te enviaremos un código de 6 dígitos. Una vez dentro, te llevamos directo al pago seguro.",
+      error: "No se pudo iniciar el pago. Inténtalo de nuevo.",
+      close: "Cerrar",
+      manageTitle: "Ya tienes un plan",
+      manageSub:
+        "Ya tienes un plan de pago. Para cambiar de plan, actualizar tu tarjeta o cancelar, usa el portal de facturación seguro de Stripe.",
+      manageCta: "Ir al portal de facturación",
+    },
     billing: {
       monthly: "Mensual",
       yearly: "Anual",

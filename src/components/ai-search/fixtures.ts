@@ -237,6 +237,8 @@ const FALLBACK: Answer = {
 const byQ = (q: string): Answer => ROWS.find((r) => r.q === q) ?? FALLBACK;
 
 export type Prompt = {
+  /** The prompt's DB id — used to fetch its answer history. Empty in demo fixtures. */
+  promptId: string;
   q: string;
   rank: string;
   score: string;
@@ -256,7 +258,7 @@ const P = (
   dPos: string,
   cite: string,
   dCite: string,
-): Prompt => ({ ...byQ(q), q, rank, score, dScore, pos, dPos, cite, dCite });
+): Prompt => ({ ...byQ(q), promptId: q, q, rank, score, dScore, pos, dPos, cite, dCite });
 
 export type Group = {
   name: string;

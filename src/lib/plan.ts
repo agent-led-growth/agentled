@@ -57,6 +57,22 @@ export const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
   business: { brands: 3, prompts: 150, frequency: "daily", models: ["chatgpt"] },
 };
 
+/**
+ * Plain display name per tier — the single source for showing a plan in-app (e.g.
+ * the Account view). The marketing pricing page keeps its own localized copy.
+ */
+export const PLAN_LABELS: Record<Plan, string> = {
+  free: "Free",
+  starter: "Starter",
+  pro: "Pro",
+  business: "Business",
+};
+
+/** Human display name for a (raw or resolved) plan. Fail-closed via {@link planOf}. */
+export function planLabel(plan: string | null | undefined): string {
+  return PLAN_LABELS[planOf(plan)];
+}
+
 /** Resolve a raw users.plan value to a known Plan, defaulting to `free`. */
 export function planOf(plan: string | null | undefined): Plan {
   if (!plan) return "free";

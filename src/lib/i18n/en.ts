@@ -34,6 +34,18 @@ export const en = {
     headline: "Pricing that scales with your visibility",
     subhead:
       "Start with a free scan. Upgrade for daily tracking, more prompts and more brands.",
+    backToDashboard: "Take me back to My Dashboard",
+    checkout: {
+      signInTitle: "Sign in to continue",
+      signInSub:
+        "Enter your email and we'll send you a 6-digit code. Once you're in, we'll take you straight to secure checkout.",
+      error: "Could not start checkout. Please try again.",
+      close: "Close",
+      manageTitle: "You already have a plan",
+      manageSub:
+        "You're on a paid plan already. To switch plans, update your card or cancel, use the secure Stripe billing portal.",
+      manageCta: "Go to billing portal",
+    },
     billing: {
       monthly: "Monthly",
       yearly: "Yearly",

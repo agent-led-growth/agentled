@@ -162,7 +162,10 @@ run record.
 
 ### Epic 6 — Stripe billing (last; you own product/price setup)
 - **Migration**: Stripe mirror columns on `users` — `stripe_customer_id`, `stripe_subscription_id`, `stripe_price_id`, `plan_status`, `current_period_end`, `cancel_at_period_end`.
-- **Prices**: 4 plans × monthly/yearly = 8 price IDs → a `price_id → {plan, interval}` map in code.
+- **Prices**: 3 paid plans × monthly/yearly = **6 price IDs** (free has no price) → an
+  env-driven map (`STRIPE_PRICE_<PLAN>_<INTERVAL>`) with a `price_id → {plan, interval}`
+  reverse lookup in `src/lib/stripe/prices.ts`. Env-driven so the local $0.10 test
+  prices swap for the real live prices with **no code change**.
 - **Checkout** route: subscription-mode Checkout Session, `client_reference_id = userId`, reuse/create the Stripe customer.
 - **Customer Portal** route: manage / cancel / switch.
 - **Webhook** `/api/stripe/webhook`: verify signature; on `checkout.session.completed`, `customer.subscription.*`, `invoice.payment_failed` → update `users.plan` + mirror columns (map price_id → plan). This **replaces the manual plan-setting** used through Epics 1–5.

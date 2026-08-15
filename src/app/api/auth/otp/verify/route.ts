@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { onboard, type OnboardSource } from "@/lib/email/onboarding";
-import { claimBrandForMember } from "@/lib/laurel";
+import { claimBrandForMember, deleteBrand } from "@/lib/laurel";
+import { brandLimit, planOf } from "@/lib/plan";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -66,13 +67,15 @@ export async function POST(request: Request) {
     // Link the auth user to their row + run onboarding with the service-role
     // client. Failures here must not fail the sign-in — the session is already
     // valid — so they are logged and swallowed.
+    let atBrandLimit = false;
     try {
-      await linkUserAndOnboard(data.user.id, normalized, source, site);
+      const result = await linkUserAndOnboard(data.user.id, normalized, source, site);
+      atBrandLimit = result.atBrandLimit;
     } catch (err) {
       console.error("otp verify: profile/onboarding step failed", err);
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, atBrandLimit });
   } catch (err) {
     console.error("otp verify: unexpected failure", err);
     return NextResponse.json(
@@ -106,7 +109,7 @@ async function linkUserAndOnboard(
   email: string,
   source: OnboardSource,
   site: Site,
-) {
+): Promise<{ atBrandLimit: boolean }> {
   const admin = createAdminClient();
 
   // Upsert by normalised email: a subscribe-first row is linked + confirmed in
@@ -123,7 +126,7 @@ async function linkUserAndOnboard(
       },
       { onConflict: "email_normalized" },
     )
-    .select("id")
+    .select("id, plan")
     .single();
   if (upsertError) throw upsertError;
 
@@ -132,7 +135,37 @@ async function linkUserAndOnboard(
   // this domain instead of duplicating the connection. Best effort: a failure
   // here must not block the sign-in or, via a claim rollback, re-fire the
   // automation. `row.id` is this user's public.users id.
+  //
+  // Brand cap (Epic 5): if the account is already at its plan's brand limit
+  // (free = 1, i.e. a second free scan), don't claim or scan — discard the
+  // throwaway pre-scan brand and signal the client to route to pricing.
   if (source === "ai-search" && site.brandId) {
+    // Count the account's attached brands (via row.id — no re-resolution).
+    // NOTE: counts every attached brand regardless of active/paused state; when
+    // downgrade-pausing lands, filter to active brands so a paused brand doesn't
+    // count against the cap.
+    let overCap = false;
+    try {
+      const { count, error } = await admin
+        .from("brand_users")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", row.id);
+      if (error) throw error;
+      overCap = (count ?? 0) >= brandLimit(planOf(row.plan));
+    } catch (err) {
+      // Fail open: a cap-check hiccup must not wall a legitimate first free scan —
+      // fall through and let the claim + scan proceed.
+      console.error("otp verify: cap check failed, proceeding", err);
+    }
+
+    if (overCap) {
+      await deleteBrand(site.brandId).catch((err) =>
+        console.error("otp verify: throwaway brand cleanup failed", err),
+      );
+      return { atBrandLimit: true };
+    }
+
+    // Under cap → claim (best-effort; a failure here must not block the sign-in).
     try {
       await claimBrandForMember(site.brandId, row.id, site.topics);
     } catch (err) {
@@ -151,7 +184,7 @@ async function linkUserAndOnboard(
     .select("id")
     .maybeSingle();
   if (claimError) throw claimError;
-  if (!claimed) return; // Already onboarded via some source — nothing to do.
+  if (!claimed) return { atBrandLimit: false }; // Already onboarded — nothing to do.
 
   const { error: onboardError } = await onboard(email, source);
   if (onboardError) {
@@ -163,4 +196,5 @@ async function linkUserAndOnboard(
       .eq("id", row.id);
     throw onboardError;
   }
+  return { atBrandLimit: false };
 }

@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { OtpForm } from "@/components/auth/otp-form";
 import type { Dictionary, Locale } from "@/lib/i18n";
 import { PATHS } from "@/lib/metadata";
 import { PLAN_FEATURES, type Plan } from "@/lib/plan";
-import { FEATURED_PLAN, PRICING_PLANS, priceFor, type Interval } from "@/lib/pricing";
+import { FEATURED_PLAN, isPaidPlan, PRICING_PLANS, priceFor, type Interval } from "@/lib/pricing";
 import { createClient } from "@/lib/supabase/client";
 
 type PricingCopy = Dictionary["pricing"];
@@ -31,25 +32,31 @@ function featureLines(plan: Plan, f: PricingCopy["features"]): string[] {
  * capabilities from PLAN_FEATURES; all copy is passed in from the locale
  * dictionary so this stays a pure presentation component.
  *
- * TODO(epic-6): paid CTAs currently start the free flow. Once Stripe lands they
- * point at a Checkout Session for the selected plan + interval.
+ * Paid CTAs open a Stripe Checkout Session (Epic 6). A signed-in visitor goes
+ * straight to checkout; a signed-out one signs in first (email-OTP modal), then
+ * resumes the same checkout — the plan/interval they clicked is preserved. The
+ * free CTA keeps starting the free-scan flow.
  */
 export function PricingCards({ copy, locale }: { copy: PricingCopy; locale: Locale }) {
   const [interval, setInterval] = useState<Interval>("monthly");
   const startHref = PATHS.aiSearch[locale];
 
-  // Mark the signed-in user's current paid plan. Fetching client-side keeps
-  // /pricing statically prerenderable; logged-out and free users resolve to
-  // "free", so nothing is marked (free is the default, not a highlighted state).
-  // We check the session locally first (no network) and skip the request
-  // entirely for anonymous visitors — the common case on a public page.
+  // Signed-in state + the user's current paid plan, resolved client-side so
+  // /pricing stays statically prerenderable. Anonymous visitors resolve to
+  // signed-out + "free", so nothing is marked and paid CTAs open the sign-in modal.
+  const [signedIn, setSignedIn] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
     createClient()
       .auth.getSession()
       .then(({ data }) => {
-        if (!active || !data.session) return;
+        if (!active) return;
+        if (!data.session) {
+          setSignedIn(false);
+          return;
+        }
+        setSignedIn(true);
         return fetch("/api/ai-search/plan")
           .then((r) => r.json())
           .then((d: { plan?: string }) => {
@@ -61,6 +68,54 @@ export function PricingCards({ copy, locale }: { copy: PricingCopy; locale: Loca
       active = false;
     };
   }, []);
+
+  // Checkout state: which plan's button is busy, a pending {plan,interval} awaiting
+  // sign-in (drives the sign-in modal), whether to show the "already subscribed"
+  // manage modal, and the last error to surface.
+  const [busy, setBusy] = useState<Plan | null>(null);
+  const [pending, setPending] = useState<{ plan: Plan; interval: Interval } | null>(null);
+  const [manage, setManage] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function goCheckout(plan: Plan, chosen: Interval) {
+    setBusy(plan);
+    setError(null);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan, interval: chosen }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        url?: string;
+        manage?: boolean;
+        error?: string;
+      };
+      // Already subscribed → explain and offer the portal, don't start a checkout.
+      if (res.ok && data.manage) {
+        setBusy(null);
+        setManage(true);
+        return;
+      }
+      if (res.ok && data.url) {
+        window.location.assign(data.url);
+        return;
+      }
+      setError(data.error ?? copy.checkout.error);
+    } catch {
+      setError(copy.checkout.error);
+    }
+    setBusy(null);
+  }
+
+  function onPaidCta(plan: Plan) {
+    if (signedIn) {
+      void goCheckout(plan, interval);
+    } else {
+      setError(null);
+      setPending({ plan, interval });
+    }
+  }
 
   return (
     <div className="flex flex-col gap-[32px] md:gap-[44px]">
@@ -121,14 +176,23 @@ export function PricingCards({ copy, locale }: { copy: PricingCopy; locale: Loca
                 >
                   {copy.currentPlan}
                 </span>
-              ) : (
-                <Link
-                  href={startHref}
-                  className={`block w-full border px-[16px] py-[11px] text-center text-[14px] font-medium no-underline transition-colors ${
+              ) : isPaidPlan(plan) ? (
+                <button
+                  type="button"
+                  onClick={() => onPaidCta(plan)}
+                  disabled={busy !== null}
+                  className={`block w-full border px-[16px] py-[11px] text-center text-[14px] font-medium transition-colors disabled:opacity-70 ${
                     featured
                       ? "border-transparent bg-[var(--btn-bg)] text-[var(--btn-fg)] hover:opacity-90"
                       : "border-[var(--border-hairline)] text-[var(--text-primary)] hover:border-[var(--text-faint)]"
                   }`}
+                >
+                  {busy === plan ? "…" : p.cta}
+                </button>
+              ) : (
+                <Link
+                  href={startHref}
+                  className="block w-full border border-[var(--border-hairline)] px-[16px] py-[11px] text-center text-[14px] font-medium text-[var(--text-primary)] no-underline transition-colors hover:border-[var(--text-faint)]"
                 >
                   {p.cta}
                 </Link>
@@ -150,6 +214,144 @@ export function PricingCards({ copy, locale }: { copy: PricingCopy; locale: Loca
             </div>
           );
         })}
+      </div>
+
+      {error && !pending ? (
+        <p role="alert" className="text-center font-mono text-[12px] text-[#e0603f]">
+          {error}
+        </p>
+      ) : null}
+
+      {pending ? (
+        <SignInModal
+          copy={copy}
+          onClose={() => setPending(null)}
+          onSignedIn={() => {
+            const resume = pending;
+            setPending(null);
+            setSignedIn(true);
+            void goCheckout(resume.plan, resume.interval);
+          }}
+        />
+      ) : null}
+
+      {manage ? <ManagePlanModal copy={copy} onClose={() => setManage(false)} /> : null}
+    </div>
+  );
+}
+
+/**
+ * Shown when a visitor who already has a live subscription clicks a plan CTA. We
+ * don't start a second checkout (that would double-bill); instead we explain and
+ * hand them to the Stripe Customer Portal, where plan switches, card updates and
+ * cancellation live.
+ */
+function ManagePlanModal({ copy, onClose }: { copy: PricingCopy; onClose: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function goPortal() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/stripe/portal", { method: "POST" });
+      const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+      if (res.ok && data.url) {
+        window.location.assign(data.url);
+        return;
+      }
+      setError(data.error ?? copy.checkout.error);
+    } catch {
+      setError(copy.checkout.error);
+    }
+    setBusy(false);
+  }
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={copy.checkout.manageTitle}
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-[20px]"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-[520px] border border-[var(--border-hairline)] bg-[var(--surface)] p-[28px] md:p-[36px]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={copy.checkout.close}
+          className="absolute top-[14px] right-[16px] text-[20px] leading-none text-[var(--text-faint)] transition-colors hover:text-[var(--text-primary)]"
+        >
+          ×
+        </button>
+        <h2 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--text-primary)]">
+          {copy.checkout.manageTitle}
+        </h2>
+        <p className="mt-[10px] mb-[22px] text-[15px] leading-[1.5] text-[var(--text-muted)]">
+          {copy.checkout.manageSub}
+        </p>
+        <button
+          type="button"
+          onClick={goPortal}
+          disabled={busy}
+          className="w-full border border-transparent bg-[var(--btn-bg)] px-[16px] py-[11px] text-center text-[14px] font-medium text-[var(--btn-fg)] transition-opacity hover:opacity-90 disabled:opacity-70"
+        >
+          {busy ? "…" : copy.checkout.manageCta}
+        </button>
+        {error ? (
+          <p role="alert" className="mt-[12px] font-mono text-[12px] text-[#e0603f]">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Sign-in-first checkout gate: a signed-out visitor who picks a paid plan signs in
+ * here (email-OTP), then `onSignedIn` resumes the Stripe checkout they started.
+ * Reuses the shared OtpForm; no brand is created (this is a pure sign-in).
+ */
+function SignInModal({
+  copy,
+  onClose,
+  onSignedIn,
+}: {
+  copy: PricingCopy;
+  onClose: () => void;
+  onSignedIn: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={copy.checkout.signInTitle}
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-[20px]"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-[520px] border border-[var(--border-hairline)] bg-[var(--surface)] p-[28px] md:p-[36px]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={copy.checkout.close}
+          className="absolute top-[14px] right-[16px] text-[20px] leading-none text-[var(--text-faint)] transition-colors hover:text-[var(--text-primary)]"
+        >
+          ×
+        </button>
+        <h2 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--text-primary)]">
+          {copy.checkout.signInTitle}
+        </h2>
+        <p className="mt-[10px] mb-[22px] text-[15px] leading-[1.5] text-[var(--text-muted)]">
+          {copy.checkout.signInSub}
+        </p>
+        <OtpForm source="pricing" submitLabel="Send code" onSuccess={onSignedIn} />
       </div>
     </div>
   );

@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { capture, identifyUser } from "@/lib/analytics";
-import type { BrandMetrics } from "@/lib/laurel/metrics";
-import { brandLimit, isDaily } from "@/lib/plan";
+import type { BrandMetrics, PromptAnswer } from "@/lib/laurel/metrics";
+import { brandLimit, isDaily, isPaid, planLabel } from "@/lib/plan";
 import { createClient } from "@/lib/supabase/client";
 
 import { AnswerMarkdown } from "./answer-markdown";
@@ -21,14 +21,14 @@ import {
   type Platform,
   type Prompt,
 } from "./fixtures";
-import { DASH, formatMetrics, type DashboardData } from "./format";
+import { DASH, formatMetrics, shortDate, type DashboardData } from "./format";
 import { AI_MODELS, MODEL_COLOR } from "./model-marks";
 import { clearOnboarding, readOnboarding } from "./onboarding-store";
 import { PromptsManager } from "./prompts-manager";
 import { MONO, SANS, appTokens, toneVar } from "./tokens";
 
-type Tab = "overview" | "settings";
-const TABS: Tab[] = ["overview", "settings"];
+type Tab = "overview" | "settings" | "account";
+const TABS: Tab[] = ["overview", "settings", "account"];
 // Sections within the combined main view — the left-nav jump targets.
 type Section = "visibility" | "citations" | "prompts";
 const SECTIONS: Section[] = ["visibility", "citations", "prompts"];
@@ -84,6 +84,9 @@ export function Dashboard() {
   const [checked, setChecked] = useState(false);
   const [brands, setBrands] = useState<BrandLite[]>([]);
   const [plan, setPlan] = useState<string>("free");
+  const [email, setEmail] = useState<string | null>(null); // for the Account view
+  const [hasBilling, setHasBilling] = useState(false); // account has a Stripe customer
+  const [planReady, setPlanReady] = useState(false); // brands/plan/email loaded
   const [scanState, setScanState] = useState<ScanState>("loading");
   const [data, setData] = useState<DashboardData | null>(null);
   const [range, setRange] = useState<Range>("7d"); // trend date window
@@ -93,6 +96,7 @@ export function Dashboard() {
   // (scroll-spy) and a one-shot scroll target after navigating back to it.
   const [activeSection, setActiveSection] = useState<Section>("visibility");
   const [pendingScroll, setPendingScroll] = useState<Section | null>(null);
+  const [showBrandLimit, setShowBrandLimit] = useState(false); // "+ New brand" over the cap
   const scrollRef = useRef<HTMLDivElement>(null); // the desktop scroll container
   const jumpingRef = useRef(false); // suppress scroll-spy during a programmatic jump
 
@@ -110,11 +114,21 @@ export function Dashboard() {
     if (!checked || gated) return;
     fetch("/api/ai-search/brands")
       .then((r) => r.json())
-      .then((d: { brands?: BrandLite[]; plan?: string }) => {
-        setBrands(d.brands ?? []);
-        setPlan(d.plan ?? "free");
-      })
-      .catch(() => {});
+      .then(
+        (d: {
+          brands?: BrandLite[];
+          plan?: string;
+          email?: string | null;
+          hasBilling?: boolean;
+        }) => {
+          setBrands(d.brands ?? []);
+          setPlan(d.plan ?? "free");
+          setEmail(d.email ?? null);
+          setHasBilling(Boolean(d.hasBilling));
+          setPlanReady(true);
+        },
+      )
+      .catch(() => setPlanReady(true));
   }, [checked, gated]);
 
   const currentBrand = brands.find((b) => b.id === brandId) ?? brands[0] ?? null;
@@ -166,6 +180,16 @@ export function Dashboard() {
     };
   }, [checked, gated, currentBrandId, retryNonce, range]);
 
+  // Opening a detail view (a prompt's answer or a citation's pages) should start
+  // at the top. It's a client transition over a scrolled list, so the scroll
+  // position otherwise carries over and the new view opens part-way down.
+  const detailKey = params.get("prompt") ?? params.get("citation");
+  useEffect(() => {
+    if (!detailKey) return;
+    scrollRef.current?.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0 });
+  }, [detailKey]);
+
   // "Try again" on a failed scan: re-run scan/run (claiming clears the failure
   // and re-enqueues), then re-run the effect to poll the fresh attempt.
   const retryScan = () => {
@@ -194,12 +218,12 @@ export function Dashboard() {
   const setTab = (t: Tab) => go({ tab: t });
   const setBrand = (id: string) => go({ brand: id });
   // Adding a brand is gated by the plan's brand allowance: room left → onboard a
-  // new brand; at the limit → send them to pricing to upgrade (only Business,
-  // with 3 brands, can hold more than one).
+  // new brand; at the limit → show the upgrade modal (only Business, with 3
+  // brands, can hold more than one).
   const goNewBrand = () =>
-    router.push(
-      brands.length < brandLimit(plan) ? "/ai-search/onboarding" : "/ai-search/pricing",
-    );
+    brands.length < brandLimit(plan)
+      ? router.push("/ai-search/onboarding")
+      : setShowBrandLimit(true);
   // Real sign-out: clear the Supabase session first, then leave the (gated)
   // dashboard. Previously this only navigated, so the user stayed signed in.
   const signOut = async () => {
@@ -285,7 +309,7 @@ export function Dashboard() {
         }}
         aria-hidden={gated}
       >
-        <Header onSignOut={signOut} onNew={goNewBrand} />
+        <Header onSignOut={signOut} onNew={goNewBrand} onAccount={() => setTab("account")} />
         <div className="flex md:min-h-0 md:flex-1">
           <Sidebar
             tab={tab}
@@ -294,29 +318,38 @@ export function Dashboard() {
             onSettings={() => setTab("settings")}
           />
           <div ref={scrollRef} className="min-w-0 flex-1 pb-[84px] md:overflow-y-auto md:pb-0">
-            <TitleRow current={currentBrand} brands={brands} onSwitch={setBrand} />
-            <FilterBar tab={tab} plan={plan} range={range} onRange={setRange} />
+            {/* Brand switcher + range controls are metrics-specific — hide on Account. */}
+            {tab !== "account" && (
+              <>
+                <TitleRow current={currentBrand} brands={brands} onSwitch={setBrand} />
+                <FilterBar tab={tab} plan={plan} range={range} onRange={setRange} />
+              </>
+            )}
             <div className="px-[20px] py-[24px] md:px-[28px]">
-              {scanState !== "ready" || !data ? (
+              {tab === "account" ? (
+                <AccountView
+                  email={email}
+                  plan={plan}
+                  ready={planReady}
+                  hasBilling={hasBilling}
+                  justCheckedOut={params.get("checkout") === "success"}
+                />
+              ) : scanState !== "ready" || !data ? (
                 <ScanNotice
                   kind={scanState === "ready" ? "loading" : scanState}
                   brand={currentBrand}
                   onRetry={retryScan}
                 />
+              ) : tab === "settings" ? (
+                <Settings brand={currentBrand} plan={plan} />
               ) : (
-                <>
-                  {tab === "settings" ? (
-                    <Settings brand={currentBrand} plan={plan} />
-                  ) : (
-                    <MainView
-                      data={data}
-                      brand={currentBrand}
-                      platform={platform}
-                      brandId={currentBrandId}
-                      onBackToSection={jumpTo}
-                    />
-                  )}
-                </>
+                <MainView
+                  data={data}
+                  brand={currentBrand}
+                  platform={platform}
+                  brandId={currentBrandId}
+                  onBackToSection={jumpTo}
+                />
               )}
             </div>
           </div>
@@ -330,6 +363,15 @@ export function Dashboard() {
       </div>
 
       {gated && checked && <Gate onEnter={() => setGated(false)} />}
+      {showBrandLimit && (
+        <UpgradeModal
+          label="Brand limit reached"
+          title="You've reached your plan's brand limit"
+          body="Upgrade your plan to monitor more brands."
+          closeLabel="Not now"
+          onClose={() => setShowBrandLimit(false)}
+        />
+      )}
     </main>
   );
 }
@@ -384,11 +426,12 @@ function ScanNotice({
   onRetry?: () => void;
 }) {
   const name = brand?.name?.trim() || brand?.domain || "your brand";
-  const copy: Record<Exclude<ScanState, "ready">, { title: string; body: string }> = {
+  const copy: Record<Exclude<ScanState, "ready">, { title: string; body: string; note?: string }> = {
     loading: { title: "Loading…", body: "Fetching your latest scan." },
     scanning: {
       title: "Running your scan…",
       body: `This can take several minutes. We're asking ChatGPT the questions your buyers ask about ${name}.`,
+      note: "No need to wait here. If you need to step away, we'll email you the moment your free scan is ready.",
     },
     slow: {
       title: "Still working…",
@@ -403,7 +446,7 @@ function ScanNotice({
       body: "Something went wrong running your scan. You can try again.",
     },
   };
-  const { title, body } = copy[kind];
+  const { title, body, note } = copy[kind];
   return (
     <div className="flex min-h-[300px] flex-col items-center justify-center gap-[10px] text-center">
       {(kind === "scanning" || kind === "loading" || kind === "slow") && (
@@ -424,6 +467,14 @@ function ScanNotice({
       >
         {body}
       </span>
+      {note && (
+        <span
+          className="max-w-[430px] text-[13px]"
+          style={{ color: "var(--mut)", lineHeight: 1.5 }}
+        >
+          {note}
+        </span>
+      )}
       {kind === "error" && onRetry && (
         <button
           type="button"
@@ -439,7 +490,15 @@ function ScanNotice({
 }
 
 // ── Shell ────────────────────────────────────────────────────────────────────
-function Header({ onSignOut, onNew }: { onSignOut: () => void; onNew: () => void }) {
+function Header({
+  onSignOut,
+  onNew,
+  onAccount,
+}: {
+  onSignOut: () => void;
+  onNew: () => void;
+  onAccount: () => void;
+}) {
   return (
     <header
       className="flex items-center justify-between px-[20px] py-[14px] md:px-[28px] md:py-[16px]"
@@ -447,7 +506,10 @@ function Header({ onSignOut, onNew }: { onSignOut: () => void; onNew: () => void
     >
       <span className="inline-flex items-center gap-[12px]">
         <Mark size={34} />
-        <Wordmark size={16} />
+        {/* Wordmark hidden on mobile so the header buttons never overflow. */}
+        <span className="hidden md:inline-flex">
+          <Wordmark size={16} />
+        </span>
       </span>
       <div className="flex items-center gap-[10px]">
         <button
@@ -464,6 +526,19 @@ function Header({ onSignOut, onNew }: { onSignOut: () => void; onNew: () => void
           }}
         >
           + New
+        </button>
+        <button
+          type="button"
+          onClick={onAccount}
+          className="px-[16px] py-[9px] text-[14px]"
+          style={{
+            border: "1px solid var(--line)",
+            color: "var(--ink)",
+            flex: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          Account
         </button>
         <button
           type="button"
@@ -865,6 +940,8 @@ function MainView({
   if (selectedPrompt) {
     return (
       <PromptDetailView
+        // Remount per prompt so answer-history state starts fresh (no stale flash).
+        key={selectedPrompt.p.promptId || params.get("prompt")}
         p={selectedPrompt.p}
         groupName={selectedPrompt.groupName}
         brandName={brandName}
@@ -1364,6 +1441,47 @@ function PromptDetailView({
   brandName: string;
   onBack: () => void;
 }) {
+  // The prompt's answer history (newest run first). null while loading; on a
+  // one-run brand it comes back with a single entry and the navigator hides.
+  const [answers, setAnswers] = useState<PromptAnswer[] | null>(null);
+  const [sel, setSel] = useState(0);
+
+  // The component is remounted per prompt (keyed by id), so state starts fresh —
+  // this effect only fetches and fills it, never resets synchronously.
+  useEffect(() => {
+    if (!p.promptId) return;
+    let active = true;
+    fetch(`/api/ai-search/prompt-answers?prompt=${encodeURIComponent(p.promptId)}`)
+      .then((r) => (r.ok ? r.json() : { answers: [] }))
+      .then((d: { answers?: PromptAnswer[] }) => {
+        if (active) setAnswers(d.answers ?? []);
+      })
+      .catch(() => {
+        if (active) setAnswers([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [p.promptId]);
+
+  const hasHistory = Boolean(answers && answers.length > 1);
+  // The run in view: the selected historical answer once loaded, otherwise the
+  // latest-run data the metrics layer already gave us (so there's no blank flash).
+  const nav = answers && answers.length > 0 ? answers[Math.min(sel, answers.length - 1)] : null;
+  const view = nav
+    ? {
+        answer: nav.answer ?? "",
+        highlight: nav.highlight ?? undefined,
+        brands: nav.brands.join(" · "),
+        cites: nav.cites.join(" · "),
+        promptText: nav.promptText,
+        latest: sel === 0,
+      }
+    : { answer: p.answer, highlight: p.highlight, brands: p.brands, cites: p.cites, promptText: null, latest: true };
+  // Reset-on-edit transparency: the question text may have been edited since this
+  // run, so surface what was actually asked when it differs from the current text.
+  const askedAs = view.promptText && view.promptText.trim() !== p.q.trim() ? view.promptText : null;
+
   return (
     <div className="flex flex-col gap-[22px]">
       <button
@@ -1375,51 +1493,189 @@ function PromptDetailView({
         ← Back to prompts
       </button>
 
-      <div className="flex flex-col gap-[8px]">
-        <MonoLabel>{groupName}</MonoLabel>
-        <h2
-          className="max-w-[40ch]"
-          style={{ fontSize: 25, fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1.15 }}
-        >
-          {p.q}
-        </h2>
-      </div>
-
-      {/* ChatGPT score — the only live platform in Phase 1. */}
-      <div>
-        <MonoLabel>Score by platform</MonoLabel>
-        <div className="mt-[10px] max-w-[280px]">
-          <PlatformScoreCard p={p} />
+      {/* Topic + prompt on the left, ChatGPT score on the right — side by side on
+          desktop so the answer/history/brands sections sit higher up the page. */}
+      <div className="grid gap-[20px] md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+        <PromptHeading topic={groupName} prompt={p.q} />
+        {/* ChatGPT score — the only live platform in Phase 1. Always the latest run. */}
+        <div>
+          <MonoLabel>Score by platform</MonoLabel>
+          <div className="mt-[10px] w-[280px] max-w-full">
+            <PlatformScoreCard p={p} />
+          </div>
         </div>
       </div>
 
-      <Card className="grid gap-[30px] p-[22px_24px_26px] md:grid-cols-[1fr_280px]">
-        <div className="flex flex-col gap-[10px]">
-          <MonoLabel>Answer · {p.platform}</MonoLabel>
-          <div className="max-w-[80ch] text-[14.5px]" style={{ lineHeight: 1.65, color: "var(--ink)" }}>
-            <AnswerMarkdown text={p.answer} highlight={p.highlight} />
-          </div>
-          {p.answer.trim() === "" ? (
-            <span style={{ fontFamily: MONO, fontSize: 11.5, color: "var(--dim)" }}>
-              This prompt didn’t return an answer in the last scan.
-            </span>
-          ) : !p.highlight ? (
-            <span style={{ fontFamily: MONO, fontSize: 11.5, color: "var(--dim)" }}>
-              {brandName} was not named in this answer.
-            </span>
-          ) : null}
-        </div>
-        <div className="flex flex-col gap-[18px]">
-          <div className="flex flex-col gap-[6px]">
-            <MonoLabel>Brands mentioned</MonoLabel>
-            <span style={{ fontFamily: MONO, fontSize: 12, lineHeight: 1.7, color: "var(--mut)" }}>{p.brands}</span>
-          </div>
-          <div className="flex flex-col gap-[6px]">
-            <MonoLabel>Cited sources</MonoLabel>
-            <span style={{ fontFamily: MONO, fontSize: 12, lineHeight: 1.7, color: "var(--mut)" }}>{p.cites}</span>
+      <Card className="p-[22px_24px_26px]">
+        <div className={hasHistory ? "grid gap-[24px] md:grid-cols-[190px_minmax(0,1fr)]" : ""}>
+          {hasHistory && (
+            <div
+              className="flex flex-col gap-[10px] md:border-r md:pr-[18px]"
+              style={{ borderColor: "var(--line)" }}
+            >
+              <MonoLabel>History</MonoLabel>
+              <RunNavigator answers={answers!} sel={sel} onSelect={setSel} />
+            </div>
+          )}
+          <div className="grid min-w-0 gap-[30px] md:grid-cols-[minmax(0,1fr)_280px]">
+            <div className="flex min-w-0 flex-col gap-[10px]">
+              <MonoLabel>Answer · {p.platform}</MonoLabel>
+              {askedAs && (
+                <span style={{ fontFamily: MONO, fontSize: 11.5, color: "var(--dim)" }}>
+                  Asked as: “{askedAs}”
+                </span>
+              )}
+              <AnswerBlock key={nav?.runId ?? "current"} text={view.answer} highlight={view.highlight} />
+              {view.answer.trim() === "" ? (
+                <span style={{ fontFamily: MONO, fontSize: 11.5, color: "var(--dim)" }}>
+                  This prompt didn’t return an answer in {hasHistory && !view.latest ? "this scan" : "the last scan"}.
+                </span>
+              ) : !view.highlight ? (
+                <span style={{ fontFamily: MONO, fontSize: 11.5, color: "var(--dim)" }}>
+                  {brandName} was not named in this answer.
+                </span>
+              ) : null}
+            </div>
+            <div className="flex flex-col gap-[18px]">
+              <div className="flex flex-col gap-[6px]">
+                <MonoLabel>Brands mentioned</MonoLabel>
+                <span style={{ fontFamily: MONO, fontSize: 12, lineHeight: 1.7, color: "var(--mut)" }}>{view.brands || DASH}</span>
+              </div>
+              <div className="flex flex-col gap-[6px]">
+                <MonoLabel>Cited sources</MonoLabel>
+                <span style={{ fontFamily: MONO, fontSize: 12, lineHeight: 1.7, color: "var(--mut)" }}>{view.cites || DASH}</span>
+              </div>
+            </div>
           </div>
         </div>
       </Card>
+    </div>
+  );
+}
+
+/** A run timestamp's UTC time as "14:30". */
+function utcTime(iso: string): string {
+  const d = new Date(iso);
+  return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+}
+
+/** A run's label for the history rail: date + UTC time, e.g. "14 Aug, 14:30". */
+function runLabel(iso: string): string {
+  return `${shortDate(iso)}, ${utcTime(iso)}`;
+}
+
+/**
+ * Vertical history rail for a prompt's answers — one row per completed run, newest
+ * first, showing date + time. A left accent bar marks the selected run, and the
+ * list scrolls when a prompt has many runs. Only rendered when there's more than one.
+ */
+function RunNavigator({
+  answers,
+  sel,
+  onSelect,
+}: {
+  answers: PromptAnswer[];
+  sel: number;
+  onSelect: (i: number) => void;
+}) {
+  const active = Math.min(sel, answers.length - 1);
+  return (
+    <div className="flex flex-col gap-[1px] max-h-[220px] overflow-y-auto md:max-h-[440px]">
+      {answers.map((a, i) => {
+        const on = i === active;
+        return (
+          <button
+            key={a.runId}
+            type="button"
+            onClick={() => onSelect(i)}
+            className="w-full px-[10px] py-[7px] text-left text-[12px]"
+            style={{
+              fontFamily: MONO,
+              borderLeft: `2px solid ${on ? "var(--ink)" : "var(--line)"}`,
+              background: on ? "var(--panel2)" : "transparent",
+              color: on ? "var(--ink)" : "var(--mut)",
+              fontWeight: on ? 700 : 400,
+            }}
+          >
+            {runLabel(a.at)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * The verbatim answer, capped to a preview with a "Show all" toggle when it runs
+ * long. The height cap is applied from the first render (no content flash); a
+ * measurement only decides whether the fade + button appear. Remounted per run
+ * (keyed by runId) so switching answers re-collapses.
+ */
+function AnswerBlock({ text, highlight }: { text: string; highlight?: string }) {
+  const COLLAPSED = 240; // px preview height (~a third of a long answer)
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  // Threshold == the cap height (no buffer): whenever the content is taller than
+  // the cap it gets both the visual clip AND the "Show all" affordance, so nothing
+  // is ever silently truncated.
+  const measure = useCallback((el: HTMLDivElement | null) => {
+    if (el) setOverflows(el.scrollHeight > COLLAPSED);
+  }, []);
+  const capped = !expanded;
+  return (
+    <div className="flex flex-col gap-[10px]">
+      <div className="relative">
+        <div
+          ref={measure}
+          className="max-w-[80ch] text-[14.5px]"
+          style={{
+            lineHeight: 1.65,
+            color: "var(--ink)",
+            maxHeight: capped ? COLLAPSED : undefined,
+            overflow: capped ? "hidden" : undefined,
+          }}
+        >
+          <AnswerMarkdown text={text} highlight={highlight} />
+        </div>
+        {capped && overflows && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 bottom-0"
+            style={{ height: 72, background: "linear-gradient(to bottom, transparent, var(--panel))" }}
+          />
+        )}
+      </div>
+      {overflows && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="self-start text-[12.5px]"
+          style={{ fontFamily: MONO, color: "var(--mut)", textDecoration: "underline", textUnderlineOffset: 3 }}
+        >
+          {expanded ? "Show less" : "Show all"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Prompt-detail heading: the topic it belongs to, then the question itself (smaller). */
+function PromptHeading({ topic, prompt }: { topic: string; prompt: string }) {
+  return (
+    <div className="flex flex-col gap-[12px]">
+      <div className="flex flex-col gap-[4px]">
+        <MonoLabel>Topic</MonoLabel>
+        <span className="text-[13.5px]" style={{ color: "var(--mut)" }}>{topic}</span>
+      </div>
+      <div className="flex flex-col gap-[4px]">
+        <MonoLabel>Prompt</MonoLabel>
+        <h2
+          className="max-w-[52ch]"
+          style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: 1.3 }}
+        >
+          {prompt}
+        </h2>
+      </div>
     </div>
   );
 }
@@ -1455,6 +1711,158 @@ function PlatformScoreCard({ p }: { p: Prompt }) {
         ))}
       </div>
     </div>
+  );
+}
+
+// ── Account ──────────────────────────────────────────────────────────────────
+/**
+ * The Account view — reached from the header, rendered inside the dashboard shell
+ * (same header + nav panel, light theme). Shows the signed-in email and the
+ * account's AI Search Monitor plan. `ready` gates the values so a paid user never
+ * sees a "Free" flash before the account data loads.
+ */
+function AccountView({
+  email,
+  plan,
+  ready,
+  hasBilling,
+  justCheckedOut = false,
+}: {
+  email: string | null;
+  plan: string;
+  ready: boolean;
+  hasBilling: boolean;
+  justCheckedOut?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-[22px]">
+      <div className="flex flex-col gap-[8px]">
+        <MonoLabel>Account</MonoLabel>
+        <h2 style={{ fontSize: 25, fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1.15 }}>
+          Your account
+        </h2>
+      </div>
+
+      {justCheckedOut ? (
+        <div
+          role="status"
+          className="text-[14px] leading-[1.5]"
+          style={{ border: "1px solid var(--line)", background: "var(--panel)", padding: "12px 16px", color: "var(--ink)" }}
+        >
+          Payment received. Your plan updates within a few seconds. Refresh this page if it still shows Free.
+        </div>
+      ) : null}
+
+      <div className="grid gap-[16px] md:max-w-[680px] md:grid-cols-2">
+        <Card className="flex flex-col gap-[8px] p-[20px_22px]">
+          <MonoLabel>Your email</MonoLabel>
+          <span className="text-[15px]" style={{ color: ready ? "var(--ink)" : "var(--dim)", wordBreak: "break-word" }}>
+            {ready ? email ?? "—" : "Loading…"}
+          </span>
+        </Card>
+        <Card className="flex flex-col gap-[8px] p-[20px_22px]">
+          <MonoLabel>Your AI-Search Monitor plan</MonoLabel>
+          <span className="text-[15px]" style={{ color: ready ? "var(--ink)" : "var(--dim)", fontWeight: ready ? 600 : 400 }}>
+            {ready ? planLabel(plan) : "Loading…"}
+          </span>
+        </Card>
+      </div>
+
+      <BillingCard plan={plan} ready={ready} hasBilling={hasBilling} />
+    </div>
+  );
+}
+
+/**
+ * Billing management in the Account view. The control is gated on whether the
+ * account has a Stripe customer, NOT on whether the plan is paid:
+ * - Has a Stripe customer → "Manage billing" (the Stripe portal: card, switch, cancel).
+ * - No customer + Free → "Upgrade" link to pricing.
+ * - No customer + paid (a manually-set or legacy plan) → a neutral note; the portal
+ *   would 400, and "Upgrade" would be wrong since they already have a paid plan.
+ * Rendered only once the account is loaded, to avoid flashing the wrong control.
+ */
+function BillingCard({
+  plan,
+  ready,
+  hasBilling,
+}: {
+  plan: string;
+  ready: boolean;
+  hasBilling: boolean;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function openPortal() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/stripe/portal", { method: "POST" });
+      const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+      if (res.ok && data.url) {
+        window.location.assign(data.url);
+        return;
+      }
+      setError(data.error ?? "Could not open billing. Please try again.");
+    } catch {
+      setError("Could not open billing. Please try again.");
+    }
+    setBusy(false);
+  }
+
+  const buttonStyle = {
+    background: "var(--ink)",
+    color: "var(--panel)",
+    fontWeight: 600,
+    borderColor: "var(--ink)",
+  } as const;
+  return (
+    <Card className="flex flex-col gap-[12px] p-[20px_22px] md:max-w-[680px]">
+      <MonoLabel>Billing</MonoLabel>
+      {!ready ? (
+        <span className="text-[15px]" style={{ color: "var(--dim)" }}>
+          Loading…
+        </span>
+      ) : hasBilling ? (
+        <>
+          <p className="text-[14px] leading-[1.5]" style={{ color: "var(--dim)" }}>
+            Update your payment method, switch plan or cancel in the secure Stripe portal.
+          </p>
+          <button
+            type="button"
+            onClick={openPortal}
+            disabled={busy}
+            className="self-start border px-[16px] py-[9px] text-[14px] font-medium transition-opacity hover:opacity-90 disabled:opacity-70"
+            style={buttonStyle}
+          >
+            {busy ? "Opening…" : "Manage billing"}
+          </button>
+        </>
+      ) : isPaid(plan) ? (
+        <p className="text-[14px] leading-[1.5]" style={{ color: "var(--dim)" }}>
+          Your plan is managed manually. Contact us if you need to make a change.
+        </p>
+      ) : (
+        <>
+          <p className="text-[14px] leading-[1.5]" style={{ color: "var(--dim)" }}>
+            You are on the Free plan. Upgrade for daily scans, more prompts and more brands.
+          </p>
+          <Link
+            href="/ai-search/pricing"
+            className="self-start border px-[16px] py-[9px] text-[14px] font-medium no-underline transition-opacity hover:opacity-90"
+            style={buttonStyle}
+          >
+            Upgrade
+          </Link>
+        </>
+      )}
+      {error ? (
+        <p role="alert" className="font-mono text-[12px]" style={{ color: "#e0603f" }}>
+          {error}
+        </p>
+      ) : null}
+    </Card>
   );
 }
 
@@ -1510,7 +1918,7 @@ function Settings({
       </div>
 
       <Card className="flex flex-col gap-[16px] p-[22px_24px]">
-        <SectionHead title="Monitored prompts" sub="Add, remove or edit the questions we monitor." />
+        <SectionHead title="Monitored prompts" sub="Add, remove or edit the prompts we monitor." />
         <PromptsManager brandId={brand?.id ?? null} />
       </Card>
     </div>
@@ -1666,6 +2074,67 @@ function SettingsIcon() {
   );
 }
 
+// ── Upgrade / plan-limit modal ───────────────────────────────────────────────
+/**
+ * Shown when an action hits a plan limit — a second free scan (the account is at
+ * its brand cap after OTP) or "+ New brand" over the cap. Primary action goes to
+ * pricing; the secondary closes back to wherever the user was.
+ */
+function UpgradeModal({
+  label,
+  title,
+  body,
+  closeLabel,
+  onClose,
+}: {
+  label: string;
+  title: string;
+  body: string;
+  closeLabel: string;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center p-[16px] md:p-[60px]"
+      style={{ background: "rgba(8,10,9,0.62)" }}
+    >
+      <div
+        className="w-full max-w-[520px]"
+        style={{ background: "var(--panel)", border: "1px solid var(--line)" }}
+      >
+        <div className="flex flex-col gap-[12px] p-[28px_32px_26px]">
+          <MonoLabel>{label}</MonoLabel>
+          <h3 style={{ fontSize: 23, fontWeight: 700, lineHeight: 1.15, letterSpacing: "-0.03em" }}>
+            {title}
+          </h3>
+          <p className="text-[15px]" style={{ color: "var(--mut)", lineHeight: 1.55 }}>
+            {body}
+          </p>
+          <div className="mt-[8px] flex items-center gap-[16px]">
+            <button
+              type="button"
+              onClick={() => router.push("/ai-search/pricing")}
+              className="px-[18px] py-[10px] text-[14px] font-semibold"
+              style={{ background: "var(--ink)", color: "var(--panel)" }}
+            >
+              Show plans
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-[14px]"
+              style={{ color: "var(--mut)" }}
+            >
+              {closeLabel}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Subscribe gate ───────────────────────────────────────────────────────────
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const gateField =
@@ -1694,6 +2163,7 @@ function Gate({ onEnter }: { onEnter: () => void }) {
   const [code, setCode] = useState("");
   const [status, setStatus] = useState<"idle" | "submitting" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [atLimit, setAtLimit] = useState(false); // account already used its free scan
 
   const invalid = status === "error";
   const submitting = status === "submitting";
@@ -1747,8 +2217,19 @@ function Gate({ onEnter }: { onEnter: () => void }) {
           topics: site.topics,
         }),
       });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        atBrandLimit?: boolean;
+      };
       if (!res.ok) return fail(data.error ?? "Something went wrong. Try again.");
+
+      // Account already used its free scan (at the brand cap): the server made no
+      // brand and ran no scan — show the upgrade modal instead of entering.
+      if (data.atBrandLimit) {
+        clearOnboarding();
+        setAtLimit(true);
+        return;
+      }
 
       // Identify at signup, matching the landing OtpForm — this sign-in runs
       // server-side, so PostHogAuth won't catch it until the next page load.
@@ -1766,6 +2247,18 @@ function Gate({ onEnter }: { onEnter: () => void }) {
     } catch {
       fail("Network error. Please try again.");
     }
+  }
+
+  if (atLimit) {
+    return (
+      <UpgradeModal
+        label="Free scan used"
+        title="You've already used your free scan"
+        body="Convert to a paid plan to monitor more brands and get daily scans."
+        closeLabel="Go to my dashboard"
+        onClose={onEnter}
+      />
+    );
   }
 
   return (

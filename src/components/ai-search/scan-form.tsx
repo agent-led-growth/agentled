@@ -45,8 +45,7 @@ export function ScanForm({ locale = "en" }: { locale?: Locale }) {
       />
       <button
         type="submit"
-        disabled={!url.trim()}
-        className="grid h-[56px] shrink-0 place-items-center px-[30px] text-[17px] font-bold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 md:h-[64px] md:text-[18px]"
+        className="grid h-[56px] shrink-0 place-items-center px-[30px] text-[17px] font-bold transition-opacity hover:opacity-90 md:h-[64px] md:text-[18px]"
         style={{ background: "var(--signal)", color: "var(--on-signal)" }}
       >
         {t.scanButton}

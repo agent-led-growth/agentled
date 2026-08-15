@@ -106,6 +106,18 @@ export interface TrendPoint {
   citationShare: number; // 0..1
 }
 
+/** One run's answer to a single prompt — the unit the detail-view navigator browses. */
+export interface PromptAnswer {
+  runId: string;
+  at: string; // ISO completed_at of the run
+  answer: string | null;
+  promptText: string | null; // the question exactly as it was asked in that run
+  named: boolean; // was the monitored brand named in this answer
+  highlight: string | null; // the self-mention text to emphasise
+  brands: string[]; // brands named, in order of appearance
+  cites: string[]; // domains cited (unique)
+}
+
 /** The headline numbers for one completed run — everything except history/deltas. */
 type RunMetrics = Omit<
   BrandMetrics,
@@ -375,6 +387,84 @@ async function computeTrend(
       citationShare: total ? own / total : 0,
     };
   });
+}
+
+/**
+ * Every answer one prompt has produced, newest completed run first — the per-prompt
+ * history the detail view's run navigator reads. A run counts if the prompt was part
+ * of it, whether the scan succeeded (`ok`) or errored (`failed`, surfaced as an empty
+ * answer) — so the newest entry always tracks the latest run the prompt ran in, which
+ * keeps the navigator's "latest" chip consistent with the headline score card. Runs
+ * where the prompt didn't exist yet have no scan row and are skipped. Each row is
+ * self-contained (its as-asked prompt_text, the brands named, the domains cited), so
+ * browsing an older run shows THAT run's data. Bounded by the run id list (a handful),
+ * never a huge scan_id list.
+ */
+export async function getPromptAnswers(
+  brandId: string,
+  promptId: string,
+  limit = 12,
+): Promise<PromptAnswer[]> {
+  const runs = await listCompletedRuns(brandId, limit);
+  if (runs.length === 0) return [];
+  const admin = createAdminClient();
+  const runIds = runs.map((r) => r.id);
+
+  const { data: scanData, error: scanErr } = await admin
+    .from("scans")
+    .select("id, run_id, answer_text, prompt_text")
+    .in("run_id", runIds)
+    .eq("prompt_id", promptId)
+    .eq("platform", PLATFORM)
+    .in("status", ["ok", "failed"]);
+  if (scanErr) throw scanErr;
+  const scans = (scanData ?? []) as {
+    id: string;
+    run_id: string;
+    answer_text: string | null;
+    prompt_text: string | null;
+  }[];
+  if (scans.length === 0) return [];
+
+  const scanByRun = new Map(scans.map((s) => [s.run_id, s]));
+  const scanIds = scans.map((s) => s.id);
+
+  const [mentionsR, citationsR] = await Promise.all([
+    admin.from("mentions").select("scan_id, mentioned_name, position, is_self").in("scan_id", scanIds).eq("platform", PLATFORM),
+    admin.from("citations").select("scan_id, domain").in("scan_id", scanIds).eq("platform", PLATFORM),
+  ]);
+  if (mentionsR.error) throw mentionsR.error;
+  if (citationsR.error) throw citationsR.error;
+  const mentions = (mentionsR.data ?? []) as {
+    scan_id: string;
+    mentioned_name: string;
+    position: number | null;
+    is_self: boolean;
+  }[];
+  const citations = (citationsR.data ?? []) as { scan_id: string; domain: string }[];
+
+  const mentionsByScan = groupBy(mentions, (m) => m.scan_id);
+  const citationsByScan = groupBy(citations, (c) => c.scan_id);
+
+  const out: PromptAnswer[] = [];
+  for (const run of runs) {
+    const scan = scanByRun.get(run.id);
+    if (!scan) continue; // the prompt didn't exist yet in this run (no scan row at all)
+    const ms = mentionsByScan.get(scan.id) ?? [];
+    const cs = citationsByScan.get(scan.id) ?? [];
+    const self = ms.find((m) => m.is_self);
+    out.push({
+      runId: run.id,
+      at: run.completed_at,
+      answer: scan.answer_text,
+      promptText: scan.prompt_text,
+      named: Boolean(self),
+      highlight: self?.mentioned_name ?? null,
+      brands: [...ms].sort(byPosition).map((m) => m.mentioned_name),
+      cites: [...new Set(cs.map((c) => c.domain))],
+    });
+  }
+  return out;
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────

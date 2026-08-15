@@ -12,6 +12,19 @@
     "enabled": true
   },
 
+  // Stripe live price ids (Epic 6). Not secret — public identifiers read at
+  // runtime by src/lib/stripe/prices.ts. Local dev/test uses its own test-mode
+  // ids in .env.local; production uses these live ones. Swapping a price is a
+  // change here, not a code change.
+  "vars": {
+    "STRIPE_PRICE_STARTER_MONTHLY": "price_1U4iAiLrSZ1ZGVqmWH5OYRJj",
+    "STRIPE_PRICE_STARTER_YEARLY": "price_1U4iCDLrSZ1ZGVqmK9PTJ4ae",
+    "STRIPE_PRICE_PRO_MONTHLY": "price_1U4iFdLrSZ1ZGVqm93L3KZkZ",
+    "STRIPE_PRICE_PRO_YEARLY": "price_1U4iFdLrSZ1ZGVqmeaTjjQJw",
+    "STRIPE_PRICE_BUSINESS_MONTHLY": "price_1U4iH7LrSZ1ZGVqmG5Somx9q",
+    "STRIPE_PRICE_BUSINESS_YEARLY": "price_1U4iHuLrSZ1ZGVqm5zx7iASg"
+  },
+
   // Producer only: the app enqueues one-time scan jobs. The consumer is a
   // separate worker (workers/scan-consumer) so we don't touch the generated
   // OpenNext entry.
@@ -29,4 +42,6 @@
   //   SUPABASE_SERVICE_ROLE_KEY
   //   RESEND_API_KEY
   //   INTERNAL_SECRET           (shared with the scan-consumer worker)
+  //   STRIPE_SECRET_KEY         (live sk_live_… — Epic 6)
+  //   STRIPE_WEBHOOK_SECRET     (live endpoint signing secret — Epic 6)
 }

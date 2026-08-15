@@ -57,7 +57,7 @@ export async function ensureCompetitors(
   canonicalNames: string[],
 ): Promise<Map<string, string>> {
   const admin = createAdminClient();
-  const wanted = [...new Set(canonicalNames.map((n) => n.trim()).filter(Boolean))];
+  const wanted = canonicalNames.map((n) => n.trim()).filter(Boolean);
 
   const { data: existing, error } = await admin
     .from("competitors")
@@ -70,11 +70,19 @@ export async function ensureCompetitors(
     map.set(c.name.toLowerCase(), c.id);
   }
 
-  const toInsert = wanted.filter((n) => !map.has(n.toLowerCase()));
-  if (toInsert.length > 0) {
+  // Dedup case-insensitively to match the (brand_id, lower(name)) unique index:
+  // two extracted names differing only in case (e.g. "OAI-SearchBot" vs
+  // "oai-searchbot") must collapse to one insert, or the bulk insert self-collides
+  // on lower(name) (Postgres 23505) and takes the whole scan run down.
+  const toInsert = new Map<string, string>(); // lower(name) -> first-seen original
+  for (const n of wanted) {
+    const key = n.toLowerCase();
+    if (!map.has(key) && !toInsert.has(key)) toInsert.set(key, n);
+  }
+  if (toInsert.size > 0) {
     const { data: inserted, error: insErr } = await admin
       .from("competitors")
-      .insert(toInsert.map((name) => ({ brand_id: brandId, name })))
+      .insert([...toInsert.values()].map((name) => ({ brand_id: brandId, name })))
       .select("id,name");
     if (insErr) throw insErr;
     for (const c of (inserted ?? []) as { id: string; name: string }[]) {
