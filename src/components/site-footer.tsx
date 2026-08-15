@@ -32,7 +32,7 @@ export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
         {/* Brand block */}
         <div className="flex flex-col gap-[22px]">
           <p className="eyebrow text-[var(--text-faint)]">
-            {COMPANY}, {YEAR}
+            {COMPANY}, <span className="num">{YEAR}</span>
           </p>
 
           <nav aria-label="Social links">
