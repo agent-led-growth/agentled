@@ -30,7 +30,7 @@ export function PricingPage({ locale }: { locale: Locale }) {
 
         <div className="mx-auto flex max-w-[1120px] flex-col gap-[40px] px-[26px] pt-[36px] pb-[56px] md:gap-[56px] md:px-[64px] md:pt-[60px] md:pb-[100px]">
           <header className="flex max-w-[720px] flex-col gap-[16px]">
-            <p className="font-mono text-[10.5px] tracking-[0.2em] text-[var(--text-faint)] uppercase md:text-[12px]">
+            <p className="eyebrow text-[var(--text-faint)]">
               {t.eyebrow}
             </p>
             <h1 className="text-[clamp(34px,4.6vw,56px)] leading-[0.98] font-bold tracking-[-0.045em] text-[var(--text-primary)]">

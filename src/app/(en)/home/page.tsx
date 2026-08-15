@@ -15,8 +15,7 @@ export const metadata: Metadata = {
   robots: NOINDEX,
 };
 
-const eyebrow =
-  "font-mono text-[10.5px] tracking-[0.2em] text-[var(--text-faint)] uppercase md:text-[12px]";
+const eyebrow = "eyebrow text-[var(--text-faint)]";
 const heading =
   "max-w-[16ch] text-[34px] leading-[1.0] font-bold tracking-[-0.045em] text-[var(--text-primary)] md:text-[44px]";
 const sub =
@@ -99,7 +98,7 @@ export default async function HomePage() {
               href={SUBSTACK_URL}
               target="_blank"
               rel="noreferrer noopener"
-              className="shrink-0 border-t border-[var(--border-hairline)] px-[22px] py-[16px] font-mono text-[11px] tracking-[0.18em] text-[var(--text-muted)] uppercase no-underline transition-colors hover:text-[var(--text-primary)]"
+              className="shrink-0 border-t border-[var(--border-hairline)] px-[22px] py-[16px] font-display text-[13px] text-[var(--text-muted)] no-underline transition-colors hover:text-[var(--text-primary)]"
             >
               Past articles →
             </a>

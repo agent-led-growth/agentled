@@ -24,7 +24,7 @@ export function Faq({
     >
       <div className="flex flex-col gap-[30px] md:flex-row md:gap-[80px]">
         <div className="md:w-[300px] md:shrink-0">
-          <p className="font-mono text-[10.5px] tracking-[0.2em] text-[var(--text-faint)] uppercase md:text-[12px]">
+          <p className="eyebrow text-[var(--text-faint)]">
             {t.eyebrow}
           </p>
           <h2 className="mt-[14px] text-[34px] leading-[0.95] font-bold tracking-[-0.045em] text-[var(--text-primary)] md:text-[44px]">

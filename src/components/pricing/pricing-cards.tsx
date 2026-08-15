@@ -144,11 +144,11 @@ export function PricingCards({ copy, locale }: { copy: PricingCopy; locale: Loca
                   {p.name}
                 </h3>
                 {isCurrent ? (
-                  <span className="font-mono text-[10px] tracking-[0.14em] text-[var(--accent)] uppercase">
+                  <span className="eyebrow text-[var(--accent)]">
                     {copy.currentPlan}
                   </span>
                 ) : featured ? (
-                  <span className="font-mono text-[10px] tracking-[0.14em] text-[var(--accent)] uppercase">
+                  <span className="eyebrow text-[var(--accent)]">
                     {copy.featured}
                   </span>
                 ) : null}
@@ -393,7 +393,7 @@ function BillingToggle({
           );
         })}
       </div>
-      <span className="font-mono text-[11px] tracking-[0.1em] text-[var(--accent)] uppercase">
+      <span className="eyebrow text-[var(--accent)]">
         {copy.billing.yearlyNote}
       </span>
     </div>
