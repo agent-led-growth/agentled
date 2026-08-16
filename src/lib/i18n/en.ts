@@ -50,9 +50,9 @@ export const en = {
       monthly: "Monthly",
       yearly: "Yearly",
       yearlyNote: "2 months free",
+      billedYearly: "Billed yearly for",
     },
     perMonth: "/mo",
-    perYear: "/yr",
     freePrice: "Free",
     featured: "Most popular",
     currentPlan: "Current plan",
@@ -91,6 +91,9 @@ export const en = {
   },
   footer: {
     tools: "Our Tools",
+    company: "Company",
+    privacy: "Privacy Policy",
+    terms: "Terms & Conditions",
     languages: "Languages",
   },
   meta: {

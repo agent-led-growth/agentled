@@ -41,3 +41,17 @@ export function isPaidPlan(plan: Plan): plan is Exclude<Plan, "free"> {
 export function priceFor(plan: Plan, interval: Interval): number | null {
   return isPaidPlan(plan) ? PLAN_PRICING[plan][interval] : null;
 }
+
+/**
+ * Effective monthly cost when billed yearly (annual total ÷ 12), or null for
+ * `free`. Display-only — billing still charges the yearly total; this is just
+ * what the yearly toggle headlines on /pricing.
+ */
+export function effectiveMonthly(plan: Plan): number | null {
+  return isPaidPlan(plan) ? PLAN_PRICING[plan].yearly / 12 : null;
+}
+
+/** Format a USD amount: whole numbers bare, otherwise to two decimals. */
+export function formatUsd(amount: number): string {
+  return Number.isInteger(amount) ? `${amount}` : amount.toFixed(2);
+}

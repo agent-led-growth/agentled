@@ -51,9 +51,9 @@ export const es: Dictionary = {
       monthly: "Mensual",
       yearly: "Anual",
       yearlyNote: "2 meses gratis",
+      billedYearly: "Facturado anualmente por",
     },
     perMonth: "/mes",
-    perYear: "/año",
     freePrice: "Gratis",
     featured: "Más popular",
     currentPlan: "Plan actual",
@@ -92,6 +92,9 @@ export const es: Dictionary = {
   },
   footer: {
     tools: "Nuestras herramientas",
+    company: "Empresa",
+    privacy: "Política de privacidad",
+    terms: "Términos y condiciones",
     languages: "Idiomas",
   },
   meta: {

@@ -7,7 +7,7 @@ import { OtpForm } from "@/components/auth/otp-form";
 import type { Dictionary, Locale } from "@/lib/i18n";
 import { PATHS } from "@/lib/metadata";
 import { PLAN_FEATURES, type Plan } from "@/lib/plan";
-import { FEATURED_PLAN, isPaidPlan, PRICING_PLANS, priceFor, type Interval } from "@/lib/pricing";
+import { effectiveMonthly, FEATURED_PLAN, formatUsd, isPaidPlan, PRICING_PLANS, priceFor, type Interval } from "@/lib/pricing";
 import { createClient } from "@/lib/supabase/client";
 
 type PricingCopy = Dictionary["pricing"];
@@ -124,6 +124,10 @@ export function PricingCards({ copy, locale }: { copy: PricingCopy; locale: Loca
       <div className="grid grid-cols-1 gap-[16px] sm:grid-cols-2 lg:grid-cols-4">
         {PRICING_PLANS.map((plan) => {
           const price = priceFor(plan, interval);
+          // Yearly cards headline the effective monthly cost (annual ÷ 12);
+          // the annual total appears in the sub-line below.
+          const headlinePrice =
+            interval === "yearly" ? effectiveMonthly(plan) : price;
           const featured = plan === FEATURED_PLAN;
           // Only a paid current plan is marked — free is the default, and
           // logged-out users resolve to "free", so they see nothing different.
@@ -158,13 +162,25 @@ export function PricingCards({ copy, locale }: { copy: PricingCopy; locale: Loca
                 {p.tagline}
               </p>
 
-              <div className="flex items-baseline gap-[4px]">
-                <span className="text-[32px] font-bold text-[var(--text-primary)]">
-                  {price === null ? copy.freePrice : `$${price}`}
-                </span>
-                {price !== null && (
-                  <span className="text-[14px] text-[var(--text-faint)]">
-                    {interval === "monthly" ? copy.perMonth : copy.perYear}
+              <div className="flex flex-col gap-[2px]">
+                <div className="flex items-baseline gap-[4px]">
+                  <span className="text-[32px] font-bold text-[var(--text-primary)]">
+                    {headlinePrice === null
+                      ? copy.freePrice
+                      : `$${formatUsd(headlinePrice)}`}
+                  </span>
+                  {headlinePrice !== null && (
+                    <span className="text-[14px] text-[var(--text-faint)]">
+                      {copy.perMonth}
+                    </span>
+                  )}
+                </div>
+                {/* Yearly headlines the effective monthly price above; the true
+                    annual charge is spelled out here. Visual only — billing
+                    still uses the yearly total. */}
+                {price !== null && interval === "yearly" && (
+                  <span className="text-[13px] text-[var(--text-faint)]">
+                    {copy.billing.billedYearly} ${formatUsd(price)}
                   </span>
                 )}
               </div>
@@ -393,9 +409,11 @@ function BillingToggle({
           );
         })}
       </div>
-      <span className="eyebrow text-[var(--accent)]">
-        {copy.billing.yearlyNote}
-      </span>
+      {interval === "yearly" && (
+        <span className="eyebrow text-[var(--accent)]">
+          {copy.billing.yearlyNote}
+        </span>
+      )}
     </div>
   );
 }

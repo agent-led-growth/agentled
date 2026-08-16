@@ -70,7 +70,7 @@ export function AiSearchLanding({ locale }: { locale: Locale }) {
                   <span
                     style={{
                       fontFamily: SANS,
-                      fontSize: 13,
+                      fontSize: 15,
                       fontWeight: 600,
                       color: "var(--muted)",
                     }}

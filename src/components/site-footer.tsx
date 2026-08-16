@@ -28,63 +28,78 @@ export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
 
   return (
     <footer className="border-t border-[var(--border-hairline)] bg-[var(--surface)] px-[26px] py-[40px] md:px-[64px] md:py-[48px]">
-      <div className="flex flex-col gap-[40px] md:flex-row md:justify-between md:gap-[80px]">
-        {/* Brand block */}
-        <div className="flex flex-col gap-[22px]">
-          <p className="eyebrow text-[var(--text-faint)]">
-            {COMPANY}, <span className="num">{YEAR}</span>
-          </p>
-
-          <nav aria-label="Social links">
-            {/*
-              Negative margins cancel the padding the square tap targets add
-              around each icon, so the row's optical edges line up with the
-              container padding rather than sitting ~8px inside it.
-            */}
-            <ul className="-mx-[8px] flex list-none items-center gap-[4px] md:gap-[6px]">
-              {SOCIALS.map((social) => (
-                <li key={social.name}>
-                  {/*
-                    Icon-only, so the link needs an accessible name of its own —
-                    without it a screen reader announces the bare URL. The square
-                    target matches the theme toggle and keeps the tap area at a
-                    comfortable size without the hit areas overlapping.
-                  */}
-                  <a
-                    href={social.href}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    aria-label={social.name}
-                    title={social.name}
-                    className="grid size-[32px] place-items-center text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)] md:size-[34px]"
+      {/*
+        Mobile: one centred column (icons → link columns → copyright).
+        Desktop: icons top-left, link columns top-right, copyright at the
+        bottom below the icons.
+      */}
+      <div className="flex flex-col items-center gap-[40px] text-center md:flex-row md:items-start md:justify-between md:gap-[80px] md:text-left">
+        {/* Social icons */}
+        <nav aria-label="Social links">
+          {/*
+            Negative margins cancel the padding the square tap targets add
+            around each icon, so the row's optical edges line up with the
+            container padding rather than sitting ~8px inside it.
+          */}
+          <ul className="-mx-[8px] flex list-none items-center justify-center gap-[4px] md:justify-start md:gap-[6px]">
+            {SOCIALS.map((social) => (
+              <li key={social.name}>
+                {/*
+                  Icon-only, so the link needs an accessible name of its own —
+                  without it a screen reader announces the bare URL. The square
+                  target matches the theme toggle and keeps the tap area at a
+                  comfortable size without the hit areas overlapping.
+                */}
+                <a
+                  href={social.href}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  aria-label={social.name}
+                  title={social.name}
+                  className="grid size-[32px] place-items-center text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)] md:size-[34px]"
+                >
+                  {/* Height is per-icon (see socials.ts) so the glyphs match
+                      optically rather than sharing one nominal size. */}
+                  <svg
+                    viewBox={social.viewBox}
+                    style={{ height: social.height }}
+                    className="w-auto shrink-0"
+                    fill="currentColor"
+                    aria-hidden="true"
+                    focusable="false"
                   >
-                    {/* Height is per-icon (see socials.ts) so the glyphs match
-                        optically rather than sharing one nominal size. */}
-                    <svg
-                      viewBox={social.viewBox}
-                      style={{ height: social.height }}
-                      className="w-auto shrink-0"
-                      fill="currentColor"
-                      aria-hidden="true"
-                      focusable="false"
-                    >
-                      <path d={social.path} />
-                    </svg>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </div>
+                    <path d={social.path} />
+                  </svg>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
 
         {/* Link columns */}
-        <div className="flex gap-[56px] md:gap-[80px]">
+        <div className="flex flex-col items-center gap-[40px] md:flex-row md:items-start md:gap-[80px]">
           <div className="flex flex-col gap-[16px]">
             <p className={columnLabel}>{t.tools}</p>
             <ul className="flex list-none flex-col gap-[12px]">
               <li>
                 <Link href={PATHS.aiSearch[locale]} className={footerLink}>
                   AI Search Monitor
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          <div className="flex flex-col gap-[16px]">
+            <p className={columnLabel}>{t.company}</p>
+            <ul className="flex list-none flex-col gap-[12px]">
+              <li>
+                <Link href="/privacy" className={footerLink}>
+                  {t.privacy}
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms" className={footerLink}>
+                  {t.terms}
                 </Link>
               </li>
             </ul>
@@ -117,6 +132,11 @@ export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
           </div>
         </div>
       </div>
+
+      {/* Copyright — bottom of the footer in both layouts. */}
+      <p className="mt-[40px] text-center text-[13px] text-[var(--text-faint)] md:mt-[48px] md:text-left">
+        {COMPANY}, <span className="num">{YEAR}</span>
+      </p>
     </footer>
   );
 }
