@@ -512,49 +512,64 @@ function Header({
         </span>
       </span>
       <div className="flex items-center gap-[10px]">
-        <button
-          type="button"
+        {/* Mobile shows compact glyphs so the header never overflows; desktop
+            keeps the labels. */}
+        <HeaderButton
           onClick={onNew}
-          title="Add a new brand"
-          className="px-[16px] py-[9px] text-[14px]"
-          style={{
-            background: "var(--ink)",
-            color: "var(--panel)",
-            fontWeight: 600,
-            flex: "none",
-            whiteSpace: "nowrap",
-          }}
+          ariaLabel="Add a new brand"
+          variant="primary"
+          mobile={
+            <span aria-hidden="true" style={{ fontSize: 16, lineHeight: 1 }}>
+              +
+            </span>
+          }
         >
           + New
-        </button>
-        <button
-          type="button"
-          onClick={onAccount}
-          className="px-[16px] py-[9px] text-[14px]"
-          style={{
-            border: "1px solid var(--line)",
-            color: "var(--ink)",
-            flex: "none",
-            whiteSpace: "nowrap",
-          }}
-        >
+        </HeaderButton>
+        <HeaderButton onClick={onAccount} ariaLabel="Account" mobile={<AccountIcon />}>
           Account
-        </button>
-        <button
-          type="button"
-          onClick={onSignOut}
-          className="px-[16px] py-[9px] text-[14px]"
-          style={{
-            border: "1px solid var(--line)",
-            color: "var(--ink)",
-            flex: "none",
-            whiteSpace: "nowrap",
-          }}
-        >
+        </HeaderButton>
+        <HeaderButton onClick={onSignOut} ariaLabel="Sign out" mobile={<SignOutIcon />}>
           Sign out
-        </button>
+        </HeaderButton>
       </div>
     </header>
+  );
+}
+
+/** Header control: a compact glyph on mobile, a full label on desktop. */
+function HeaderButton({
+  onClick,
+  ariaLabel,
+  variant = "secondary",
+  mobile,
+  children,
+}: {
+  onClick: () => void;
+  ariaLabel: string;
+  variant?: "primary" | "secondary";
+  mobile: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const primary = variant === "primary";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center px-[11px] py-[9px] text-[14px] md:min-h-0 md:min-w-0 md:px-[16px]"
+      style={{
+        background: primary ? "var(--ink)" : undefined,
+        color: primary ? "var(--panel)" : "var(--ink)",
+        border: primary ? undefined : "1px solid var(--line)",
+        fontWeight: primary ? 600 : undefined,
+        flex: "none",
+        whiteSpace: "nowrap",
+      }}
+    >
+      <span className="md:hidden">{mobile}</span>
+      <span className="hidden md:inline">{children}</span>
+    </button>
   );
 }
 
@@ -856,6 +871,87 @@ function Lock({ size = 12, color = "var(--dim)" }: { size?: number; color?: stri
   );
 }
 
+/** Person glyph — mobile Account control. CSS geometry (currentColor shapes,
+ *  not SVG) to match the TabBar icon family. */
+function AccountIcon() {
+  return (
+    <span style={{ position: "relative", width: 18, height: 18, display: "block" }}>
+      {/* Head. */}
+      <span
+        style={{
+          position: "absolute",
+          top: 0,
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: 8,
+          height: 8,
+          borderRadius: "9999px",
+          border: "2px solid currentColor",
+        }}
+      />
+      {/* Shoulders. */}
+      <span
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: 15,
+          height: 9,
+          borderRadius: "9999px 9999px 0 0",
+          border: "2px solid currentColor",
+          borderBottom: "none",
+        }}
+      />
+    </span>
+  );
+}
+
+/** Sign-out glyph (door + arrow) — mobile Sign out control. CSS geometry to
+ *  match the TabBar icon family. */
+function SignOutIcon() {
+  return (
+    <span style={{ position: "relative", width: 18, height: 18, display: "block" }}>
+      {/* Door frame, open toward the arrow. */}
+      <span
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 1,
+          width: 8,
+          height: 16,
+          border: "2px solid currentColor",
+          borderRight: "none",
+        }}
+      />
+      {/* Arrow shaft. */}
+      <span
+        style={{
+          position: "absolute",
+          top: "50%",
+          right: 0,
+          width: 10,
+          height: 2,
+          background: "currentColor",
+          transform: "translateY(-50%)",
+        }}
+      />
+      {/* Arrow head. */}
+      <span
+        style={{
+          position: "absolute",
+          top: "50%",
+          right: 1,
+          width: 7,
+          height: 7,
+          borderTop: "2px solid currentColor",
+          borderRight: "2px solid currentColor",
+          transform: "translateY(-50%) rotate(45deg)",
+        }}
+      />
+    </span>
+  );
+}
 
 // ── Shared bits ──────────────────────────────────────────────────────────────
 function Delta({ v, size = 12 }: { v: string; size?: number }) {
