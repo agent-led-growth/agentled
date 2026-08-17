@@ -34,42 +34,24 @@ export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
         bottom below the icons.
       */}
       <div className="flex flex-col items-center gap-[40px] text-center md:flex-row md:items-start md:justify-between md:gap-[80px] md:text-left">
-        {/* Social icons */}
-        <nav aria-label="Social links">
-          {/*
-            Negative margins cancel the padding the square tap targets add
-            around each icon, so the row's optical edges line up with the
-            container padding rather than sitting ~8px inside it.
-          */}
-          <ul className="-mx-[8px] flex list-none items-center justify-center gap-[4px] md:justify-start md:gap-[6px]">
+        {/* Social links — text with an external-link arrow (↗ = leaves the site),
+            styled as a labelled column like the link groups on the right. */}
+        <nav aria-label="Social links" className="flex flex-col items-center gap-[16px] md:items-start">
+          <p className={columnLabel}>{t.follow}</p>
+          <ul className="flex list-none flex-col gap-[12px]">
             {SOCIALS.map((social) => (
               <li key={social.name}>
-                {/*
-                  Icon-only, so the link needs an accessible name of its own —
-                  without it a screen reader announces the bare URL. The square
-                  target matches the theme toggle and keeps the tap area at a
-                  comfortable size without the hit areas overlapping.
-                */}
                 <a
                   href={social.href}
                   target="_blank"
                   rel="noreferrer noopener"
-                  aria-label={social.name}
-                  title={social.name}
-                  className="grid size-[32px] place-items-center text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)] md:size-[34px]"
+                  className={`${footerLink} inline-flex items-center gap-[6px]`}
                 >
-                  {/* Height is per-icon (see socials.ts) so the glyphs match
-                      optically rather than sharing one nominal size. */}
-                  <svg
-                    viewBox={social.viewBox}
-                    style={{ height: social.height }}
-                    className="w-auto shrink-0"
-                    fill="currentColor"
-                    aria-hidden="true"
-                    focusable="false"
-                  >
-                    <path d={social.path} />
-                  </svg>
+                  {social.name}
+                  {/* Decorative: the visible link text already names the target. */}
+                  <span aria-hidden="true" className="text-[var(--text-faint)]">
+                    ↗
+                  </span>
                 </a>
               </li>
             ))}

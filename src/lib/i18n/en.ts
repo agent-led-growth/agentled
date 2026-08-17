@@ -91,6 +91,7 @@ export const en = {
   },
   footer: {
     tools: "Our Tools",
+    follow: "Follow",
     company: "Company",
     privacy: "Privacy Policy",
     terms: "Terms & Conditions",
