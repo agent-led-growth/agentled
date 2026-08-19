@@ -177,6 +177,11 @@ export async function updateBrandLocation(
   brandId: string,
   input: LocationInput | null | undefined,
 ): Promise<void> {
+  // Absent selection → leave the brand's location untouched, mirroring how topics
+  // are only written when provided. Only an explicit selection (including an
+  // explicit worldwide) overwrites, so a request that omits `location` can't wipe
+  // a previously-set country/city back to worldwide.
+  if (input == null) return;
   const loc = normalizeBrandLocation(input);
   const admin = createAdminClient();
   const { error } = await admin

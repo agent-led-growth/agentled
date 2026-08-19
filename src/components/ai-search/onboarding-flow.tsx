@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { COUNTRIES } from "@/lib/geo/countries";
 import type { LocationInput } from "@/lib/geo/location";
@@ -280,22 +280,36 @@ function Location({
 }) {
   const specific = value.mode === "country" || value.mode === "city";
   const [citiesMod, setCitiesMod] = useState<typeof import("@/lib/geo/cities") | null>(null);
+  const [citiesFailed, setCitiesFailed] = useState(false);
 
   // Load the ~6k-city dataset lazily, only once the visitor opts into a specific
-  // place, so it never weighs down the common worldwide path.
+  // place, so it never weighs down the common worldwide path. A load failure
+  // degrades to country-only (and stops retrying) rather than a field stuck on
+  // "Loading…".
   useEffect(() => {
-    if (!specific || citiesMod) return;
+    if (!specific || citiesMod || citiesFailed) return;
     let alive = true;
-    void import("@/lib/geo/cities").then((m) => {
-      if (alive) setCitiesMod(m);
-    });
+    void import("@/lib/geo/cities")
+      .then((m) => {
+        if (alive) setCitiesMod(m);
+      })
+      .catch(() => {
+        if (alive) setCitiesFailed(true);
+      });
     return () => {
       alive = false;
     };
-  }, [specific, citiesMod]);
+  }, [specific, citiesMod, citiesFailed]);
 
-  const cityOptions =
-    citiesMod && value.country ? citiesMod.citiesForCountry(value.country) : [];
+  // Memoised so typing in the city field doesn't re-map the country's whole list
+  // each keystroke (the country list is hoisted once as COUNTRY_OPTIONS).
+  const cityOptions = useMemo<Option[]>(
+    () =>
+      (citiesMod && value.country ? citiesMod.citiesForCountry(value.country) : []).map(
+        (c) => ({ value: c, label: c }),
+      ),
+    [citiesMod, value.country],
+  );
   const canContinue = value.mode === "worldwide" || !!value.country;
 
   return (
@@ -381,7 +395,7 @@ function Location({
                 <label className="flex flex-col gap-[8px]">
                   <FieldLabel>City (optional)</FieldLabel>
                   <Combobox
-                    options={cityOptions.map((c) => ({ value: c, label: c }))}
+                    options={cityOptions}
                     value={value.city}
                     onSelect={(city) =>
                       onChange({
@@ -394,9 +408,11 @@ function Location({
                     placeholder={
                       !value.country
                         ? "Pick a country first"
-                        : !citiesMod
-                          ? "Loading cities…"
-                          : "Whole country — or type a city"
+                        : citiesFailed
+                          ? "City list unavailable — using whole country"
+                          : !citiesMod
+                            ? "Loading cities…"
+                            : "Whole country — or type a city"
                     }
                     emptyLabel="No matching city (the whole country will be used)"
                   />

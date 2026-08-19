@@ -36,8 +36,8 @@ export function WaveCanvas() {
     const fgCtx = fg.getContext("2d");
     if (!bgCtx || !fgCtx) return;
 
-    const reduceMotion =
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    const mql = window.matchMedia?.("(prefers-reduced-motion: reduce)") ?? null;
+    let reduceMotion = mql?.matches ?? false;
     // ~30fps is plenty for slow ambient motion; a frame is rendered once the gap
     // clears this, so at 60Hz vsync we render every other frame.
     const MIN_FRAME_MS = 30;
@@ -201,9 +201,8 @@ export function WaveCanvas() {
         el.style.setProperty("mask-image", mask);
         el.style.setProperty("-webkit-mask-image", mask);
       }
-
-      // Reduced motion: the static background is the whole picture — no loop.
-      if (reduceMotion) context.clearRect(0, 0, w, h);
+      // Reduced motion never starts the loop (sync), so the overlay stays empty
+      // and the static background is the whole picture.
     }
 
     function frame(t: number) {
@@ -214,8 +213,9 @@ export function WaveCanvas() {
       step?.(Math.min(0.05, elapsed / 1000));
     }
     function sync() {
-      if (reduceMotion) return; // never animate for reduced-motion users
-      const shouldRun = onscreen && !document.hidden;
+      // reduceMotion folds into shouldRun so a mid-session preference change (via
+      // the matchMedia listener below) stops or starts the loop like any other.
+      const shouldRun = onscreen && !document.hidden && !reduceMotion;
       if (shouldRun && !running) {
         running = true;
         last = performance.now();
@@ -241,12 +241,23 @@ export function WaveCanvas() {
 
     document.addEventListener("visibilitychange", sync);
 
+    // Honor a mid-session prefers-reduced-motion change, not just the value at
+    // mount: stop/start the loop, and drop any frozen rings so the field falls
+    // back to the static frame.
+    const onMotionChange = (e: MediaQueryListEvent) => {
+      reduceMotion = e.matches;
+      if (reduceMotion) fgCtx.clearRect(0, 0, bw, bh);
+      sync();
+    };
+    mql?.addEventListener("change", onMotionChange);
+
     return () => {
       running = false;
       cancelAnimationFrame(raf);
       io.disconnect();
       ro.disconnect();
       document.removeEventListener("visibilitychange", sync);
+      mql?.removeEventListener("change", onMotionChange);
     };
   }, []);
 
