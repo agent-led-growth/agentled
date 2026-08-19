@@ -8,6 +8,8 @@
 export type BrandStatus = "anonymous" | "active";
 export type Platform = "chatgpt" | "claude";
 export type BrandRole = "owner" | "member";
+/** Geo scope of a brand's measurement (0017). 'worldwide' = today's default. */
+export type LocationMode = "worldwide" | "country" | "city";
 
 export interface Brand {
   id: string;
@@ -25,6 +27,21 @@ export interface Brand {
   // lets a row be paused (Epic 5) without losing it or its history.
   last_scan_at: string | null;
   is_active: boolean;
+  // Location targeting (0017). location_country is ISO-3166 alpha-2; location_city
+  // is a GeoNames display name; location_label is the human string for UI + prompt
+  // bias. All null/'worldwide' for the default, globally-measured brand.
+  location_mode: LocationMode;
+  location_country: string | null;
+  location_city: string | null;
+  location_label: string | null;
+}
+
+/** A validated location selection, as chosen in onboarding and persisted. */
+export interface BrandLocation {
+  mode: LocationMode;
+  country: string | null;
+  city: string | null;
+  label: string | null;
 }
 
 export interface Topic {

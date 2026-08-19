@@ -2,6 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 
+import { normalizeBrandLocation, type LocationInput } from "@/lib/geo/location";
 import { planOf, type Plan } from "@/lib/plan";
 
 import { normalizeDomain } from "./domain";
@@ -163,6 +164,30 @@ export async function updateBrandEnrichment(
 
   const admin = createAdminClient();
   const { error } = await admin.from("brands").update(patch).eq("id", brandId);
+  if (error) throw error;
+}
+
+/**
+ * Persist a brand's location scope (0017). The raw selection is normalised and
+ * validated here — the authoritative gate — so an invalid country degrades to
+ * worldwide and a city that doesn't belong to its country degrades to country
+ * scope, never persisting a bogus place regardless of what the client sent.
+ */
+export async function updateBrandLocation(
+  brandId: string,
+  input: LocationInput | null | undefined,
+): Promise<void> {
+  const loc = normalizeBrandLocation(input);
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("brands")
+    .update({
+      location_mode: loc.mode,
+      location_country: loc.country,
+      location_city: loc.city,
+      location_label: loc.label,
+    })
+    .eq("id", brandId);
   if (error) throw error;
 }
 

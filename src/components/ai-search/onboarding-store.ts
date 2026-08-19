@@ -3,6 +3,8 @@
  * dashboard live on different routes, so the collected site data is handed off
  * through sessionStorage. The gate reads it at verify time to store the site.
  */
+import type { LocationInput } from "@/lib/geo/location";
+
 const KEY = "ai-search-onboarding";
 
 export type OnboardingData = {
@@ -11,6 +13,8 @@ export type OnboardingData = {
   website: string;
   description: string;
   topics: string[];
+  /** Chosen measurement scope; the gate persists it on claim (server re-validates). */
+  location?: LocationInput;
 };
 
 export function saveOnboarding(data: OnboardingData) {

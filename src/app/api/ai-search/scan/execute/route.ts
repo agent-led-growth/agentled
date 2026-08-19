@@ -86,7 +86,12 @@ export async function POST(request: Request) {
         label: t.label,
       }));
       const generated = await generatePrompts(
-        { name: brand.name, description: brand.description, domain: brand.domain },
+        {
+          name: brand.name,
+          description: brand.description,
+          domain: brand.domain,
+          locationLabel: brand.location_label,
+        },
         topics,
       );
       if (generated.length > 0) await insertPrompts(brandId, generated);

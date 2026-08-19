@@ -2311,6 +2311,7 @@ function Gate({ onEnter }: { onEnter: () => void }) {
           source: "ai-search",
           brandId: site.brandId,
           topics: site.topics,
+          location: site.location,
         }),
       });
       const data = (await res.json().catch(() => ({}))) as {
