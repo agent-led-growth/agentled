@@ -5,7 +5,7 @@ import { normalizeDomain } from "./domain";
 import { extractBrands, type ExtractedBrand } from "./extract";
 import { listPrompts } from "./prompts";
 import { registry } from "./registry";
-import { collectCitations, runWebSearch, type ScanResult } from "./scan";
+import { brandScanLocation, collectCitations, runWebSearch, type ScanResult } from "./scan";
 import {
   ensureCompetitors,
   insertCitations,
@@ -64,6 +64,8 @@ export async function runScan(
   const ownDomain = normalizeDomain(brand.domain);
   const brandName = brand.name?.trim() || brand.domain;
   const knownCompetitors = await listCompetitorNames(brandId);
+  // Geographic scope for this brand — null (worldwide) leaves the search untouched.
+  const location = brandScanLocation(brand);
 
   // 1. Search every prompt (concurrent, capped). This is the slow, metered step.
   type Searched =
@@ -71,7 +73,7 @@ export async function runScan(
     | { prompt: Prompt; ok: false; error: string };
   const searched = await mapPool<Prompt, Searched>(prompts, SCAN_CONCURRENCY, async (p) => {
     try {
-      return { prompt: p, ok: true, result: await runWebSearch(p.text) };
+      return { prompt: p, ok: true, result: await runWebSearch(p.text, location) };
     } catch (err) {
       console.error("runScan: search failed", p.id, err);
       return { prompt: p, ok: false, error: failureReason("search", err) };

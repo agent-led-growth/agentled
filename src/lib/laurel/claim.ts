@@ -1,11 +1,14 @@
 import "server-only";
 
+import type { LocationInput } from "@/lib/geo/location";
+
 import {
   attachUserToBrand,
   deleteBrand,
   getBrandById,
   getMemberBrandByDomain,
   updateBrandEnrichment,
+  updateBrandLocation,
 } from "./brands";
 import { listTopics, resetSuggestedTopics, setSelectedTopics } from "./topics";
 
@@ -24,6 +27,7 @@ export async function claimBrandForMember(
   newBrandId: string,
   userId: string,
   selectedLabels: string[],
+  location?: LocationInput,
 ): Promise<string> {
   const newBrand = await getBrandById(newBrandId);
   if (!newBrand) throw new Error(`claimBrandForMember: brand ${newBrandId} not found`);
@@ -40,6 +44,7 @@ export async function claimBrandForMember(
     const suggested = (await listTopics(newBrand.id)).map((t) => t.label);
     await resetSuggestedTopics(existing.id, suggested);
     if (selectedLabels.length > 0) await setSelectedTopics(existing.id, selectedLabels);
+    await updateBrandLocation(existing.id, location);
     await deleteBrand(newBrand.id); // topics cascade
     return existing.id;
   }
@@ -47,5 +52,6 @@ export async function claimBrandForMember(
   // First brand for this domain (or re-claiming the same one): attach + select.
   await attachUserToBrand(newBrand.id, userId);
   if (selectedLabels.length > 0) await setSelectedTopics(newBrand.id, selectedLabels);
+  await updateBrandLocation(newBrand.id, location);
   return newBrand.id;
 }

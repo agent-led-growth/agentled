@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { getUserIdByAuthId, setSelectedTopics } from "@/lib/laurel";
+import type { LocationInput } from "@/lib/geo/location";
+import { getUserIdByAuthId, setSelectedTopics, updateBrandLocation } from "@/lib/laurel";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -11,9 +12,10 @@ import { createClient } from "@/lib/supabase/server";
  * brand at the gate.
  */
 export async function POST(request: Request) {
-  const { brandId, topics } = (await request.json().catch(() => ({}))) as {
+  const { brandId, topics, location } = (await request.json().catch(() => ({}))) as {
     brandId?: string;
     topics?: unknown;
+    location?: LocationInput;
   };
   if (!brandId) return NextResponse.json({ ok: false });
 
@@ -45,5 +47,7 @@ export async function POST(request: Request) {
   if (!member) return NextResponse.json({ ok: false, reason: "not-a-member" });
 
   if (labels.length > 0) await setSelectedTopics(brandId, labels);
+  // Persist the measurement scope (server re-validates; invalid degrades safely).
+  await updateBrandLocation(brandId, location);
   return NextResponse.json({ ok: true });
 }

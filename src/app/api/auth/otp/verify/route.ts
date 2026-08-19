@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { onboard, type OnboardSource } from "@/lib/email/onboarding";
+import type { LocationInput } from "@/lib/geo/location";
 import { claimBrandForMember, deleteBrand } from "@/lib/laurel";
 import { brandLimit, planOf } from "@/lib/plan";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -10,7 +11,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Supabase email OTP codes are 6 digits by default.
 const CODE_RE = /^\d{6}$/;
 
-type Site = { brandId?: string; topics: string[] };
+type Site = { brandId?: string; topics: string[]; location?: LocationInput };
 
 /**
  * Step 2 of email-OTP sign-in: verify the code and establish the session.
@@ -96,7 +97,12 @@ function sanitizeSite(body: Record<string, unknown>): Site {
         .map((t) => t.trim().slice(0, 200))
         .slice(0, 50)
     : [];
-  return { brandId, topics };
+  // Pass the raw selection through; updateBrandLocation is the authoritative gate.
+  const loc =
+    body.location && typeof body.location === "object"
+      ? (body.location as LocationInput)
+      : undefined;
+  return { brandId, topics, location: loc };
 }
 
 /**
@@ -167,7 +173,7 @@ async function linkUserAndOnboard(
 
     // Under cap → claim (best-effort; a failure here must not block the sign-in).
     try {
-      await claimBrandForMember(site.brandId, row.id, site.topics);
+      await claimBrandForMember(site.brandId, row.id, site.topics, site.location);
     } catch (err) {
       console.error("otp verify: brand claim failed", err);
     }

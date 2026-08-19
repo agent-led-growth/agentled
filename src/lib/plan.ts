@@ -11,7 +11,10 @@
  * copy. Enforcement must still happen server-side — the client's copy of the
  * plan is only for display.
  */
-export const PLANS = ["free", "starter", "pro", "business"] as const;
+// `unlimited` is an internal, admin-only grant (not on the pricing page, no Stripe
+// price — see PRICING_PLANS/PAID_PLANS) for freely testing many brands. Set it by
+// hand: `update users set plan='unlimited' ...`.
+export const PLANS = ["free", "starter", "pro", "business", "unlimited"] as const;
 export type Plan = (typeof PLANS)[number];
 
 const KNOWN = new Set<string>(PLANS);
@@ -55,6 +58,9 @@ export const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
   starter: { brands: 1, prompts: 9, frequency: "daily", models: ["chatgpt"] },
   pro: { brands: 1, prompts: 50, frequency: "daily", models: ["chatgpt"] },
   business: { brands: 3, prompts: 150, frequency: "daily", models: ["chatgpt"] },
+  // Effectively unlimited (finite, not Infinity — Infinity breaks JSON payloads
+  // and UI counts). frequency 'daily' opts it into the daily scheduler sweep.
+  unlimited: { brands: 999, prompts: 999, frequency: "daily", models: ["chatgpt"] },
 };
 
 /**
@@ -66,6 +72,7 @@ export const PLAN_LABELS: Record<Plan, string> = {
   starter: "Starter",
   pro: "Pro",
   business: "Business",
+  unlimited: "Unlimited",
 };
 
 /** Human display name for a (raw or resolved) plan. Fail-closed via {@link planOf}. */

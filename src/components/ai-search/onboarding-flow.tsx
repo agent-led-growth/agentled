@@ -1,8 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
+import { COUNTRIES } from "@/lib/geo/countries";
+import type { LocationInput } from "@/lib/geo/location";
 import { isValidWebsite } from "@/lib/laurel/domain";
 
 import { BrandTile, Lockup } from "./brand";
@@ -10,7 +12,7 @@ import { EXAMPLE_URL, type LogColor } from "./fixtures";
 import { saveOnboarding } from "./onboarding-store";
 import { MONO, SANS, appTokens } from "./tokens";
 
-type Step = "brief" | "scan" | "topics";
+type Step = "brief" | "location" | "scan" | "topics";
 const logColor: Record<LogColor, string> = {
   mut: "var(--mut)",
   pos: "var(--pos)",
@@ -35,6 +37,11 @@ export function OnboardingFlow({ initialUrl }: { initialUrl: string }) {
   const [step, setStep] = useState<Step>("brief");
   const [url, setUrl] = useState(initialUrl);
   const [about, setAbout] = useState("");
+  const [location, setLocation] = useState<LocationInput>({
+    mode: "worldwide",
+    country: null,
+    city: null,
+  });
   const [result, setResult] = useState<PrescanResult | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -70,9 +77,18 @@ export function OnboardingFlow({ initialUrl }: { initialUrl: string }) {
           about={about}
           setAbout={setAbout}
           onContinue={() => {
-            setStep("scan");
+            // Kick off the pre-scan now so it runs while they pick a location — the
+            // location screen adds no wait; the scan step still waits on `ready`.
+            setStep("location");
             void runPrescan();
           }}
+        />
+      )}
+      {step === "location" && (
+        <Location
+          value={location}
+          onChange={setLocation}
+          onContinue={() => setStep("scan")}
         />
       )}
       {step === "scan" && (
@@ -89,7 +105,7 @@ export function OnboardingFlow({ initialUrl }: { initialUrl: string }) {
           fallbackUrl={url}
           onDone={async (topics) => {
             const brandId = result?.brandId;
-            saveOnboarding({ brandId, website: url, description: about, topics });
+            saveOnboarding({ brandId, website: url, description: about, topics, location });
             // Signed-in onboarding (e.g. dashboard "+ New brand") skips the OTP
             // gate, so persist the selection here; the endpoint no-ops when
             // signed out (the gate saves it then).
@@ -98,7 +114,7 @@ export function OnboardingFlow({ initialUrl }: { initialUrl: string }) {
                 await fetch("/api/ai-search/onboarding/complete", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ brandId, topics }),
+                  body: JSON.stringify({ brandId, topics, location }),
                 });
               } catch {
                 // best-effort
@@ -245,7 +261,398 @@ function Brief({
   );
 }
 
-// ── 2. Scan ──────────────────────────────────────────────────────────────────
+// ── 2. Location ──────────────────────────────────────────────────────────────
+/**
+ * Optional geo scope. Worldwide (the neutral default) leaves measurement as-is;
+ * otherwise a country — and optionally a city within it — steers the scan. Both
+ * fields are type-to-filter comboboxes over canonical lists: the visitor types to
+ * search but always lands on a real place, so a selection is valid by construction
+ * and the server re-validates on persist as the source of truth.
+ */
+function Location({
+  value,
+  onChange,
+  onContinue,
+}: {
+  value: LocationInput;
+  onChange: (v: LocationInput) => void;
+  onContinue: () => void;
+}) {
+  const specific = value.mode === "country" || value.mode === "city";
+  const [citiesMod, setCitiesMod] = useState<typeof import("@/lib/geo/cities") | null>(null);
+  const [citiesFailed, setCitiesFailed] = useState(false);
+
+  // Load the ~6k-city dataset lazily, only once the visitor opts into a specific
+  // place, so it never weighs down the common worldwide path. A load failure
+  // degrades to country-only (and stops retrying) rather than a field stuck on
+  // "Loading…".
+  useEffect(() => {
+    if (!specific || citiesMod || citiesFailed) return;
+    let alive = true;
+    void import("@/lib/geo/cities")
+      .then((m) => {
+        if (alive) setCitiesMod(m);
+      })
+      .catch(() => {
+        if (alive) setCitiesFailed(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [specific, citiesMod, citiesFailed]);
+
+  // Memoised so typing in the city field doesn't re-map the country's whole list
+  // each keystroke (the country list is hoisted once as COUNTRY_OPTIONS).
+  const cityOptions = useMemo<Option[]>(
+    () =>
+      (citiesMod && value.country ? citiesMod.citiesForCountry(value.country) : []).map(
+        (c) => ({ value: c, label: c }),
+      ),
+    [citiesMod, value.country],
+  );
+  const canContinue = value.mode === "worldwide" || !!value.country;
+
+  return (
+    <div className="px-[20px] py-[40px] md:px-[56px] md:py-[64px]">
+      <div className="mx-auto flex max-w-[620px] flex-col gap-[30px]">
+        <div className="flex flex-col gap-[12px]">
+          <h1
+            className="text-[32px] md:text-[44px]"
+            style={{ lineHeight: 1.02, letterSpacing: "-0.045em" }}
+          >
+            Where should we measure?
+          </h1>
+          <p className="text-[17px]" style={{ color: "var(--mut)", lineHeight: 1.5 }}>
+            AI answers change by location. Track your brand everywhere, or focus on the
+            market you actually sell in.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-[14px]">
+          {/* Worldwide */}
+          <button
+            type="button"
+            onClick={() => onChange({ mode: "worldwide", country: null, city: null })}
+            className="flex items-center gap-[14px] text-left"
+            style={{
+              border: `1px solid ${!specific ? "var(--ink)" : "var(--line)"}`,
+              background: "var(--panel)",
+              padding: "18px",
+            }}
+          >
+            <Radio on={!specific} />
+            <span className="flex flex-col gap-[3px]">
+              <span className="text-[16px] font-bold">🌍 Worldwide</span>
+              <span className="text-[13.5px]" style={{ color: "var(--mut)" }}>
+                Measure AI visibility across all regions.
+              </span>
+            </span>
+          </button>
+
+          {/* Specific country / city */}
+          <div
+            style={{
+              border: `1px solid ${specific ? "var(--ink)" : "var(--line)"}`,
+              background: "var(--panel)",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() =>
+                onChange({ mode: "country", country: value.country ?? null, city: null })
+              }
+              className="flex w-full items-center gap-[14px] text-left"
+              style={{ padding: "18px" }}
+            >
+              <Radio on={specific} />
+              <span className="flex flex-col gap-[3px]">
+                <span className="text-[16px] font-bold">A specific country or city</span>
+                <span className="text-[13.5px]" style={{ color: "var(--mut)" }}>
+                  Focus the measurement on one market.
+                </span>
+              </span>
+            </button>
+
+            {specific && (
+              <div
+                className="flex flex-col gap-[16px]"
+                style={{ padding: "16px 18px 20px", borderTop: "1px solid var(--line)" }}
+              >
+                <label className="flex flex-col gap-[8px]">
+                  <FieldLabel>Country</FieldLabel>
+                  <Combobox
+                    options={COUNTRY_OPTIONS}
+                    value={value.country}
+                    onSelect={(country) => {
+                      // A country change is a natural retry point for the city
+                      // dataset, so a prior transient load failure doesn't stay
+                      // stuck for the rest of the session.
+                      setCitiesFailed(false);
+                      // Changing country resets any city — it belongs to the old one.
+                      onChange({ mode: "country", country, city: null });
+                    }}
+                    placeholder="Type to search countries…"
+                    emptyLabel="No matching country"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-[8px]">
+                  <FieldLabel>City (optional)</FieldLabel>
+                  <Combobox
+                    options={cityOptions}
+                    value={value.city}
+                    onSelect={(city) =>
+                      onChange({
+                        mode: city ? "city" : "country",
+                        country: value.country ?? null,
+                        city,
+                      })
+                    }
+                    disabled={!value.country || !citiesMod}
+                    placeholder={
+                      !value.country
+                        ? "Pick a country first"
+                        : citiesFailed
+                          ? "City list unavailable — using whole country"
+                          : !citiesMod
+                            ? "Loading cities…"
+                            : "Whole country — or type a city"
+                    }
+                    emptyLabel="No matching city (the whole country will be used)"
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onContinue}
+          disabled={!canContinue}
+          className="h-[58px] w-full text-[17px]"
+          style={{
+            ...primaryBtn,
+            opacity: canContinue ? 1 : 0.45,
+            cursor: canContinue ? "pointer" : "not-allowed",
+          }}
+        >
+          Continue
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Radio({ on }: { on: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        width: 18,
+        height: 18,
+        flex: "none",
+        borderRadius: "50%",
+        display: "grid",
+        placeItems: "center",
+        border: `1px solid ${on ? "var(--ink)" : "var(--dim)"}`,
+      }}
+    >
+      {on && (
+        <span
+          style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--ink)" }}
+        />
+      )}
+    </span>
+  );
+}
+
+type Option = { value: string; label: string };
+const COUNTRY_OPTIONS: Option[] = COUNTRIES.map((c) => ({ value: c.code, label: c.name }));
+
+/**
+ * A type-to-filter select. The visitor types to narrow a canonical list and picks
+ * a match — so the stored value is always a real option, never free text. Typing
+ * over a chosen value clears it until a new match is picked, keeping the field and
+ * the parent's value honest.
+ */
+function Combobox({
+  options,
+  value,
+  onSelect,
+  placeholder,
+  emptyLabel,
+  disabled = false,
+}: {
+  options: Option[];
+  value: string | null | undefined;
+  onSelect: (value: string | null) => void;
+  placeholder?: string;
+  emptyLabel?: string;
+  disabled?: boolean;
+}) {
+  const selectedLabel = value ? options.find((o) => o.value === value)?.label ?? "" : "";
+  // `query` is only what the visitor is typing while the menu is open; when closed
+  // the field shows the committed selection. Deriving the shown text this way (vs
+  // syncing state in an effect) keeps an external change — e.g. the country
+  // changing and clearing the city — reflected for free, with no cascading renders.
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const listId = useId();
+
+  // Close when clicking away.
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const q = query.trim().toLowerCase();
+  // Filter only once the visitor types something other than the current label —
+  // focusing an existing pick shows the whole list to browse, not a list of one.
+  const filtering = open && q.length > 0 && query !== selectedLabel;
+  const matches = (
+    filtering ? options.filter((o) => o.label.toLowerCase().includes(q)) : options
+  ).slice(0, 60);
+
+  function choose(o: Option) {
+    onSelect(o.value);
+    setQuery(o.label);
+    setOpen(false);
+  }
+
+  function clear() {
+    onSelect(null);
+    setQuery("");
+    setActive(0);
+  }
+
+  return (
+    <div ref={boxRef} style={{ position: "relative" }}>
+      <input
+        value={open ? query : selectedLabel}
+        disabled={disabled}
+        placeholder={placeholder}
+        role="combobox"
+        aria-expanded={open}
+        aria-controls={listId}
+        aria-autocomplete="list"
+        autoComplete="off"
+        autoCorrect="off"
+        spellCheck={false}
+        onFocus={() => {
+          setQuery(selectedLabel);
+          setActive(0);
+          setOpen(true);
+        }}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setActive(0);
+          setOpen(true);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setOpen(true);
+            setActive((a) => Math.min(a + 1, matches.length - 1));
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setActive((a) => Math.max(a - 1, 0));
+          } else if (e.key === "Enter") {
+            if (open && matches[active]) {
+              e.preventDefault();
+              choose(matches[active]);
+            }
+          } else if (e.key === "Escape") {
+            setOpen(false);
+          }
+        }}
+        className="h-[52px] w-full pl-[14px] pr-[38px] text-[16px] placeholder:text-[var(--dim)]"
+        style={{
+          background: "var(--panel)",
+          border: "1px solid var(--line)",
+          color: "var(--ink)",
+          opacity: disabled ? 0.55 : 1,
+        }}
+      />
+      {value && !disabled && (
+        <button
+          type="button"
+          aria-label="Clear"
+          onMouseDown={(e) => {
+            e.preventDefault(); // keep focus; menu stays open to pick another
+            clear();
+          }}
+          className="absolute right-[10px] top-1/2 text-[18px]"
+          style={{
+            transform: "translateY(-50%)",
+            color: "var(--dim)",
+            lineHeight: 1,
+            padding: "4px",
+          }}
+        >
+          ×
+        </button>
+      )}
+      {open && !disabled && (
+        <ul
+          id={listId}
+          role="listbox"
+          style={{
+            position: "absolute",
+            zIndex: 20,
+            top: "calc(100% + 4px)",
+            left: 0,
+            right: 0,
+            maxHeight: 240,
+            overflowY: "auto",
+            margin: 0,
+            padding: 0,
+            listStyle: "none",
+            background: "var(--panel)",
+            border: "1px solid var(--line)",
+          }}
+        >
+          {matches.length === 0 ? (
+            <li style={{ padding: "12px 14px", color: "var(--dim)", fontSize: 14 }}>
+              {emptyLabel ?? "No matches"}
+            </li>
+          ) : (
+            matches.map((o, i) => (
+              <li key={o.value} role="option" aria-selected={o.value === value}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // keep focus so the pick registers before blur
+                    choose(o);
+                  }}
+                  onMouseEnter={() => setActive(i)}
+                  className="block w-full text-left text-[15px]"
+                  style={{
+                    padding: "10px 14px",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "var(--ink)",
+                    background: i === active ? "var(--bg)" : "transparent",
+                  }}
+                >
+                  {o.label}
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// ── 3. Scan ──────────────────────────────────────────────────────────────────
 /**
  * The scan log, built from the actual domain and (once it resolves) the real
  * enrichment result — never hardcoded to a demo brand. Result-dependent lines
@@ -399,7 +806,7 @@ function Scan({
   );
 }
 
-// ── 3. Topics ────────────────────────────────────────────────────────────────
+// ── 4. Topics ────────────────────────────────────────────────────────────────
 /** First-two-word initials for the brand tile, falling back to a bullet. */
 function initialsOf(name: string): string {
   const words = name

@@ -49,7 +49,13 @@ const SYSTEM_PROMPT =
 
 /** Generate ~3 prompts per selected topic, mapped back to their topic ids. */
 export async function generatePrompts(
-  brand: { name: string | null; description: string | null; domain: string },
+  brand: {
+    name: string | null;
+    description: string | null;
+    domain: string;
+    /** Human location label (e.g. "Berlin, Germany"); null/absent = worldwide. */
+    locationLabel?: string | null;
+  },
   topics: { id: string; label: string }[],
 ): Promise<NewPrompt[]> {
   if (topics.length === 0) return [];
@@ -57,6 +63,13 @@ export async function generatePrompts(
   const input =
     `Brand: ${brand.name ?? brand.domain}\n` +
     (brand.description ? `About: ${brand.description}\n` : "") +
+    // Market bias: only when the brand is scoped to a place. Worldwide stays neutral.
+    (brand.locationLabel
+      ? `\nMarket focus: write every question as a potential customer located in ` +
+        `${brand.locationLabel} would type it — use local phrasing and place names ` +
+        `where natural, but don't force the location into a question if it wouldn't ` +
+        `sound natural.\n`
+      : "") +
     `\nTopics (write 3 prompts for each):\n` +
     topics.map((t, i) => `${i + 1}. ${t.label}`).join("\n");
 

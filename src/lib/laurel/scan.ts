@@ -4,6 +4,7 @@ import { env } from "@/lib/env";
 
 import { isOwnDomain, normalizeDomain } from "./domain";
 import { registry } from "./registry";
+import type { Brand } from "./types";
 
 /**
  * The scan call (pipeline step 6) — the measurement itself. Ask one prompt with
@@ -22,6 +23,27 @@ export interface ScanCitation {
   title: string | null;
 }
 
+/**
+ * Geographic scope for a scan. When set, it rides OpenAI's native web_search
+ * `user_location`, steering *where* the search runs without touching the prompt
+ * text (the scan must stay uncorrupted). A worldwide brand passes null and the
+ * request is byte-for-byte today's.
+ */
+export interface ScanLocation {
+  /** ISO-3166 alpha-2, uppercase. */
+  country: string;
+  city?: string | null;
+}
+
+/** The scan scope for a brand, or null when it's measured worldwide. */
+export function brandScanLocation(brand: Brand): ScanLocation | null {
+  if (brand.location_mode === "worldwide" || !brand.location_country) return null;
+  return {
+    country: brand.location_country.toUpperCase(),
+    city: brand.location_mode === "city" ? brand.location_city : null,
+  };
+}
+
 export interface ScanResult {
   answerText: string;
   /** From the response's url_citation annotations. */
@@ -32,11 +54,14 @@ export interface ScanResult {
 
 const MAX_ATTEMPTS = 2; // 1 attempt + 1 retry
 
-export async function runWebSearch(prompt: string): Promise<ScanResult> {
+export async function runWebSearch(
+  prompt: string,
+  location: ScanLocation | null = null,
+): Promise<ScanResult> {
   let lastErr: unknown = new Error("OpenAI web_search failed");
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      return await attemptWebSearch(prompt);
+      return await attemptWebSearch(prompt, location);
     } catch (err) {
       lastErr = err;
       if (attempt < MAX_ATTEMPTS && isTransient(err)) {
@@ -49,12 +74,26 @@ export async function runWebSearch(prompt: string): Promise<ScanResult> {
   throw lastErr;
 }
 
-async function attemptWebSearch(prompt: string): Promise<ScanResult> {
+async function attemptWebSearch(
+  prompt: string,
+  location: ScanLocation | null,
+): Promise<ScanResult> {
   const config = registry.scan;
+  // `user_location` is web_search's native geographic steer (approximate; ISO-2
+  // country + optional city). Omitted entirely for worldwide, so the request is
+  // unchanged from before location targeting existed.
+  const searchTool: Record<string, unknown> = { type: "web_search" };
+  if (location?.country) {
+    searchTool.user_location = {
+      type: "approximate",
+      country: location.country,
+      ...(location.city ? { city: location.city } : {}),
+    };
+  }
   const body: Record<string, unknown> = {
     model: config.model,
     input: prompt,
-    tools: [{ type: "web_search" }],
+    tools: [searchTool],
   };
   if (config.reasoningEffort) body.reasoning = { effort: config.reasoningEffort };
   const res = await fetch(RESPONSES_URL, {
