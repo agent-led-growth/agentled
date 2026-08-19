@@ -383,10 +383,14 @@ function Location({
                   <Combobox
                     options={COUNTRY_OPTIONS}
                     value={value.country}
-                    onSelect={(country) =>
+                    onSelect={(country) => {
+                      // A country change is a natural retry point for the city
+                      // dataset, so a prior transient load failure doesn't stay
+                      // stuck for the rest of the session.
+                      setCitiesFailed(false);
                       // Changing country resets any city — it belongs to the old one.
-                      onChange({ mode: "country", country, city: null })
-                    }
+                      onChange({ mode: "country", country, city: null });
+                    }}
                     placeholder="Type to search countries…"
                     emptyLabel="No matching country"
                   />
