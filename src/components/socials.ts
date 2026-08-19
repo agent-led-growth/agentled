@@ -9,9 +9,9 @@ export type Social = {
 };
 
 export const SOCIALS: Social[] = [
-  { name: "X", href: "https://x.com/hsantana8" },
-  { name: "LinkedIn", href: "https://www.linkedin.com/in/hugosantana8/" },
-  { name: "YouTube", href: "https://www.youtube.com/@agent-led-growth" },
   { name: "Substack", href: "https://agentledco.substack.com" },
+  { name: "YouTube", href: "https://www.youtube.com/@agent-led-growth" },
   { name: "GitHub", href: "https://github.com/agent-led-growth" },
+  { name: "LinkedIn", href: "https://www.linkedin.com/in/hugosantana8/" },
+  { name: "X", href: "https://x.com/hsantana8" },
 ];

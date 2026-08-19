@@ -33,7 +33,7 @@ export function SiteFooter({ locale = "en" }: { locale?: Locale }) {
         Desktop: icons top-left, link columns top-right, copyright at the
         bottom below the icons.
       */}
-      <div className="flex flex-col items-center gap-[40px] text-center md:flex-row md:items-start md:justify-between md:gap-[80px] md:text-left">
+      <div className="flex flex-col items-center gap-[40px] text-center md:flex-row md:items-start md:gap-[80px] md:text-left">
         {/* Social links — text with an external-link arrow (↗ = leaves the site),
             styled as a labelled column like the link groups on the right. */}
         <nav aria-label="Social links" className="flex flex-col items-center gap-[16px] md:items-start">
