@@ -25,16 +25,25 @@ export const FEATURED_PLAN: Plan = "pro";
  */
 export const YEARLY_MONTHS = 10;
 
-/** USD prices for the paid tiers. `free` has no price and is intentionally absent. */
-export const PLAN_PRICING: Record<Exclude<Plan, "free">, { monthly: number; yearly: number }> = {
+/**
+ * USD prices for the purchasable tiers. `free` and the internal `unlimited`
+ * admin tier have no price and are intentionally absent.
+ */
+export const PLAN_PRICING: Record<
+  Exclude<Plan, "free" | "unlimited">,
+  { monthly: number; yearly: number }
+> = {
   starter: { monthly: 19, yearly: 19 * YEARLY_MONTHS },
   pro: { monthly: 90, yearly: 90 * YEARLY_MONTHS },
   business: { monthly: 270, yearly: 270 * YEARLY_MONTHS },
 };
 
-/** True for any plan that carries a price (everything except `free`). */
-export function isPaidPlan(plan: Plan): plan is Exclude<Plan, "free"> {
-  return plan !== "free";
+/**
+ * True for a plan that carries a purchasable price. `free` and the internal
+ * `unlimited` admin grant both have no price and are excluded.
+ */
+export function isPaidPlan(plan: Plan): plan is Exclude<Plan, "free" | "unlimited"> {
+  return plan !== "free" && plan !== "unlimited";
 }
 
 /** The price for a plan at an interval, or null for `free`. */

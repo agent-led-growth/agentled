@@ -13,7 +13,7 @@ import type { Plan } from "@/lib/plan";
  * mis-set or missing id fails loudly at the checkout/webhook call site instead of
  * silently charging the wrong plan.
  */
-type PaidPlan = Exclude<Plan, "free">;
+type PaidPlan = Exclude<Plan, "free" | "unlimited">;
 
 const PAID_PLANS: readonly PaidPlan[] = ["starter", "pro", "business"];
 const INTERVALS: readonly Interval[] = ["monthly", "yearly"];
@@ -29,7 +29,7 @@ function envKey(plan: PaidPlan, interval: Interval): string {
  */
 export function priceIdFor(plan: Plan, interval: Interval): string {
   if (!isPaidPlan(plan)) {
-    throw new Error(`No Stripe price for the free plan`);
+    throw new Error(`No Stripe price for non-purchasable plan "${plan}"`);
   }
   const id = env.stripePriceId(envKey(plan, interval));
   if (!id) {
