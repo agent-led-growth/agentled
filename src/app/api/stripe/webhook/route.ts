@@ -100,7 +100,14 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
       const invoice = event.data.object as Stripe.Invoice;
       const customerId =
         typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
-      if (customerId) await markPaymentFailed(customerId);
+      if (customerId) {
+        // attempt_count is 1 on the first failed charge and increments on each
+        // retry — alert only on the first so Stripe's retry schedule (attempts
+        // days apart) doesn't re-notify us for the same failing invoice.
+        await markPaymentFailed(customerId, {
+          firstFailure: (invoice.attempt_count ?? 0) <= 1,
+        });
+      }
       return;
     }
 
