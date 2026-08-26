@@ -1,12 +1,9 @@
 import "server-only";
 
+import { NOTIFY_FROM, NOTIFY_TO } from "@/lib/email/notify";
 import { resend } from "@/lib/email/resend";
 
 export type OnboardSource = "landing" | "ai-search";
-
-// Internal signup notification.
-const NOTIFY_TO = "hugo@agentled.co";
-const NOTIFY_FROM = "Agent-led Growth <hello@notifications.agentled.co>";
 
 /**
  * Per-source Resend wiring. Each source has its own manual segment (Audiences →

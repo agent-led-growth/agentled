@@ -1,6 +1,11 @@
 import type Stripe from "stripe";
 
-import type { Plan } from "@/lib/plan";
+import {
+  notifyChurn,
+  notifyPaidConversion,
+  notifyPaymentFailed,
+} from "@/lib/email/billing";
+import { isPaid, planOf, type Plan } from "@/lib/plan";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 import { stripe } from "./client";
@@ -102,20 +107,6 @@ export async function linkStripeCustomer(
   if (error) throw error;
 }
 
-/** Find the account that owns a Stripe customer id, or null. */
-export async function findUserIdByCustomerId(
-  customerId: string,
-): Promise<string | null> {
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("users")
-    .select("id")
-    .eq("stripe_customer_id", customerId)
-    .maybeSingle();
-  if (error) throw error;
-  return data ? (data as { id: string }).id : null;
-}
-
 /** Read the current-period end (unix seconds) across Stripe API-version shapes. */
 function periodEndSeconds(sub: Stripe.Subscription): number | null {
   const top = (sub as unknown as { current_period_end?: number }).current_period_end;
@@ -138,25 +129,36 @@ function periodEndSeconds(sub: Stripe.Subscription): number | null {
  */
 export async function syncSubscription(sub: Stripe.Subscription): Promise<boolean> {
   const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
-  const userId = await findUserIdByCustomerId(customerId);
-  if (!userId) return false;
+  const admin = createAdminClient();
+
+  // Read the pre-update state so we can fire internal alerts only on real plan
+  // transitions (free→paid, paid→free) — not on renewals or redelivered events.
+  const { data: before, error: beforeErr } = await admin
+    .from("users")
+    .select("id, email, plan")
+    .eq("stripe_customer_id", customerId)
+    .maybeSingle();
+  if (beforeErr) throw beforeErr;
+  if (!before) return false;
+  const prev = before as { id: string; email: string; plan: string | null };
+  const userId = prev.id;
 
   const priceId = sub.items?.data?.[0]?.price?.id ?? null;
   const mapped = planForPriceId(priceId);
+  const statusGrantsAccess = ACCESS_STATUSES.has(sub.status);
   // A charged, access-granting subscription whose price we can't map is almost
   // always a missing/typo'd STRIPE_PRICE_* env — fail closed to free, but log
   // loudly so the misconfiguration is caught instead of silently downgrading a
   // paying customer.
-  if (ACCESS_STATUSES.has(sub.status) && mapped === null) {
+  if (statusGrantsAccess && mapped === null) {
     console.error(
       `stripe: subscription ${sub.id} is '${sub.status}' but price ${priceId} maps to no plan — check STRIPE_PRICE_* env. Falling back to free.`,
     );
   }
-  const grantsAccess = ACCESS_STATUSES.has(sub.status) && mapped !== null;
+  const grantsAccess = statusGrantsAccess && mapped !== null;
   const plan: Plan = grantsAccess ? mapped!.plan : "free";
   const periodEnd = periodEndSeconds(sub);
 
-  const admin = createAdminClient();
   const { error } = await admin
     .from("users")
     .update({
@@ -169,6 +171,25 @@ export async function syncSubscription(sub: Stripe.Subscription): Promise<boolea
     })
     .eq("id", userId);
   if (error) throw error;
+
+  // Internal, admin-only alerts (never sent to the customer). Best-effort, so a
+  // mail failure can't fail the sync. Duplicate paid alerts are acceptable — a
+  // concurrent checkout.session.completed + subscription.created can both observe
+  // the free→paid edge; the alert only goes to us, so an occasional double is fine.
+  //
+  // Churn keys off the subscription *status* (statusGrantsAccess), not grantsAccess:
+  // an access-granting status whose price simply doesn't map (env misconfig, logged
+  // above) is a config error, not a cancellation, and must not masquerade as churn.
+  // wasPaid via isPaid() (whitelist, fail-closed) so an unrecognised prior plan
+  // counts as free, not paid — never the open-coded `!== "free"`. users.email is
+  // NOT NULL, so the address is always present.
+  const wasPaid = isPaid(prev.plan);
+  if (!wasPaid && grantsAccess) {
+    await notifyPaidConversion(prev.email, plan);
+  } else if (wasPaid && !statusGrantsAccess) {
+    await notifyChurn(prev.email, planOf(prev.plan));
+  }
+
   return true;
 }
 
@@ -179,13 +200,33 @@ export async function syncSubscription(sub: Stripe.Subscription): Promise<boolea
  * The webhook still prefers re-syncing the subscription when the event carries it;
  * this is the minimal fallback.
  */
-export async function markPaymentFailed(customerId: string): Promise<void> {
-  const userId = await findUserIdByCustomerId(customerId);
-  if (!userId) return;
+export async function markPaymentFailed(
+  customerId: string,
+  opts: { firstFailure?: boolean } = {},
+): Promise<void> {
   const admin = createAdminClient();
+  const { data, error: selErr } = await admin
+    .from("users")
+    .select("id, email")
+    .eq("stripe_customer_id", customerId)
+    .maybeSingle();
+  if (selErr) throw selErr;
+  if (!data) return;
+  const row = data as { id: string; email: string };
+
   const { error } = await admin
     .from("users")
     .update({ plan_status: "past_due" })
-    .eq("id", userId);
+    .eq("id", row.id);
   if (error) throw error;
+
+  // Internal, admin-only alert. Fire on the invoice's first failed attempt only
+  // (the caller derives this from invoice.attempt_count), NOT on our plan_status
+  // mirror: syncSubscription also writes past_due from a concurrent
+  // customer.subscription.updated event, so a mirror-based guard would swallow the
+  // alert whenever that event happens to be processed first. Best-effort, so a
+  // mail failure can't fail the webhook (users.email is NOT NULL).
+  if (opts.firstFailure) {
+    await notifyPaymentFailed(row.email);
+  }
 }

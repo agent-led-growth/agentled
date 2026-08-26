@@ -97,10 +97,24 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
     }
 
     case "invoice.payment_failed": {
+      // Use attempt_count from the event snapshot, NOT a re-fetch. The snapshot's
+      // count is the value at *this* failure — exactly what "is this the first
+      // failure?" needs. A re-fetch returns the *current* count, so a delayed or
+      // backlogged first-failure event (whose retry has since bumped the count)
+      // would look like a retry and drop the alert entirely. Don't reintroduce a
+      // retrieve() here.
       const invoice = event.data.object as Stripe.Invoice;
       const customerId =
         typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
-      if (customerId) await markPaymentFailed(customerId);
+      if (customerId) {
+        // attempt_count is 1 on the first failed charge and increments on each
+        // retry — alert only on the first so Stripe's retry schedule (attempts
+        // days apart) doesn't re-notify us. A reordered/redelivered retry event may
+        // still cause an occasional duplicate; that's just a harmless internal email.
+        await markPaymentFailed(customerId, {
+          firstFailure: (invoice.attempt_count ?? 0) <= 1,
+        });
+      }
       return;
     }
 
