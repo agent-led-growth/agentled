@@ -5,7 +5,7 @@ import {
   notifyPaidConversion,
   notifyPaymentFailed,
 } from "@/lib/email/billing";
-import type { Plan } from "@/lib/plan";
+import { isPaid, planOf, type Plan } from "@/lib/plan";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 import { stripe } from "./client";
@@ -140,7 +140,7 @@ export async function syncSubscription(sub: Stripe.Subscription): Promise<boolea
     .maybeSingle();
   if (beforeErr) throw beforeErr;
   if (!before) return false;
-  const prev = before as { id: string; email: string; plan: Plan | null };
+  const prev = before as { id: string; email: string; plan: string | null };
   const userId = prev.id;
 
   const priceId = sub.items?.data?.[0]?.price?.id ?? null;
@@ -180,14 +180,14 @@ export async function syncSubscription(sub: Stripe.Subscription): Promise<boolea
   // Churn keys off the subscription *status* (statusGrantsAccess), not grantsAccess:
   // an access-granting status whose price simply doesn't map (env misconfig, logged
   // above) is a config error, not a cancellation, and must not masquerade as churn.
-  // Guard on email so a missing address never renders as the literal "null".
-  const wasPaid = prev.plan !== null && prev.plan !== "free";
-  if (prev.email) {
-    if (!wasPaid && grantsAccess) {
-      await notifyPaidConversion(prev.email, plan);
-    } else if (wasPaid && !statusGrantsAccess) {
-      await notifyChurn(prev.email, prev.plan!);
-    }
+  // wasPaid via isPaid() (whitelist, fail-closed) so an unrecognised prior plan
+  // counts as free, not paid — never the open-coded `!== "free"`. users.email is
+  // NOT NULL, so the address is always present.
+  const wasPaid = isPaid(prev.plan);
+  if (!wasPaid && grantsAccess) {
+    await notifyPaidConversion(prev.email, plan);
+  } else if (wasPaid && !statusGrantsAccess) {
+    await notifyChurn(prev.email, planOf(prev.plan));
   }
 
   return true;
@@ -224,9 +224,9 @@ export async function markPaymentFailed(
   // (the caller derives this from invoice.attempt_count), NOT on our plan_status
   // mirror: syncSubscription also writes past_due from a concurrent
   // customer.subscription.updated event, so a mirror-based guard would swallow the
-  // alert whenever that event happens to be processed first. Guard on email +
-  // best-effort so a mail failure can't fail the webhook.
-  if (opts.firstFailure && row.email) {
+  // alert whenever that event happens to be processed first. Best-effort, so a
+  // mail failure can't fail the webhook (users.email is NOT NULL).
+  if (opts.firstFailure) {
     await notifyPaymentFailed(row.email);
   }
 }

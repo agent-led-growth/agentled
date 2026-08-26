@@ -25,10 +25,10 @@ export function notifyChurn(email: string, fromPlan: Plan): Promise<void> {
   );
 }
 
-/** A payment failed; access is retained while Stripe retries (past_due). */
+/** A payment failed; we mark the account past_due while Stripe retries. */
 export function notifyPaymentFailed(email: string): Promise<void> {
   return notifyInternal(
     `⚠️ Payment failed: ${email}`,
-    `A payment failed for ${email}; the account is now past_due (access retained while Stripe retries).`,
+    `A payment failed for ${email}; the account is now marked past_due while Stripe retries.`,
   );
 }

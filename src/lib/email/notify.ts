@@ -3,8 +3,9 @@ import "server-only";
 import { resend } from "@/lib/email/resend";
 
 /**
- * Internal, admin-only alerts to ourselves — never to the customer. Mirrors the
- * signup notification in `onboarding.ts` (same recipient/sender).
+ * Internal, admin-only alerts to ourselves — never to the customer. This module
+ * owns the shared internal recipient/sender; `onboarding.ts`'s signup
+ * notification imports these same constants.
  */
 export const NOTIFY_TO = "hugo@agentled.co";
 export const NOTIFY_FROM = "Agent-led Growth <hello@notifications.agentled.co>";
