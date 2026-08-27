@@ -25,7 +25,7 @@ export default function OpenSourceComparisonLanding() {
       <RedirectSignedInTo to={TABLE_PATH} />
       <SiteHeader />
 
-      <main className="flex flex-1 items-center px-[26px] py-[48px] md:px-[56px] md:py-[64px]">
+      <main className="flex flex-1 items-center px-[26px] pt-[48px] pb-[96px] md:px-[56px] md:py-[64px]">
         <div className="grid w-full items-center gap-[44px] md:grid-cols-2 md:gap-[64px]">
           {/* Left — copy + sign-in */}
           <div className="flex max-w-[560px] flex-col gap-[22px]">
