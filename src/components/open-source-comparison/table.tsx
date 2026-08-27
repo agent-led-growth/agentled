@@ -9,28 +9,31 @@
  */
 
 import { ProductMark } from "./product-logos";
-import { PRODUCTS } from "./products";
+import { PRODUCTS, type ProductName } from "./products";
 
-type Row = { check: string; values: readonly string[] };
+// Values are keyed by product NAME (not position), so column order lives only in
+// products.ts and can never drift from the data. Record<ProductName, …> makes a
+// missing or renamed product a compile error rather than a silent mismap.
+type Row = { check: string; values: Record<ProductName, string> };
 
 const ROWS: readonly Row[] = [
-  { check: "Single main product repo", values: ["✅", "◐", "✅", "✅", "❌"] },
-  { check: "Monorepo", values: ["✅", "✅*", "✅", "✅", "❌*"] },
-  { check: "Core product code public", values: ["◐", "✅", "✅", "✅", "❌"] },
-  { check: "Hosted product + open source", values: ["✅", "✅", "✅", "✅", "✅"] },
-  { check: "Self-hostable", values: ["✅", "✅", "✅", "✅", "❌"] },
-  { check: "Clear OSS / commercial boundary", values: ["✅", "◐", "✅", "◐", "✅"] },
-  { check: "Root README", values: ["✅", "✅", "✅", "✅", "—"] },
-  { check: "CONTRIBUTING.md", values: ["✅", "✅", "✅", "✅", "◐"] },
-  { check: "Security policy / SECURITY.md", values: ["✅", "✅", "✅", "✅", "◐"] },
-  { check: "Explicit license", values: ["✅", "✅", "✅", "✅", "✅"] },
-  { check: "Example environment config", values: ["✅", "✅", "✅", "✅", "✅"] },
-  { check: "Docker / local deployment", values: ["✅", "✅", "✅", "✅", "—"] },
-  { check: "Clear local development commands", values: ["✅", "✅", "✅", "✅", "✅"] },
-  { check: "One-command agent bootstrap", values: ["❌", "❌", "✅", "❌", "❌"] },
-  { check: "Root AGENTS.md", values: ["✅", "❌", "✅", "❌", "—"] },
-  { check: "Claude-specific instructions", values: ["✅", "✅", "✅", "✅", "◐"] },
-  { check: "Agent-specific skills", values: ["✅", "✅", "✅", "❌", "✅"] },
+  { check: "Single main product repo", values: { PostHog: "✅", Supabase: "◐", n8n: "✅", Postiz: "✅", Resend: "❌" } },
+  { check: "Monorepo", values: { PostHog: "✅", Supabase: "✅*", n8n: "✅", Postiz: "✅", Resend: "❌*" } },
+  { check: "Core product code public", values: { PostHog: "◐", Supabase: "✅", n8n: "✅", Postiz: "✅", Resend: "❌" } },
+  { check: "Hosted product + open source", values: { PostHog: "✅", Supabase: "✅", n8n: "✅", Postiz: "✅", Resend: "✅" } },
+  { check: "Self-hostable", values: { PostHog: "✅", Supabase: "✅", n8n: "✅", Postiz: "✅", Resend: "❌" } },
+  { check: "Clear OSS / commercial boundary", values: { PostHog: "✅", Supabase: "◐", n8n: "✅", Postiz: "◐", Resend: "✅" } },
+  { check: "Root README", values: { PostHog: "✅", Supabase: "✅", n8n: "✅", Postiz: "✅", Resend: "—" } },
+  { check: "CONTRIBUTING.md", values: { PostHog: "✅", Supabase: "✅", n8n: "✅", Postiz: "✅", Resend: "◐" } },
+  { check: "Security policy / SECURITY.md", values: { PostHog: "✅", Supabase: "✅", n8n: "✅", Postiz: "✅", Resend: "◐" } },
+  { check: "Explicit license", values: { PostHog: "✅", Supabase: "✅", n8n: "✅", Postiz: "✅", Resend: "✅" } },
+  { check: "Example environment config", values: { PostHog: "✅", Supabase: "✅", n8n: "✅", Postiz: "✅", Resend: "✅" } },
+  { check: "Docker / local deployment", values: { PostHog: "✅", Supabase: "✅", n8n: "✅", Postiz: "✅", Resend: "—" } },
+  { check: "Clear local development commands", values: { PostHog: "✅", Supabase: "✅", n8n: "✅", Postiz: "✅", Resend: "✅" } },
+  { check: "One-command agent bootstrap", values: { PostHog: "❌", Supabase: "❌", n8n: "✅", Postiz: "❌", Resend: "❌" } },
+  { check: "Root AGENTS.md", values: { PostHog: "✅", Supabase: "❌", n8n: "✅", Postiz: "❌", Resend: "—" } },
+  { check: "Claude-specific instructions", values: { PostHog: "✅", Supabase: "✅", n8n: "✅", Postiz: "✅", Resend: "◐" } },
+  { check: "Agent-specific skills", values: { PostHog: "✅", Supabase: "✅", n8n: "✅", Postiz: "❌", Resend: "✅" } },
 ];
 
 const LEGEND: readonly [string, string][] = [
@@ -122,15 +125,18 @@ export function ComparisonTable() {
                 >
                   {row.check}
                 </th>
-                {row.values.map((v, i) => (
-                  <td
-                    key={PRODUCTS[i].name}
-                    className="px-[14px] py-[11px] text-center text-[var(--text-primary)]"
-                  >
-                    <span aria-hidden="true">{v}</span>
-                    <span className="sr-only">{cellLabel(v)}</span>
-                  </td>
-                ))}
+                {PRODUCTS.map((p) => {
+                  const v = row.values[p.name];
+                  return (
+                    <td
+                      key={p.name}
+                      className="px-[14px] py-[11px] text-center text-[var(--text-primary)]"
+                    >
+                      <span aria-hidden="true">{v}</span>
+                      <span className="sr-only">{cellLabel(v)}</span>
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>

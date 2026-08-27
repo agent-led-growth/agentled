@@ -9,13 +9,17 @@ import { PRODUCTS } from "./products";
  * product name as adjacent text.
  */
 export function ProductMark({ logo, size = 22 }: { logo: string; size?: number }) {
+  // Size marks by a consistent HEIGHT with auto width, so a wide mark (e.g.
+  // n8n's ~1.9:1) reads at the same optical size as a square one instead of
+  // being letterboxed small in a square box. The tile is a square minimum and
+  // grows horizontally for wide marks.
   const glyph = Math.round(size * 0.72);
   return (
     <span
-      className="inline-grid shrink-0 place-items-center rounded-[6px] bg-white ring-1 ring-black/5"
-      style={{ width: size, height: size }}
+      className="inline-flex shrink-0 items-center justify-center rounded-[6px] bg-white px-[4px] ring-1 ring-black/5"
+      style={{ height: size, minWidth: size }}
     >
-      <img src={logo} alt="" loading="lazy" style={{ width: glyph, height: glyph }} />
+      <img src={logo} alt="" loading="lazy" style={{ height: glyph, width: "auto" }} />
     </span>
   );
 }
