@@ -96,7 +96,7 @@ export function OtpForm({
       const res = await fetch("/api/auth/otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), token: value }),
+        body: JSON.stringify({ email: email.trim(), token: value, source }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) return fail(data.error ?? "Something went wrong. Try again.");

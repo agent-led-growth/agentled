@@ -1,9 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 
-import { createClient } from "@/lib/supabase/client";
+import { useWhenSignedIn } from "./use-when-signed-in";
 
 /**
  * Routes signed-in visitors away from the root landing: those who've already
@@ -20,24 +19,15 @@ export function RedirectSignedIn({
 }) {
   const router = useRouter();
 
-  useEffect(() => {
-    let active = true;
-    createClient()
-      .auth.getSession()
-      .then(async ({ data }) => {
-        if (!data.session) return; // anonymous — stay on the landing
-        try {
-          const res = await fetch("/api/ai-search/status");
-          const json = (await res.json()) as { hasScanned?: boolean };
-          if (active) router.replace(json.hasScanned ? scanned : notScanned);
-        } catch {
-          if (active) router.replace(notScanned); // API error — fall back home
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [router, scanned, notScanned]);
+  useWhenSignedIn(async (isActive) => {
+    try {
+      const res = await fetch("/api/ai-search/status");
+      const json = (await res.json()) as { hasScanned?: boolean };
+      if (isActive()) router.replace(json.hasScanned ? scanned : notScanned);
+    } catch {
+      if (isActive()) router.replace(notScanned); // API error — fall back home
+    }
+  });
 
   return null;
 }
