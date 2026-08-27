@@ -77,8 +77,15 @@ export function ComparisonTable() {
         ))}
       </ul>
 
-      {/* Table — scrolls horizontally on narrow screens rather than overflowing */}
-      <div className="overflow-x-auto border border-[var(--border-hairline)]">
+      {/* Table — scrolls horizontally on narrow screens rather than overflowing.
+          tabIndex + role/label make the scroll region focusable so keyboard
+          users can reach off-screen columns (WCAG 2.1.1). */}
+      <div
+        role="region"
+        aria-label="Open-source comparison table"
+        tabIndex={0}
+        className="overflow-x-auto border border-[var(--border-hairline)]"
+      >
         <table className="w-full border-collapse text-[14px] md:text-[15px]">
           <thead>
             <tr className="border-b border-[var(--border-hairline)] bg-[var(--surface)]">
