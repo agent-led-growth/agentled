@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   title: "Open-Source Products Built for Agents",
   description:
     "Compare PostHog, Supabase, n8n, Postiz, and Resend across the practices that make open-source products easier for agents to discover, understand, use, and contribute to.",
+  alternates: { canonical: "/open-source-comparison" },
 };
 
 export default function OpenSourceComparisonLanding() {

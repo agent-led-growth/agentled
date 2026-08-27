@@ -1,9 +1,11 @@
 /**
- * Open Source Comparison table — the gated content shown at
- * /open-source-comparison once signed in. Pure presentational; the data mirrors
- * the source doc (docs / open-source-comparison.md) 1:1, including the glyphs
+ * Open Source Comparison table — the public content shown at
+ * /open-source-agent-readiness. Pure presentational; the data mirrors the
+ * source doc (docs / open-source-comparison.md) 1:1, including the glyphs
  * (✅ ◐ ❌ —) and the two footnote markers (*). Themed with the semantic
- * design tokens so it reads in both light and dark.
+ * design tokens so it reads in both light and dark. Each cell pairs the glyph
+ * (aria-hidden) with a visually-hidden text label, so a screen reader announces
+ * the meaning rather than an undescribed symbol.
  */
 
 const PRODUCTS = ["PostHog", "Supabase", "n8n", "Postiz", "Resend"] as const;
@@ -41,6 +43,26 @@ const FOOTNOTES: readonly string[] = [
   "Supabase is more modular across repositories despite using monorepo patterns in parts of the ecosystem.",
   "Resend's open-source ecosystem is intentionally split across separate repositories.",
 ];
+
+/**
+ * Spoken label for each glyph, so a cell isn't just an undescribed symbol to
+ * assistive tech. Keyed by the base glyph; a trailing "*" footnote marker is
+ * stripped before lookup and surfaced as "(see note)".
+ */
+const CELL_LABELS: Record<string, string> = {
+  "✅": "Yes",
+  "◐": "Partial",
+  "❌": "No",
+  "—": "Not applicable",
+};
+
+/** The screen-reader text for a cell value like "✅" or "✅*". */
+function cellLabel(value: string): string {
+  const starred = value.endsWith("*");
+  const glyph = starred ? value.slice(0, -1) : value;
+  const label = CELL_LABELS[glyph] ?? glyph;
+  return starred ? `${label} (see note)` : label;
+}
 
 export function ComparisonTable() {
   return (
@@ -94,7 +116,8 @@ export function ComparisonTable() {
                     key={PRODUCTS[i]}
                     className="px-[14px] py-[11px] text-center text-[var(--text-primary)]"
                   >
-                    {v}
+                    <span aria-hidden="true">{v}</span>
+                    <span className="sr-only">{cellLabel(v)}</span>
                   </td>
                 ))}
               </tr>

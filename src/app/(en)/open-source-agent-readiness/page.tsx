@@ -11,6 +11,7 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   title: "Open Source for Agents: Comparison",
   description: DESCRIPTION,
+  alternates: { canonical: "/open-source-agent-readiness" },
   openGraph: {
     title: "Open Source for Agents: Comparison",
     description: DESCRIPTION,

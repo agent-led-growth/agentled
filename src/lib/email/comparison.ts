@@ -18,8 +18,7 @@ const TABLE_URL = "https://agentled.co/open-source-agent-readiness";
 
 /**
  * Add the lead to the comparison segment. Best-effort: a failure is logged but
- * never thrown, so it can't block the (more important) email send or roll back
- * the once-per-user claim.
+ * never thrown, so it can't block the email send or the sign-in.
  */
 async function addToSegment(email: string): Promise<void> {
   try {
@@ -64,8 +63,10 @@ async function sendEmail(email: string): Promise<void> {
  * repeat sign-in simply emails again). Both steps best-effort.
  */
 export async function onboardComparison(email: string): Promise<void> {
-  await addToSegment(email);
-  await sendEmail(email);
+  // Independent Resend calls — run them together so the sign-in response (which
+  // awaits this) isn't delayed by two sequential round-trips. Both are
+  // best-effort (they catch internally), so Promise.all never rejects.
+  await Promise.all([addToSegment(email), sendEmail(email)]);
 }
 
 function emailHtml(): string {
