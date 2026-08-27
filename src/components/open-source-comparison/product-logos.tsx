@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element -- local SVG brand marks; next/image isn't used on Cloudflare (workerd) */
 
-import { PRODUCTS } from "./products";
+import { LANDING_LOGO, PRODUCTS } from "./products";
 
 /**
  * A brand mark on a light tile. The tile stays light in BOTH themes (per the
@@ -25,19 +25,23 @@ export function ProductMark({ logo, size = 22 }: { logo: string; size?: number }
 }
 
 /**
- * The five compared products as logo + name rows. Wraps into a row on mobile
- * (so it sits below the sign-in form) and stacks into a column on desktop (so it
- * fills the empty space beside the form).
+ * The five compared products as bare brand marks — no tile, no name (the mark
+ * carries the recognition). A wrapping, centered row: a single horizontal line
+ * below the form on mobile, and a centered two-line block (the max-width forces
+ * the wrap) filling the space beside the form on desktop. Marks keep their
+ * alt text since there's no adjacent name.
  */
 export function ProductLogos() {
   return (
-    <ul className="flex flex-wrap gap-x-[18px] gap-y-[14px] md:flex-col md:gap-[20px]">
+    <ul className="flex flex-wrap items-center justify-center gap-x-[20px] gap-y-[18px] md:max-w-[300px] md:gap-x-[28px] md:gap-y-[24px]">
       {PRODUCTS.map((p) => (
-        <li key={p.name} className="flex items-center gap-[12px]">
-          <ProductMark logo={p.logo} size={40} />
-          <span className="text-[16px] font-medium text-[var(--text-primary)] md:text-[18px]">
-            {p.name}
-          </span>
+        <li key={p.name} className="flex items-center justify-center">
+          <img
+            src={LANDING_LOGO[p.name] ?? p.logo}
+            alt={p.name}
+            loading="lazy"
+            className="h-[38px] w-auto md:h-[50px]"
+          />
         </li>
       ))}
     </ul>

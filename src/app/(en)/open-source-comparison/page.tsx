@@ -42,9 +42,10 @@ export default function OpenSourceComparisonLanding() {
             />
           </div>
 
-          {/* Right — the compared products. On mobile the grid stacks, so this
-              lands below the form; on desktop it fills the empty right space. */}
-          <div className="md:justify-self-end">
+          {/* Right — the compared product marks. On mobile the grid stacks, so
+              this lands as a row below the form; on desktop it's centered in the
+              empty right space (two lines, via the wall's max-width). */}
+          <div className="flex justify-center">
             <ProductLogos />
           </div>
         </div>
