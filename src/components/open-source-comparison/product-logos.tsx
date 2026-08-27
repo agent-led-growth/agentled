@@ -1,6 +1,8 @@
 /* eslint-disable @next/next/no-img-element -- local SVG brand marks; next/image isn't used on Cloudflare (workerd) */
 
-import { LANDING_LOGO, PRODUCTS } from "./products";
+import type { CSSProperties } from "react";
+
+import { LANDING_LOGO, PRODUCTS, type ProductName } from "./products";
 
 /**
  * A brand mark on a light tile. The tile stays light in BOTH themes (per the
@@ -25,25 +27,47 @@ export function ProductMark({ logo, size = 22 }: { logo: string; size?: number }
 }
 
 /**
+ * Per-mark heights (px) on the landing, tuned so the differently-proportioned
+ * marks read at a consistent optical size — mobile / desktop. Set as CSS vars so
+ * the static `h-[var(...)]` utilities stay responsive per logo.
+ */
+const LANDING_SIZE: Record<ProductName, { mobile: number; desktop: number }> = {
+  PostHog: { mobile: 38, desktop: 60 },
+  Supabase: { mobile: 38, desktop: 60 },
+  n8n: { mobile: 34, desktop: 50 },
+  Postiz: { mobile: 38, desktop: 60 },
+  Resend: { mobile: 37, desktop: 55 },
+};
+
+/**
  * The five compared products as bare brand marks — no tile, no name (the mark
  * carries the recognition). A wrapping, centered row: a single horizontal line
  * below the form on mobile, and a centered two-line block (the max-width forces
- * the wrap) filling the space beside the form on desktop. Marks keep their
- * alt text since there's no adjacent name.
+ * the wrap) filling the space beside the form on desktop. Marks keep their alt
+ * text since there's no adjacent name.
  */
 export function ProductLogos() {
   return (
-    <ul className="flex flex-wrap items-center justify-center gap-x-[20px] gap-y-[18px] md:max-w-[300px] md:gap-x-[28px] md:gap-y-[24px]">
-      {PRODUCTS.map((p) => (
-        <li key={p.name} className="flex items-center justify-center">
-          <img
-            src={LANDING_LOGO[p.name] ?? p.logo}
-            alt={p.name}
-            loading="lazy"
-            className="h-[38px] w-auto md:h-[50px]"
-          />
-        </li>
-      ))}
+    <ul className="flex flex-wrap items-center justify-center gap-x-[20px] gap-y-[18px] md:max-w-[340px] md:gap-x-[28px] md:gap-y-[24px]">
+      {PRODUCTS.map((p) => {
+        const size = LANDING_SIZE[p.name];
+        return (
+          <li key={p.name} className="flex items-center justify-center">
+            <img
+              src={LANDING_LOGO[p.name] ?? p.logo}
+              alt={p.name}
+              loading="lazy"
+              className="h-[var(--logo-h)] w-auto md:h-[var(--logo-h-md)]"
+              style={
+                {
+                  "--logo-h": `${size.mobile}px`,
+                  "--logo-h-md": `${size.desktop}px`,
+                } as CSSProperties
+              }
+            />
+          </li>
+        );
+      })}
     </ul>
   );
 }

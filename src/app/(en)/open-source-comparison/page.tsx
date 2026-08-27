@@ -29,7 +29,10 @@ export default function OpenSourceComparisonLanding() {
         <div className="grid w-full items-center gap-[44px] md:grid-cols-2 md:gap-[64px]">
           {/* Left — copy + sign-in */}
           <div className="flex max-w-[560px] flex-col gap-[22px]">
-            <h1 className="text-[34px] leading-[1.03] font-bold tracking-[-0.04em] text-[var(--text-primary)] md:text-[52px]">
+            {/* Same type treatment as the site hero headline ("Grow in the Age
+                of AI") — identical fluid size / leading / tracking on all
+                breakpoints. */}
+            <h1 className="max-w-[11ch] text-[clamp(50px,7.2vw,92px)] leading-[0.95] font-bold tracking-[-0.055em] text-[var(--text-primary)]">
               How open source wins with agents
             </h1>
             <p className="max-w-[46ch] text-[17px] leading-[1.5] text-[var(--text-muted)] md:text-[20px]">

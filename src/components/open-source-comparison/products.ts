@@ -24,5 +24,6 @@ export type ProductName = Product["name"];
  * there. The table keeps the original (dark) mark on its light tiles.
  */
 export const LANDING_LOGO: Partial<Record<ProductName, string>> = {
+  PostHog: "/logos/posthog-light.svg",
   Resend: "/logos/resend-white.svg",
 };
