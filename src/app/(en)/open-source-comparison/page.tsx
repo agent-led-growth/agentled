@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { OtpForm } from "@/components/auth/otp-form";
 import { RedirectSignedInTo } from "@/components/auth/redirect-signed-in-to";
+import { ProductLogos } from "@/components/open-source-comparison/product-logos";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
@@ -25,24 +26,27 @@ export default function OpenSourceComparisonLanding() {
       <SiteHeader />
 
       <main className="flex flex-1 items-center px-[26px] py-[48px] md:px-[56px] md:py-[64px]">
-        <div className="flex max-w-[640px] flex-col gap-[22px]">
-          <h1 className="text-[34px] leading-[1.03] font-bold tracking-[-0.04em] text-[var(--text-primary)] md:text-[52px]">
-            See how leading open-source products build for agents
-          </h1>
-          <p className="max-w-[46ch] text-[17px] leading-[1.5] text-[var(--text-muted)] md:text-[20px]">
-            Compare PostHog, Supabase, n8n, Postiz, and Resend across the
-            practices that make open-source products easier for agents to
-            discover, understand, use, and contribute to.
-          </p>
-          <OtpForm
-            submitLabel="Get the comparison"
-            redirectTo={TABLE_PATH}
-            source="open-source-comparison"
-          />
-          <p className="max-w-[46ch] text-[14px] leading-[1.5] text-[var(--text-faint)] md:text-[15px]">
-            Free access. Join Agent-led Growth for tools, research, and
-            experiments on growth in the age of AI.
-          </p>
+        <div className="grid w-full items-center gap-[44px] md:grid-cols-2 md:gap-[64px]">
+          {/* Left — copy + sign-in */}
+          <div className="flex max-w-[560px] flex-col gap-[22px]">
+            <h1 className="text-[34px] leading-[1.03] font-bold tracking-[-0.04em] text-[var(--text-primary)] md:text-[52px]">
+              How open source wins with agents
+            </h1>
+            <p className="max-w-[46ch] text-[17px] leading-[1.5] text-[var(--text-muted)] md:text-[20px]">
+              See how leading products make their repos agent-ready&hellip;
+            </p>
+            <OtpForm
+              submitLabel="Get the comparison"
+              redirectTo={TABLE_PATH}
+              source="open-source-comparison"
+            />
+          </div>
+
+          {/* Right — the compared products. On mobile the grid stacks, so this
+              lands below the form; on desktop it fills the empty right space. */}
+          <div className="md:justify-self-end">
+            <ProductLogos />
+          </div>
         </div>
       </main>
 

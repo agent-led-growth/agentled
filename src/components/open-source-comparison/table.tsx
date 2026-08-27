@@ -8,7 +8,8 @@
  * the meaning rather than an undescribed symbol.
  */
 
-const PRODUCTS = ["PostHog", "Supabase", "n8n", "Postiz", "Resend"] as const;
+import { ProductMark } from "./product-logos";
+import { PRODUCTS } from "./products";
 
 type Row = { check: string; values: readonly string[] };
 
@@ -97,11 +98,14 @@ export function ComparisonTable() {
               </th>
               {PRODUCTS.map((p) => (
                 <th
-                  key={p}
+                  key={p.name}
                   scope="col"
-                  className="min-w-[92px] px-[14px] py-[12px] text-center font-semibold text-[var(--text-primary)]"
+                  className="min-w-[118px] px-[14px] py-[12px] font-semibold text-[var(--text-primary)]"
                 >
-                  {p}
+                  <span className="flex items-center justify-center gap-[8px]">
+                    <ProductMark logo={p.logo} />
+                    {p.name}
+                  </span>
                 </th>
               ))}
             </tr>
@@ -120,7 +124,7 @@ export function ComparisonTable() {
                 </th>
                 {row.values.map((v, i) => (
                   <td
-                    key={PRODUCTS[i]}
+                    key={PRODUCTS[i].name}
                     className="px-[14px] py-[11px] text-center text-[var(--text-primary)]"
                   >
                     <span aria-hidden="true">{v}</span>
