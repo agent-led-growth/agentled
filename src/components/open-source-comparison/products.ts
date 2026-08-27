@@ -17,3 +17,12 @@ export type Product = (typeof PRODUCTS)[number];
 
 /** Exact union of product names — the key type for each table row's values. */
 export type ProductName = Product["name"];
+
+/**
+ * Landing-only mark overrides. The landing shows marks tile-less on the dark
+ * surface, so a pure-black mark (Resend) would vanish — use its white variant
+ * there. The table keeps the original (dark) mark on its light tiles.
+ */
+export const LANDING_LOGO: Partial<Record<ProductName, string>> = {
+  Resend: "/logos/resend-white.svg",
+};
