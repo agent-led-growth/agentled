@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { onboardComparison } from "@/lib/email/comparison";
 import { onboard, type OnboardSource } from "@/lib/email/onboarding";
 import type { LocationInput } from "@/lib/geo/location";
 import { claimBrandForMember, deleteBrand } from "@/lib/laurel";
@@ -45,6 +46,10 @@ export async function POST(request: Request) {
     );
   }
 
+  // The comparison landing is its own flow: no brand claim, no generic welcome
+  // automation — just add the lead to a segment + email the table link. Every
+  // other source maps to the landing/ai-search onboarding.
+  const isComparison = body.source === "open-source-comparison";
   const source: OnboardSource = body.source === "ai-search" ? "ai-search" : "landing";
   const site = sanitizeSite(body);
   const normalized = email.trim().toLowerCase();
@@ -70,8 +75,12 @@ export async function POST(request: Request) {
     // valid — so they are logged and swallowed.
     let atBrandLimit = false;
     try {
-      const result = await linkUserAndOnboard(data.user.id, normalized, source, site);
-      atBrandLimit = result.atBrandLimit;
+      if (isComparison) {
+        await linkUserAndOnboardComparison(data.user.id, normalized);
+      } else {
+        const result = await linkUserAndOnboard(data.user.id, normalized, source, site);
+        atBrandLimit = result.atBrandLimit;
+      }
     } catch (err) {
       console.error("otp verify: profile/onboarding step failed", err);
     }
@@ -203,4 +212,34 @@ async function linkUserAndOnboard(
     throw onboardError;
   }
   return { atBrandLimit: false };
+}
+
+/**
+ * The /open-source-comparison flow: link/confirm the user row (no brand, no
+ * generic welcome automation), then add them to the Resend segment and email the
+ * table link. Fired on every completed sign-in from that landing — no
+ * once-per-user gating, so a repeat sign-in simply emails again (best-effort). A
+ * signed-in visitor is redirected to the table by the landing and never reaches
+ * this, so they don't get a duplicate.
+ */
+async function linkUserAndOnboardComparison(
+  authUserId: string,
+  email: string,
+): Promise<void> {
+  const admin = createAdminClient();
+
+  // Same link + confirm upsert as the generic flow (create the row, or link and
+  // confirm a subscribe-first one). welcome_email_sent_at is left untouched.
+  const { error: upsertError } = await admin.from("users").upsert(
+    {
+      email,
+      auth_user_id: authUserId,
+      status: "confirmed",
+      confirmed_at: new Date().toISOString(),
+    },
+    { onConflict: "email_normalized" },
+  );
+  if (upsertError) throw upsertError;
+
+  await onboardComparison(email);
 }
