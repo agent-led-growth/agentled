@@ -106,7 +106,7 @@ export const en = {
     aiSearch: {
       title: "AI Search Monitor",
       description:
-        "See how often AI assistants recommend your brand. Track your visibility across ChatGPT, Claude, Gemini, Perplexity and Copilot — and win more recommendations, traffic and leads.",
+        "Track how often ChatGPT, Claude, Gemini, Perplexity and Copilot recommend your brand — and win more recommendations, traffic and leads.",
       ogTitle: "AI Search Monitor — Does AI recommend your brand?",
       ogDescription:
         "Track how often AI assistants recommend your brand across ChatGPT, Claude, Gemini, Perplexity and Copilot.",
