@@ -101,13 +101,13 @@ export const es: Dictionary = {
   meta: {
     siteTitle: "Agent-led Growth — Crece en la era de la IA",
     siteDescription:
-      "Investigación independiente sobre cómo la IA está cambiando la forma en que crecen las empresas. Investigación, experimentos, marcos y herramientas para founders, marketers y equipos de crecimiento.",
+      "Investigación independiente sobre cómo la IA cambia la forma en que crecen las empresas. Experimentos, marcos y herramientas para founders y marketers.",
     siteSocialDescription:
       "Exploramos los nuevos manuales de crecimiento en un mundo moldeado por agentes de IA.",
     aiSearch: {
       title: "AI Search Monitor",
       description:
-        "Descubre con qué frecuencia los asistentes de IA recomiendan tu marca. Monitoriza tu visibilidad en ChatGPT, Claude, Gemini, Perplexity y Copilot, y consigue más recomendaciones, tráfico y leads.",
+        "Descubre con qué frecuencia ChatGPT, Claude, Gemini, Perplexity y Copilot recomiendan tu marca — y consigue más recomendaciones, tráfico y leads.",
       ogTitle: "AI Search Monitor — ¿Recomienda la IA tu marca?",
       ogDescription:
         "Monitoriza con qué frecuencia los asistentes de IA recomiendan tu marca en ChatGPT, Claude, Gemini, Perplexity y Copilot.",
@@ -115,7 +115,7 @@ export const es: Dictionary = {
     pricing: {
       title: "Precios",
       description:
-        "Planes sencillos para seguir la visibilidad de tu marca en las respuestas de IA. Empieza con un análisis gratuito; mejora tu plan para análisis diarios, más prompts y más marcas.",
+        "Planes sencillos para seguir la visibilidad de tu marca en las respuestas de IA. Análisis gratis para empezar; mejora para análisis diarios y más.",
     },
   },
 };
