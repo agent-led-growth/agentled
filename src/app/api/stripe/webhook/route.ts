@@ -24,6 +24,9 @@ import {
  */
 export async function POST(request: Request) {
   const webhookSecret = env.stripeWebhookSecret();
+  // `stripeEnabled()` already implies the webhook secret is set; the explicit
+  // `!webhookSecret` is what narrows it from `string | undefined` to `string`
+  // for the constructEventAsync call below. Keep both — don't "simplify" it away.
   if (!env.stripeEnabled() || !webhookSecret) {
     return new Response("Billing is not enabled", { status: 503 });
   }
