@@ -6,9 +6,16 @@ import { env } from "@/lib/env";
 
 let client: Resend | null = null;
 
-export function resend() {
+/**
+ * The Resend client, or `null` when email is not configured (RESEND_API_KEY
+ * unset). Callers must treat `null` as "email disabled" and skip the send —
+ * every email in this app is a best-effort side effect, never load-bearing.
+ */
+export function resend(): Resend | null {
+  const key = env.resendApiKey();
+  if (!key) return null;
   if (!client) {
-    client = new Resend(env.resendApiKey());
+    client = new Resend(key);
   }
   return client;
 }

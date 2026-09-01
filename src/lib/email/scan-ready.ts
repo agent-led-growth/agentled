@@ -15,8 +15,10 @@ export async function sendScanReadyEmail(to: string, brandName: string): Promise
   // Collapse any whitespace/newlines so a stray line break in the brand name
   // can't malform the subject line or body.
   const name = brandName.replace(/\s+/g, " ").trim() || "your brand";
+  const client = resend();
+  if (!client) return; // email disabled — scan-ready notice is best-effort
   try {
-    const { error } = await resend().emails.send({
+    const { error } = await client.emails.send({
       from: FROM,
       to,
       subject: `Your AI Search scan for ${name} is ready`,

@@ -6,13 +6,33 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # Agentled
 
-Website + app for agentled.co. Private repo, closed source.
+Website + app for agentled.co — the marketing site plus the AI Search
+monitoring tool. Open source (Apache-2.0); brand assets are reserved (see NOTICE).
 
 ## Stack
 
 Next.js 16 App Router + TypeScript + Tailwind v4, deployed to **Cloudflare
 Workers** via `@opennextjs/cloudflare`. Supabase for Postgres + Auth. Resend
 for email. Package manager is **pnpm**.
+
+## Structure
+
+- **Marketing site** — `src/app/(en)` and `src/app/(es)` (Spanish under `/es/`).
+- **AI Search Monitor** — the scan engine in `src/lib/ai-search/` (data access,
+  enrichment, prompt generation, providers), driven through the API routes under
+  `src/app/api/ai-search/` and the dashboard in `src/components/ai-search/`.
+- **Scan workers** — `workers/*` (a queue consumer and a cron), deployed
+  separately; each reads its own `.dev.vars`.
+- **Billing** — Stripe under `src/lib/stripe/` and `src/app/api/stripe/`;
+  optional (see `SELF_HOSTED`).
+- The `src/lib/ai-search/` engine was codenamed "Laurel" in early migration
+  comments (`0005`/`0006`) — same thing.
+
+## Testing
+
+`pnpm typecheck` and `pnpm lint` are the gate. There is no automated test suite
+yet, so also run the affected flow: `pnpm dev` for most work, or `pnpm preview`
+(the Workers/workerd build) for anything runtime-sensitive.
 
 ## Rules
 

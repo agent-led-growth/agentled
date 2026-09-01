@@ -1,6 +1,6 @@
 /**
- * Row and input types for the Laurel data model (see supabase/migrations/0005 &
- * 0006, and laurel-schema.md). The Supabase clients in this project are untyped,
+ * Row and input types for the AI Search data model (see supabase/migrations/0005 &
+ * 0006). The Supabase clients in this project are untyped,
  * so these are hand-written to mirror the tables; timestamps come back as ISO
  * strings from PostgREST.
  */

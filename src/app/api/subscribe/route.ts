@@ -59,26 +59,33 @@ export async function POST(request: Request) {
 
     const confirmUrl = `${env.siteUrl()}/api/subscribe/confirm?token=${data.token}`;
 
-    const { error: emailError } = await resend().emails.send({
-      from: FROM,
-      to: normalized,
-      subject: "Confirm your subscription to Agent-led Growth",
-      text: [
-        "Thanks for subscribing to Agent-led Growth.",
-        "",
-        "Confirm your email to start receiving research, experiments, and tools",
-        "for the next generation of growth:",
-        "",
-        confirmUrl,
-        "",
-        "If you did not request this, you can ignore this email.",
-      ].join("\n"),
-    });
+    const client = resend();
+    if (!client) {
+      // Email disabled (no RESEND_API_KEY). The address is captured; we just
+      // can't send the confirmation. Don't fail the request.
+      console.warn("subscribe: email disabled, skipping confirmation send");
+    } else {
+      const { error: emailError } = await client.emails.send({
+        from: FROM,
+        to: normalized,
+        subject: "Confirm your subscription to Agent-led Growth",
+        text: [
+          "Thanks for subscribing to Agent-led Growth.",
+          "",
+          "Confirm your email to start receiving research, experiments, and tools",
+          "for the next generation of growth:",
+          "",
+          confirmUrl,
+          "",
+          "If you did not request this, you can ignore this email.",
+        ].join("\n"),
+      });
 
-    if (emailError) {
-      // The row is saved; only the confirmation email failed. Log it, but do
-      // not fail the request — the address is captured either way.
-      console.error("subscribe: resend send failed", emailError);
+      if (emailError) {
+        // The row is saved; only the confirmation email failed. Log it, but do
+        // not fail the request — the address is captured either way.
+        console.error("subscribe: resend send failed", emailError);
+      }
     }
 
     return NextResponse.json({ ok: true });

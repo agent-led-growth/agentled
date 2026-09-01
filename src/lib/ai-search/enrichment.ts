@@ -45,7 +45,7 @@ const ENRICHMENT_SCHEMA: Record<string, unknown> = {
 };
 
 const SYSTEM_PROMPT =
-  "You are Laurel's brand-enrichment step. From a brand's website content (and " +
+  "You are AI Search's brand-enrichment step. From a brand's website content (and " +
   "optionally a note from the owner), infer the brand's name, one concise " +
   "sentence describing what it is and who it's for, and about 10 short topic " +
   "categories a potential customer might ask an AI assistant like ChatGPT about " +
@@ -88,7 +88,7 @@ export async function enrichBrand(
     return { ...parseEnrichment(data), logoUrl };
   } catch (err) {
     // Model/parse failure shouldn't block onboarding — fall back to manual.
-    console.error("laurel enrichment: generation failed", err);
+    console.error("ai-search enrichment: generation failed", err);
     return { name: null, description: null, topics: [], logoUrl };
   }
 }

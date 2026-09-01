@@ -5,7 +5,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { COUNTRIES } from "@/lib/geo/countries";
 import type { LocationInput } from "@/lib/geo/location";
-import { isValidWebsite } from "@/lib/laurel/domain";
+import { isValidWebsite } from "@/lib/ai-search/domain";
 
 import { BrandTile, Lockup } from "./brand";
 import { EXAMPLE_URL, type LogColor } from "./fixtures";

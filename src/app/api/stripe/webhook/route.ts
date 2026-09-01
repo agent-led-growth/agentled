@@ -23,6 +23,11 @@ import {
  * the Stripe object rather than applying a delta.
  */
 export async function POST(request: Request) {
+  const webhookSecret = env.stripeWebhookSecret();
+  if (!env.stripeEnabled() || !webhookSecret) {
+    return new Response("Billing is not enabled", { status: 503 });
+  }
+
   const signature = request.headers.get("stripe-signature");
   if (!signature) {
     return new Response("Missing signature", { status: 400 });
@@ -34,7 +39,7 @@ export async function POST(request: Request) {
     event = await stripe().webhooks.constructEventAsync(
       payload,
       signature,
-      env.stripeWebhookSecret(),
+      webhookSecret,
     );
   } catch (err) {
     // Bad signature or malformed payload — never our fault to retry, so 400.

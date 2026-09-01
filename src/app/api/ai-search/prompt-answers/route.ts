@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getBrandsForUser, getPromptAnswers, getPromptById } from "@/lib/laurel";
+import { getBrandsForUser, getPromptAnswers, getPromptById } from "@/lib/ai-search";
 import { createClient } from "@/lib/supabase/server";
 
 /**

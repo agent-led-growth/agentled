@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getBrandsForUser, getPlanForAuthUser } from "@/lib/laurel";
+import { getBrandsForUser, getPlanForAuthUser } from "@/lib/ai-search";
 import { createClient } from "@/lib/supabase/server";
 
 /**

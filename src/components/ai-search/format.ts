@@ -1,4 +1,4 @@
-import type { BrandMetrics, LeaderRow } from "@/lib/laurel/metrics";
+import type { BrandMetrics, LeaderRow } from "@/lib/ai-search/metrics";
 
 import type { CitationDomain, ChartInput, Group } from "./fixtures";
 

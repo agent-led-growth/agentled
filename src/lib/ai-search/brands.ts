@@ -9,7 +9,7 @@ import { normalizeDomain } from "./domain";
 import type { Brand, BrandEnrichment, BrandRole } from "./types";
 
 /**
- * Brand + membership writes/reads for the Laurel flow. Everything here uses the
+ * Brand + membership writes/reads for the AI Search flow. Everything here uses the
  * service-role client and is server-only: the pre-scan route, the gate cutover
  * and the (future) scan runner all go through these, keeping routes thin. RLS is
  * the backstop; these bypass it deliberately.

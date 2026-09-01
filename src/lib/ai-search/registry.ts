@@ -1,11 +1,11 @@
 /**
- * Model/service registry — the single source of truth mapping a Laurel role to
+ * Model/service registry — the single source of truth mapping an AI Search role to
  * a provider + model + tuning. Nothing is hardcoded at the call site; swapping a
  * model is an edit here + a redeploy. Model ids and prices go stale by design.
  */
 
 export type Provider = "openai" | "anthropic";
-export type LaurelRole = "enrichment" | "scan" | "extraction";
+export type AiSearchRole = "enrichment" | "scan" | "extraction";
 
 export interface ModelConfig {
   provider: Provider;
@@ -21,7 +21,7 @@ export interface ModelConfig {
   maxOutputTokens?: number;
 }
 
-export const registry: Record<LaurelRole, ModelConfig> = {
+export const registry: Record<AiSearchRole, ModelConfig> = {
   // Steps 2 & 5 (generation). Luna for now to keep costs down; was terra for
   // sharper topic quality — revisit if topics/prompts degrade.
   enrichment: {

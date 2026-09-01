@@ -5,7 +5,7 @@ import {
   getBrandMetrics,
   getUserIdByAuthId,
   SCAN_STALE_MS,
-} from "@/lib/laurel";
+} from "@/lib/ai-search";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 

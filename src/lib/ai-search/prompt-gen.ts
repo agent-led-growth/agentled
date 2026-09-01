@@ -39,7 +39,7 @@ const SCHEMA: Record<string, unknown> = {
 };
 
 const SYSTEM_PROMPT =
-  "You generate the search prompts Laurel runs against AI assistants to measure a " +
+  "You generate the search prompts AI Search runs against AI assistants to measure a " +
   "brand's visibility. For each topic, write exactly 3 concrete questions a real " +
   "potential customer would type into ChatGPT in that space — the kind where this " +
   "brand could plausibly be recommended. Vary the intent across the three (finding " +

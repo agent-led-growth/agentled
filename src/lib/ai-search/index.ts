@@ -1,6 +1,6 @@
 /**
- * Laurel data-access layer. Server-only, service-role. Import from
- * `@/lib/laurel` rather than the individual files.
+ * AI Search data-access layer. Server-only, service-role. Import from
+ * `@/lib/ai-search` rather than the individual files.
  */
 
 export * from "./types";

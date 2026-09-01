@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { claimScan, getBrandById, getUserIdByAuthId, releaseScan } from "@/lib/laurel";
+import { claimScan, getBrandById, getUserIdByAuthId, releaseScan } from "@/lib/ai-search";
 import { enqueueScan } from "@/lib/scan-queue";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
