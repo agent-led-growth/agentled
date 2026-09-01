@@ -4,10 +4,12 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
-# Agentled
+# Agent-led Growth
 
 Website + app for agentled.co — the marketing site plus the AI Search
-monitoring tool. Open source (Apache-2.0); brand assets are reserved (see NOTICE).
+monitoring tool: track how a brand shows up in AI-generated answers (ChatGPT
+today; Claude, Gemini, Perplexity and others coming soon). Open source
+(Apache-2.0); brand assets are reserved (see NOTICE).
 
 ## Stack
 
