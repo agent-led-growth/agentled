@@ -35,7 +35,7 @@ to run without billing.
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Conventions live in
-[AGENTS.md](AGENTS.md). Security issues: [SECURITY.md](SECURITY.md).
+[AGENTS.md](AGENTS.md).
 
 ## License
 
