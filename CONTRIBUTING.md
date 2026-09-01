@@ -30,8 +30,7 @@ env access, theming) are in [AGENTS.md](AGENTS.md).
 
 ## Reporting
 
-- Bugs: open a GitHub issue.
-- Security: **don't** open a public issue — see [SECURITY.md](SECURITY.md).
+Open a GitHub issue for bugs and feature requests.
 
 By contributing you agree your work is licensed under [Apache-2.0](LICENSE).
 Don't add our brand marks or logos to a fork — see [NOTICE](NOTICE).
