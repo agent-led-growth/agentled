@@ -1,8 +1,8 @@
 # Agent-led Growth
 
 The Agent-led Growth repository — the [agentled.co](https://agentled.co) site
-plus the AI Search monitoring tool (track how a brand shows up in AI-generated
-answers).
+plus the AI Search monitoring tool: track how a brand shows up in AI-generated
+answers (ChatGPT today; Claude, Gemini, Perplexity and others coming soon).
 
 ## Stack
 
