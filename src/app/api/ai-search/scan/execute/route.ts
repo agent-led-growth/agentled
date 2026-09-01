@@ -17,7 +17,7 @@ import {
   reapStaleRuns,
   runScan,
   startRun,
-} from "@/lib/laurel";
+} from "@/lib/ai-search";
 import { promptLimit } from "@/lib/plan";
 
 /**

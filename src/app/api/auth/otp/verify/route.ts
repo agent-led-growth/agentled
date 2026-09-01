@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { onboardComparison } from "@/lib/email/comparison";
 import { onboard, type OnboardSource } from "@/lib/email/onboarding";
 import type { LocationInput } from "@/lib/geo/location";
-import { claimBrandForMember, deleteBrand } from "@/lib/laurel";
+import { claimBrandForMember, deleteBrand } from "@/lib/ai-search";
 import { brandLimit, planOf } from "@/lib/plan";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -145,7 +145,7 @@ async function linkUserAndOnboard(
     .single();
   if (upsertError) throw upsertError;
 
-  // Claim the Laurel brand they onboarded: attach the member (flipping it active
+  // Claim the AI Search brand they onboarded: attach the member (flipping it active
   // + owned) and persist their topic selection, reusing an existing brand for
   // this domain instead of duplicating the connection. Best effort: a failure
   // here must not block the sign-in or, via a claim rollback, re-fire the

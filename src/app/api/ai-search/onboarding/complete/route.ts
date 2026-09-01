@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import type { LocationInput } from "@/lib/geo/location";
-import { getUserIdByAuthId, setSelectedTopics, updateBrandLocation } from "@/lib/laurel";
+import { getUserIdByAuthId, setSelectedTopics, updateBrandLocation } from "@/lib/ai-search";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 

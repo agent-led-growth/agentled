@@ -16,8 +16,10 @@ export const NOTIFY_FROM = "Agent-led Growth <hello@notifications.agentled.co>";
  * whole delivery (re-running the billing sync) just because an email hiccuped.
  */
 export async function notifyInternal(subject: string, text: string): Promise<void> {
+  const client = resend();
+  if (!client) return; // email disabled — internal alerts are best-effort
   try {
-    const res = await resend().emails.send({
+    const res = await client.emails.send({
       from: NOTIFY_FROM,
       to: NOTIFY_TO,
       subject,

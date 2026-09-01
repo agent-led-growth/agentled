@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { HomeScanForm } from "@/components/home/home-scan-form";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { hasActiveBrand } from "@/lib/laurel";
+import { hasActiveBrand } from "@/lib/ai-search";
 import { NOINDEX } from "@/lib/metadata";
 import { SUBSTACK_URL, getSubstackPosts } from "@/lib/substack";
 import { getUser } from "@/lib/supabase/session";

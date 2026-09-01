@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { env } from "@/lib/env";
 import { isInternalRequest } from "@/lib/internal-auth";
-import { listDueBrands } from "@/lib/laurel";
+import { listDueBrands } from "@/lib/ai-search";
 import { isDaily } from "@/lib/plan";
 import { enqueueScan } from "@/lib/scan-queue";
 
@@ -28,7 +29,12 @@ export async function POST(request: Request) {
   const staleBefore = new Date(Date.now() - DUE_AFTER_MS).toISOString();
   const candidates = await listDueBrands(staleBefore);
   // The daily/free decision lives in code, fail-closed — never in the SQL.
-  const due = candidates.filter((c) => isDaily(c.plan)).slice(0, MAX_PER_TICK);
+  // Self-hosted instances aren't on our commercial tiers, so every active brand
+  // scans daily; the hosted product keeps the plan gate.
+  const selfHosted = env.selfHosted();
+  const due = candidates
+    .filter((c) => selfHosted || isDaily(c.plan))
+    .slice(0, MAX_PER_TICK);
 
   let enqueued = 0;
   for (const c of due) {

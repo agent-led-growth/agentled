@@ -1,6 +1,6 @@
 /**
  * Static demo data for the AI Search Monitor, ported verbatim from the design
- * handoff (`Laurel App.dc.html`). No backend yet — every screen renders from
+ * handoff (`AI Search App.dc.html`). No backend yet — every screen renders from
  * these fixtures. The monitored brand is Agent-led Growth itself.
  */
 

@@ -9,7 +9,7 @@ import {
   resetSuggestedTopics,
   updateBrandEnrichment,
   type Brand,
-} from "@/lib/laurel";
+} from "@/lib/ai-search";
 import { createClient } from "@/lib/supabase/server";
 
 /**

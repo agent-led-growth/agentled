@@ -9,7 +9,7 @@ import {
   listPrompts,
   setPromptActive,
   updatePromptText,
-} from "@/lib/laurel";
+} from "@/lib/ai-search";
 import { promptLimit } from "@/lib/plan";
 import { createClient } from "@/lib/supabase/server";
 

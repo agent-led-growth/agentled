@@ -40,6 +40,9 @@ export async function onboard(
 ): Promise<{ error: unknown | null }> {
   const cfg = CONFIG[source];
   const client = resend();
+  // Email not configured (self-hosted without Resend): treat onboarding as a
+  // successful no-op so the caller keeps its claim and the sign-in isn't blocked.
+  if (!client) return { error: null };
 
   const contact = await client.contacts.create({
     email,

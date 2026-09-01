@@ -1,0 +1,27 @@
+Agent-led Growth (agentled.co)
+Copyright 2026 Agent-led Growth
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+------------------------------------------------------------------------------
+Trademark and brand carve-out
+------------------------------------------------------------------------------
+
+The Apache 2.0 license applies to the SOURCE CODE in this repository. It does
+NOT grant any right to use the Agent-led Growth name, the "agentled" mark, the
+"AI Search Monitor" product name, or any logos, wordmarks, or brand assets —
+including everything under `public/logos/` — which remain the property of
+Agent-led Growth and are reserved.
+
+When you run a self-hosted or modified copy of this software, you must:
+
+  - Remove or replace the third-party brand marks in `public/logos/` (these are
+    other companies' logos used as social proof and are not ours to sublicense).
+  - Not present your instance in a way that implies it is operated by, endorsed
+    by, or affiliated with Agent-led Growth, and not use our name or logos to
+    promote your fork.
+
+Nominative reference — stating truthfully that your project is "based on" or
+"a fork of" Agent-led Growth — is permitted. Apache 2.0 §6 already excludes
+trademark rights from the license grant; this notice makes the boundary
+explicit for a self-hosting audience.

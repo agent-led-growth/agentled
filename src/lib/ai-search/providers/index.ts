@@ -19,10 +19,10 @@ export function runStructured(
     case "openai":
       return openaiGenerateStructured(config, req);
     case "anthropic":
-      throw new Error("Laurel: anthropic provider not implemented yet");
+      throw new Error("AI Search: anthropic provider not implemented yet");
     default: {
       const exhaustive: never = config.provider;
-      throw new Error(`Laurel: unknown provider ${String(exhaustive)}`);
+      throw new Error(`AI Search: unknown provider ${String(exhaustive)}`);
     }
   }
 }

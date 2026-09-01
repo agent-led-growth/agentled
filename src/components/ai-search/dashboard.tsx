@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { capture, identifyUser } from "@/lib/analytics";
-import type { BrandMetrics, PromptAnswer } from "@/lib/laurel/metrics";
+import type { BrandMetrics, PromptAnswer } from "@/lib/ai-search/metrics";
 import { brandLimit, isDaily, isPaid, planLabel } from "@/lib/plan";
 import { createClient } from "@/lib/supabase/client";
 

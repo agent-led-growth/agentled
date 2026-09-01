@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { isInternalRequest } from "@/lib/internal-auth";
-import { getBrandById, markScanFailed } from "@/lib/laurel";
+import { getBrandById, markScanFailed } from "@/lib/ai-search";
 
 /**
  * Internal: record a terminal scan failure. The scan-consumer worker calls this

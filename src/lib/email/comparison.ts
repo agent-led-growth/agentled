@@ -21,8 +21,10 @@ const TABLE_URL = "https://agentled.co/open-source-agent-readiness";
  * never thrown, so it can't block the email send or the sign-in.
  */
 async function addToSegment(email: string): Promise<void> {
+  const client = resend();
+  if (!client) return; // email disabled
   try {
-    const { error } = await resend().contacts.create({
+    const { error } = await client.contacts.create({
       email,
       unsubscribed: false,
       segments: [{ id: SEGMENT_ID }],
@@ -39,8 +41,10 @@ async function addToSegment(email: string): Promise<void> {
  * the landing, so a rare miss simply isn't retried.
  */
 async function sendEmail(email: string): Promise<void> {
+  const client = resend();
+  if (!client) return; // email disabled
   try {
-    const { error } = await resend().emails.send({
+    const { error } = await client.emails.send({
       from: FROM,
       to: email,
       subject: "See how leading open-source products build for agents",

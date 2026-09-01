@@ -13,6 +13,10 @@ import { getBillingProfile } from "@/lib/stripe/customer";
  * Returns the portal URL for the client to redirect to.
  */
 export async function POST() {
+  if (!env.stripeEnabled()) {
+    return NextResponse.json({ error: "Billing is not enabled." }, { status: 503 });
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

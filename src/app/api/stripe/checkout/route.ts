@@ -29,6 +29,10 @@ import { planOf } from "@/lib/plan";
  * Returns `{ url }` (a Checkout Session to redirect to) or `{ manage: true }`.
  */
 export async function POST(request: Request) {
+  if (!env.stripeEnabled()) {
+    return NextResponse.json({ error: "Billing is not enabled." }, { status: 503 });
+  }
+
   let body: Record<string, unknown> = {};
   try {
     body = (await request.json()) as Record<string, unknown>;

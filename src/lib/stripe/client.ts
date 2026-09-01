@@ -16,7 +16,15 @@ import { env } from "@/lib/env";
  * exercised). Cheap to construct; no connection is held open.
  */
 export function stripe(): Stripe {
-  return new Stripe(env.stripeSecretKey(), {
+  const key = env.stripeSecretKey();
+  if (!key) {
+    // Billing is optional. Routes guard with `env.stripeEnabled()` and return 503
+    // before reaching here; this throw is the backstop for any other caller.
+    throw new Error(
+      "Stripe is not configured: set STRIPE_SECRET_KEY (or SELF_HOSTED=true to run without billing).",
+    );
+  }
+  return new Stripe(key, {
     httpClient: Stripe.createFetchHttpClient(),
   });
 }

@@ -11,6 +11,8 @@ function required(name: string, value: string | undefined): string {
 }
 
 export const env = {
+  // --- Required ---
+  // The minimal set a self-hosted instance needs to boot: Supabase + OpenAI.
   supabaseUrl: () =>
     required("NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL),
   supabaseAnonKey: () =>
@@ -23,17 +25,33 @@ export const env = {
       "SUPABASE_SERVICE_ROLE_KEY",
       process.env.SUPABASE_SERVICE_ROLE_KEY,
     ),
-  resendApiKey: () => required("RESEND_API_KEY", process.env.RESEND_API_KEY),
   openaiApiKey: () => required("OPENAI_API_KEY", process.env.OPENAI_API_KEY),
+
+  // --- Optional (the related feature disables itself when unset) ---
+  // Transactional email. Unset ⇒ email is skipped (onboarding, notifications,
+  // scan-ready) rather than throwing. Gate on `emailEnabled()`.
+  resendApiKey: (): string | undefined => process.env.RESEND_API_KEY,
   // Shared secret guarding the internal scan-execute/-fail routes, which the
-  // scan-consumer worker calls server-to-server (no user session).
-  internalSecret: () => required("INTERNAL_SECRET", process.env.INTERNAL_SECRET),
+  // scan-consumer worker calls server-to-server (no user session). Unset ⇒ the
+  // internal routes reject every request (locked down), so only set it if you
+  // run the background scan workers.
+  internalSecret: (): string | undefined => process.env.INTERNAL_SECRET,
   // Stripe billing (Epic 6). Secret key for the API, webhook secret for verifying
-  // the signature on /api/stripe/webhook. Both required only where actually used
-  // (checkout/portal/webhook), so a project without billing configured still runs.
-  stripeSecretKey: () => required("STRIPE_SECRET_KEY", process.env.STRIPE_SECRET_KEY),
-  stripeWebhookSecret: () =>
-    required("STRIPE_WEBHOOK_SECRET", process.env.STRIPE_WEBHOOK_SECRET),
+  // the signature on /api/stripe/webhook. Unset ⇒ billing is disabled: the Stripe
+  // routes return 503 and `stripe()` throws with a clear message. Gate on
+  // `stripeEnabled()`. Self-hosters can run the whole app without either.
+  stripeSecretKey: (): string | undefined => process.env.STRIPE_SECRET_KEY,
+  stripeWebhookSecret: (): string | undefined => process.env.STRIPE_WEBHOOK_SECRET,
+
+  // --- Feature predicates ---
+  // Truthy only when the service's keys are present, so call sites can branch
+  // without re-implementing the "which vars count" rule.
+  emailEnabled: (): boolean => Boolean(process.env.RESEND_API_KEY),
+  stripeEnabled: (): boolean =>
+    Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET),
+  // Self-hosting switch: skips billing and removes plan-based gating on scan
+  // cadence. Leave unset/false for the hosted commercial configuration.
+  selfHosted: (): boolean => process.env.SELF_HOSTED === "true",
   // Optional: a dedicated Customer Portal configuration scoped to the agentled
   // plans. Set in production (a shared Stripe account has other businesses' products
   // in the default portal config); when absent the portal falls back to the account

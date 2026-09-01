@@ -23,6 +23,14 @@ import {
  * the Stripe object rather than applying a delta.
  */
 export async function POST(request: Request) {
+  const webhookSecret = env.stripeWebhookSecret();
+  // `stripeEnabled()` already implies the webhook secret is set; the explicit
+  // `!webhookSecret` is what narrows it from `string | undefined` to `string`
+  // for the constructEventAsync call below. Keep both — don't "simplify" it away.
+  if (!env.stripeEnabled() || !webhookSecret) {
+    return new Response("Billing is not enabled", { status: 503 });
+  }
+
   const signature = request.headers.get("stripe-signature");
   if (!signature) {
     return new Response("Missing signature", { status: 400 });
@@ -34,7 +42,7 @@ export async function POST(request: Request) {
     event = await stripe().webhooks.constructEventAsync(
       payload,
       signature,
-      env.stripeWebhookSecret(),
+      webhookSecret,
     );
   } catch (err) {
     // Bad signature or malformed payload — never our fault to retry, so 400.

@@ -1,4 +1,4 @@
-import type { BrandLocation, LocationMode } from "@/lib/laurel/types";
+import type { BrandLocation, LocationMode } from "@/lib/ai-search/types";
 
 import { citiesForCountry, isValidCity } from "./cities";
 import { countryName, isValidCountry } from "./countries";
