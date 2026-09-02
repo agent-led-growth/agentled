@@ -1,4 +1,4 @@
-import type { Brand, Prompt, ScanRun } from "@/lib/ai-search";
+import type { Brand, Prompt, PromptAnswer, ScanRun } from "@/lib/ai-search";
 
 /**
  * DB row → public API shape. Deliberately explicit (not a pass-through) so the
@@ -39,6 +39,19 @@ export function serializePrompt(p: Prompt) {
     sortOrder: p.sort_order,
     createdAt: p.created_at,
     updatedAt: p.updated_at,
+  };
+}
+
+export function serializeAnswer(a: PromptAnswer) {
+  return {
+    runId: a.runId,
+    at: a.at,
+    answer: a.answer,
+    promptText: a.promptText,
+    named: a.named,
+    highlight: a.highlight,
+    brands: a.brands,
+    cites: a.cites,
   };
 }
 
