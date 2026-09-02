@@ -29,7 +29,7 @@ export function ProductMark({ logo, size = 22 }: { logo: string; size?: number }
 /**
  * Per-mark heights (px) on the landing, tuned so the differently-proportioned
  * marks read at a consistent optical size — mobile / desktop. Set as CSS vars so
- * the static `h-[var(...)]` utilities stay responsive per logo.
+ * the static height utilities (h-[var(--logo-h)]) stay responsive per logo.
  */
 const LANDING_SIZE: Record<ProductName, { mobile: number; desktop: number }> = {
   PostHog: { mobile: 38, desktop: 60 },
