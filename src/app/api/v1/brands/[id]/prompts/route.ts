@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 
-import { assertBrandMember, createPrompt, listPrompts, setPromptActive } from "@/lib/ai-search";
+import {
+  assertBrandMember,
+  createPrompt,
+  listPrompts,
+  MAX_PROMPT_TEXT_LEN,
+  setPromptActive,
+} from "@/lib/ai-search";
 import { pageResult, parsePagination } from "@/lib/api/pagination";
 import { badRequest, limitReached, notFound } from "@/lib/api/respond";
 import { isUuid, withApiKey } from "@/lib/api/route";
 import { serializePrompt } from "@/lib/api/serialize";
 import { promptUsage } from "@/lib/api/usage";
-
-/** Longest a monitored question may be (matches the app editor). */
-const MAX_PROMPT_LEN = 300;
 
 /** Parse the `active` filter: true/false (case-insensitive), absent, or invalid. */
 function parseActive(v: string | null): boolean | undefined | "invalid" {
@@ -56,8 +59,8 @@ export const POST = withApiKey(
     const body = (await request.json().catch(() => ({}))) as { text?: unknown };
     const text = typeof body.text === "string" ? body.text.trim() : "";
     if (!text) return badRequest("text is required.");
-    if (text.length > MAX_PROMPT_LEN)
-      return badRequest(`text must be at most ${MAX_PROMPT_LEN} characters.`);
+    if (text.length > MAX_PROMPT_TEXT_LEN)
+      return badRequest(`text must be at most ${MAX_PROMPT_TEXT_LEN} characters.`);
 
     const { used, limit } = await promptUsage(auth.userId);
     if (used >= limit)

@@ -4,6 +4,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 import type { NewPrompt, Prompt } from "./types";
 
+/** Longest a monitored question may be — the single source for this rule. */
+export const MAX_PROMPT_TEXT_LEN = 300;
+
 /**
  * Prompt writes/reads. Prompts are generated from the selected topics at the
  * gate (generation logic lives with the route / the future intelligence); this
