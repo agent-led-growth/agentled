@@ -68,8 +68,10 @@ export const PATCH = withApiKey(
         return badRequest("location must be an object.");
       const input = loc as LocationInput;
       const mode = input.mode ?? undefined;
-      if (mode != null && mode !== "worldwide" && mode !== "country" && mode !== "city")
-        return badRequest("location.mode must be 'worldwide', 'country', or 'city'.");
+      // Require an explicit mode, so an empty/partial object can't silently reset
+      // a scoped brand to worldwide. Send { mode: "worldwide" } to clear scope.
+      if (mode !== "worldwide" && mode !== "country" && mode !== "city")
+        return badRequest("location.mode is required: 'worldwide', 'country', or 'city'.");
       const normalized = normalizeBrandLocation(input);
       if ((mode === "country" || mode === "city") && normalized.mode === "worldwide")
         return badRequest("location.country is not a valid ISO 3166-1 alpha-2 code.");
