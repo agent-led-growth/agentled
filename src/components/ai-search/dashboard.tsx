@@ -1865,6 +1865,7 @@ function AccountView({
       </div>
 
       <BillingCard plan={plan} ready={ready} hasBilling={hasBilling} />
+      <ApiKeysCard ready={ready} />
     </div>
   );
 }
@@ -1953,6 +1954,226 @@ function BillingCard({
           </Link>
         </>
       )}
+      {error ? (
+        <p role="alert" className="font-mono text-[12px]" style={{ color: "#e0603f" }}>
+          {error}
+        </p>
+      ) : null}
+    </Card>
+  );
+}
+
+type ApiKey = {
+  id: string;
+  label: string;
+  keyPrefix: string;
+  lastUsedAt: string | null;
+  createdAt: string;
+};
+
+/**
+ * API keys in the Account view — create, list and revoke keys for the public
+ * agentled API. A freshly minted key's secret comes back exactly once, so it is
+ * surfaced in a copy box (with a "won't be shown again" warning) until dismissed.
+ */
+function ApiKeysCard({ ready }: { ready: boolean }) {
+  const [keys, setKeys] = useState<ApiKey[] | null>(null);
+  const [label, setLabel] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [created, setCreated] = useState<string | null>(null); // one-time plaintext
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!ready) return;
+    let alive = true;
+    fetch("/api/ai-search/api-keys")
+      .then((r) => (r.ok ? r.json() : { keys: [] }))
+      .then((d: { keys?: ApiKey[] }) => {
+        if (alive) setKeys(d.keys ?? []);
+      })
+      .catch(() => {
+        if (alive) setKeys([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [ready]);
+
+  async function create() {
+    setBusy(true);
+    setError(null);
+    setCreated(null);
+    setCopied(false);
+    try {
+      const res = await fetch("/api/ai-search/api-keys", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ label: label.trim() }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        key?: string;
+        error?: string;
+      } & Partial<ApiKey>;
+      if (res.ok && data.key && data.id) {
+        setCreated(data.key);
+        setKeys((prev) => [
+          {
+            id: data.id as string,
+            label: data.label ?? "API key",
+            keyPrefix: data.keyPrefix ?? "",
+            lastUsedAt: data.lastUsedAt ?? null,
+            createdAt: data.createdAt ?? new Date().toISOString(),
+          },
+          ...(prev ?? []),
+        ]);
+        setLabel("");
+      } else {
+        setError(data.error ?? "Could not create a key. Please try again.");
+      }
+    } catch {
+      setError("Could not create a key. Please try again.");
+    }
+    setBusy(false);
+  }
+
+  async function revoke(id: string) {
+    setError(null);
+    const prev = keys ?? [];
+    setKeys(prev.filter((k) => k.id !== id)); // optimistic
+    try {
+      const res = await fetch(`/api/ai-search/api-keys?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        setKeys(prev);
+        setError("Could not revoke the key. Please try again.");
+      }
+    } catch {
+      setKeys(prev);
+      setError("Could not revoke the key. Please try again.");
+    }
+  }
+
+  async function copyCreated() {
+    if (!created) return;
+    try {
+      await navigator.clipboard.writeText(created);
+      setCopied(true);
+    } catch {
+      // Clipboard blocked — the key is visible for manual copy anyway.
+    }
+  }
+
+  const buttonStyle = {
+    background: "var(--ink)",
+    color: "var(--panel)",
+    fontWeight: 600,
+    borderColor: "var(--ink)",
+  } as const;
+
+  return (
+    <Card className="flex flex-col gap-[14px] p-[20px_22px] md:max-w-[680px]">
+      <MonoLabel>API keys</MonoLabel>
+      <p className="text-[14px] leading-[1.5]" style={{ color: "var(--dim)" }}>
+        Use a key as a Bearer token to access the agentled API. Treat it like a
+        password — it can read your account&apos;s data.
+      </p>
+
+      {created ? (
+        <div
+          role="status"
+          className="flex flex-col gap-[8px]"
+          style={{ border: "1px solid var(--line)", background: "var(--panel)", padding: "12px 14px" }}
+        >
+          <span className="font-mono text-[12px]" style={{ color: "var(--dim)" }}>
+            Copy your key now — it won&apos;t be shown again.
+          </span>
+          <code
+            className="text-[13px]"
+            style={{ wordBreak: "break-all", color: "var(--ink)" }}
+          >
+            {created}
+          </code>
+          <div className="flex gap-[8px]">
+            <button
+              type="button"
+              onClick={copyCreated}
+              className="self-start border px-[12px] py-[6px] text-[13px] font-medium transition-opacity hover:opacity-90"
+              style={buttonStyle}
+            >
+              {copied ? "Copied" : "Copy"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setCreated(null)}
+              className="self-start border px-[12px] py-[6px] text-[13px] font-medium transition-opacity hover:opacity-90"
+              style={{ borderColor: "var(--line)", color: "var(--ink)" }}
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap items-center gap-[8px]">
+        <input
+          type="text"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="Key name (e.g. Claude)"
+          maxLength={60}
+          className="min-w-[180px] flex-1 border px-[12px] py-[8px] text-[14px]"
+          style={{ borderColor: "var(--line)", background: "var(--panel)", color: "var(--ink)" }}
+        />
+        <button
+          type="button"
+          onClick={create}
+          disabled={busy}
+          className="border px-[16px] py-[8px] text-[14px] font-medium transition-opacity hover:opacity-90 disabled:opacity-70"
+          style={buttonStyle}
+        >
+          {busy ? "Creating…" : "Create key"}
+        </button>
+      </div>
+
+      {keys === null ? (
+        <span className="text-[14px]" style={{ color: "var(--dim)" }}>
+          Loading…
+        </span>
+      ) : keys.length === 0 ? (
+        <span className="text-[14px]" style={{ color: "var(--dim)" }}>
+          No keys yet.
+        </span>
+      ) : (
+        <div className="flex flex-col">
+          {keys.map((k) => (
+            <div
+              key={k.id}
+              className="flex items-center justify-between gap-[12px] py-[10px]"
+              style={{ borderTop: "1px solid var(--line)" }}
+            >
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate text-[14px]" style={{ color: "var(--ink)" }}>
+                  {k.label}
+                </span>
+                <span className="font-mono text-[12px]" style={{ color: "var(--dim)" }}>
+                  {k.keyPrefix}…{k.lastUsedAt ? " · used" : " · never used"}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => revoke(k.id)}
+                className="shrink-0 border px-[12px] py-[6px] text-[13px] font-medium transition-opacity hover:opacity-90"
+                style={{ borderColor: "var(--line)", color: "var(--ink)" }}
+              >
+                Revoke
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {error ? (
         <p role="alert" className="font-mono text-[12px]" style={{ color: "#e0603f" }}>
           {error}
