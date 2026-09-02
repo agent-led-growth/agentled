@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import {
   assertBrandMember,
+  countActivePrompts,
   createPrompt,
   listPrompts,
   MAX_PROMPT_TEXT_LEN,
@@ -62,22 +63,25 @@ export const POST = withApiKey(
     if (text.length > MAX_PROMPT_TEXT_LEN)
       return badRequest(`text must be at most ${MAX_PROMPT_TEXT_LEN} characters.`);
 
-    const { used, limit } = await promptUsage(auth.userId);
+    const { used, limit, brandIds } = await promptUsage(auth.userId);
     if (used >= limit)
       return limitReached(
         `You've reached your plan's prompt limit (${used}/${limit}). Upgrade to add more.`,
       );
 
     const prompt = await createPrompt(id, text);
-    // The check + insert aren't atomic; re-count and soft-roll-back if a
-    // concurrent add pushed the account over the cap, so it's never exceeded.
-    const after = await promptUsage(auth.userId);
-    if (after.used > limit) {
+    // The check + insert aren't atomic; re-count active prompts (plan/brands can't
+    // change mid-request) and soft-roll-back if a concurrent add pushed over the cap.
+    const after = brandIds.length ? await countActivePrompts(brandIds) : 0;
+    if (after > limit) {
       await setPromptActive(prompt.id, false);
       return limitReached(
         `You've reached your plan's prompt limit (${limit}/${limit}). Upgrade to add more.`,
       );
     }
-    return NextResponse.json({ prompt: serializePrompt(prompt), usage: after }, { status: 201 });
+    return NextResponse.json(
+      { prompt: serializePrompt(prompt), usage: { used: after, limit } },
+      { status: 201 },
+    );
   },
 );
