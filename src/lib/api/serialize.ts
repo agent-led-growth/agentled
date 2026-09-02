@@ -30,10 +30,10 @@ export function serializeBrand(b: Brand) {
 }
 
 export function serializePrompt(p: Prompt) {
+  // topic_id is intentionally omitted — topics aren't part of the public API.
   return {
     id: p.id,
     brandId: p.brand_id,
-    topicId: p.topic_id,
     text: p.text,
     active: p.active,
     sortOrder: p.sort_order,
