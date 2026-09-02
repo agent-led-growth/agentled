@@ -30,17 +30,39 @@ export async function insertPrompts(
   return (data ?? []) as Prompt[];
 }
 
-/** All prompts for a brand, active first isn't assumed — caller filters. */
-export async function listPrompts(brandId: string): Promise<Prompt[]> {
+/**
+ * A brand's prompts, ordered by sort order then creation. Returns both active and
+ * inactive by default (a "removed" prompt is a soft delete, kept for history);
+ * pass `opts.active` to filter, and `opts.limit`/`opts.offset` to paginate. All
+ * options are optional so existing callers get every prompt as before.
+ */
+export async function listPrompts(
+  brandId: string,
+  opts?: { active?: boolean; limit?: number; offset?: number },
+): Promise<Prompt[]> {
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("prompts")
-    .select("*")
-    .eq("brand_id", brandId)
+  const filtered =
+    opts?.active === undefined
+      ? admin.from("prompts").select("*").eq("brand_id", brandId)
+      : admin.from("prompts").select("*").eq("brand_id", brandId).eq("active", opts.active);
+  const ordered = filtered
     .order("sort_order", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: true });
+  const offset = opts?.offset ?? 0;
+  const { data, error } = await (opts?.limit === undefined
+    ? ordered
+    : ordered.range(offset, offset + opts.limit - 1));
   if (error) throw error;
   return (data ?? []) as Prompt[];
+}
+
+/**
+ * A prompt IF it belongs to `brandId`, else null — the ownership guard for
+ * prompt-scoped routes (so one brand's request can never read another's prompt).
+ */
+export async function getPromptForBrand(promptId: string, brandId: string): Promise<Prompt | null> {
+  const prompt = await getPromptById(promptId);
+  return prompt && prompt.brand_id === brandId ? prompt : null;
 }
 
 /** Soft on/off — keeps scan history intact (the FK forbids hard-deleting). */

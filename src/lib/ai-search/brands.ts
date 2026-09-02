@@ -346,12 +346,24 @@ export async function getBrandOwner(
   return { userId: row.user_id, plan: planOf(embed?.plan ?? null) };
 }
 
-/** Every brand a user belongs to, newest first. */
+/** Every brand a user belongs to, newest first (by Supabase Auth user id). */
 export async function getBrandsForUser(authUserId: string): Promise<Brand[]> {
-  const admin = createAdminClient();
   const userId = await getUserIdByAuthId(authUserId);
   if (!userId) return [];
+  return getBrandsForUserId(userId);
+}
 
+/**
+ * Every brand a user belongs to, keyed by the app-owned `public.users` id,
+ * newest first. Pass `limit`/`offset` to paginate; omit `limit` for all brands
+ * (the internal/UI callers rely on the all-brands default).
+ */
+export async function getBrandsForUserId(
+  userId: string,
+  limit?: number,
+  offset = 0,
+): Promise<Brand[]> {
+  const admin = createAdminClient();
   const { data: memberships, error } = await admin
     .from("brand_users")
     .select("brand_id")
@@ -361,13 +373,72 @@ export async function getBrandsForUser(authUserId: string): Promise<Brand[]> {
   const ids = (memberships ?? []).map((m) => (m as { brand_id: string }).brand_id);
   if (ids.length === 0) return [];
 
-  const { data: brands, error: brandsError } = await admin
+  const base = admin
     .from("brands")
     .select("*")
     .in("id", ids)
     .order("created_at", { ascending: false });
+  const { data: brands, error: brandsError } = await (limit === undefined
+    ? base
+    : base.range(offset, offset + limit - 1));
   if (brandsError) throw brandsError;
   return (brands ?? []) as Brand[];
+}
+
+/**
+ * Whether `userId` (app-owned users id) is a member of `brandId`. The lightweight
+ * account-isolation guard for routes that only need to authorize (not the brand
+ * itself). The service-role client bypasses RLS, so every brand-scoped API request
+ * MUST gate on this (or {@link getBrandForMember}) in code.
+ */
+export async function assertBrandMember(userId: string, brandId: string): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("brand_users")
+    .select("brand_id")
+    .eq("user_id", userId)
+    .eq("brand_id", brandId)
+    .maybeSingle();
+  if (error) throw error;
+  return Boolean(data);
+}
+
+/**
+ * The brand `brandId` IF `userId` is a member of it, else null — resolves the
+ * brand THROUGH membership in one query (the brand embedded on the membership
+ * row), so a route can never return a brand it hasn't authorized. Use
+ * {@link assertBrandMember} instead when the brand object itself isn't needed.
+ */
+export async function getBrandForMember(userId: string, brandId: string): Promise<Brand | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("brand_users")
+    .select("brands(*)")
+    .eq("user_id", userId)
+    .eq("brand_id", brandId)
+    .maybeSingle();
+  if (error) throw error;
+  // PostgREST returns the embedded to-one `brands` as an object; normalize in
+  // case a version hands back a single-element array.
+  const raw = (data as { brands: Brand | Brand[] | null } | null)?.brands ?? null;
+  return Array.isArray(raw) ? (raw[0] ?? null) : raw;
+}
+
+/** The account plan for an app-owned `public.users` id, fail-closed to `free`. */
+export async function getPlanForUserId(userId: string): Promise<Plan> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("users")
+      .select("plan")
+      .eq("id", userId)
+      .maybeSingle();
+    if (error) throw error;
+    return planOf((data as { plan: string | null } | null)?.plan);
+  } catch (err) {
+    console.error("getPlanForUserId: plan lookup failed, defaulting to free", err);
+    return "free";
+  }
 }
 
 /** The user's active brand (latest), or null. Replaces the old hasScanned path. */
