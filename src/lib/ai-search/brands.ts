@@ -375,22 +375,42 @@ export async function getBrandsForUserId(userId: string): Promise<Brand[]> {
 }
 
 /**
- * The brand `brandId` IF `userId` (app-owned users id) is a member of it, else
- * null. This is the public API's account-isolation guard: the service-role client
- * bypasses RLS, so every brand-scoped request must resolve the brand THROUGH
- * membership. One query (inner join on brand_users) both authorizes and returns
- * the brand, so a route can never fetch a brand it hasn't authorized.
+ * Whether `userId` (app-owned users id) is a member of `brandId`. The lightweight
+ * account-isolation guard for routes that only need to authorize (not the brand
+ * itself). The service-role client bypasses RLS, so every brand-scoped API request
+ * MUST gate on this (or {@link getBrandForMember}) in code.
+ */
+export async function assertBrandMember(userId: string, brandId: string): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("brand_users")
+    .select("brand_id")
+    .eq("user_id", userId)
+    .eq("brand_id", brandId)
+    .maybeSingle();
+  if (error) throw error;
+  return Boolean(data);
+}
+
+/**
+ * The brand `brandId` IF `userId` is a member of it, else null — resolves the
+ * brand THROUGH membership in one query (the brand embedded on the membership
+ * row), so a route can never return a brand it hasn't authorized. Use
+ * {@link assertBrandMember} instead when the brand object itself isn't needed.
  */
 export async function getBrandForMember(userId: string, brandId: string): Promise<Brand | null> {
   const admin = createAdminClient();
   const { data, error } = await admin
-    .from("brands")
-    .select("*, brand_users!inner(user_id)")
-    .eq("id", brandId)
-    .eq("brand_users.user_id", userId)
+    .from("brand_users")
+    .select("brands(*)")
+    .eq("user_id", userId)
+    .eq("brand_id", brandId)
     .maybeSingle();
   if (error) throw error;
-  return (data as Brand | null) ?? null;
+  // PostgREST returns the embedded to-one `brands` as an object; normalize in
+  // case a version hands back a single-element array.
+  const raw = (data as { brands: Brand | Brand[] | null } | null)?.brands ?? null;
+  return Array.isArray(raw) ? (raw[0] ?? null) : raw;
 }
 
 /** The account plan for an app-owned `public.users` id, fail-closed to `free`. */

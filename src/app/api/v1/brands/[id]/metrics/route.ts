@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getBrandForMember, getBrandMetrics } from "@/lib/ai-search";
+import { assertBrandMember, getBrandMetrics } from "@/lib/ai-search";
 import { notFound } from "@/lib/api/respond";
 import { isUuid, withApiKey } from "@/lib/api/route";
 
@@ -16,7 +16,7 @@ export const GET = withApiKey(
   async (auth, { params }: { params: Promise<{ id: string }> }, request) => {
     const { id } = await params;
     if (!isUuid(id)) return notFound("Brand");
-    if (!(await getBrandForMember(auth.userId, id))) return notFound("Brand");
+    if (!(await assertBrandMember(auth.userId, id))) return notFound("Brand");
 
     const param = new URL(request.url).searchParams.get("days");
     const parsed = Number(param);
