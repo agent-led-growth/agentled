@@ -404,8 +404,9 @@ export async function getPromptAnswers(
   brandId: string,
   promptId: string,
   limit = 12,
+  offset = 0,
 ): Promise<PromptAnswer[]> {
-  const runs = await listCompletedRuns(brandId, limit);
+  const runs = await listCompletedRuns(brandId, limit, offset);
   if (runs.length === 0) return [];
   const admin = createAdminClient();
   const runIds = runs.map((r) => r.id);

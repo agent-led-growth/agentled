@@ -1,14 +1,24 @@
 import { NextResponse } from "next/server";
 
 import { assertBrandMember, listPrompts } from "@/lib/ai-search";
-import { notFound } from "@/lib/api/respond";
+import { pageResult, parsePagination } from "@/lib/api/pagination";
+import { badRequest, notFound } from "@/lib/api/respond";
 import { isUuid, withApiKey } from "@/lib/api/route";
 import { serializePrompt } from "@/lib/api/serialize";
 
+/** Parse the `active` filter: true/false (case-insensitive), absent, or invalid. */
+function parseActive(v: string | null): boolean | undefined | "invalid" {
+  if (v === null) return undefined;
+  const s = v.toLowerCase();
+  if (s === "true") return true;
+  if (s === "false") return false;
+  return "invalid";
+}
+
 /**
- * GET /api/v1/brands/{id}/prompts → the brand's prompts (questions), active and
- * inactive. A "removed" prompt is a soft delete (active=false), kept for history,
- * so both are returned. Optional `?active=true|false` filters; omit for all.
+ * GET /api/v1/brands/{id}/prompts?active=&limit=&offset= → the brand's prompts,
+ * active and inactive by default. A "removed" prompt is a soft delete
+ * (active=false), kept for history; `?active=true|false` filters it.
  */
 export const GET = withApiKey(
   async (auth, { params }: { params: Promise<{ id: string }> }, request) => {
@@ -16,11 +26,15 @@ export const GET = withApiKey(
     if (!isUuid(id)) return notFound("Brand");
     if (!(await assertBrandMember(auth.userId, id))) return notFound("Brand");
 
-    const activeParam = new URL(request.url).searchParams.get("active");
-    let prompts = await listPrompts(id);
-    if (activeParam === "true") prompts = prompts.filter((p) => p.active);
-    else if (activeParam === "false") prompts = prompts.filter((p) => !p.active);
+    const active = parseActive(new URL(request.url).searchParams.get("active"));
+    if (active === "invalid") return badRequest("active must be 'true' or 'false'.");
 
-    return NextResponse.json({ prompts: prompts.map(serializePrompt) });
+    const { limit, offset } = parsePagination(request);
+    const rows = await listPrompts(id, { active, limit: limit + 1, offset });
+    const { items, hasMore } = pageResult(rows, limit);
+    return NextResponse.json({
+      prompts: items.map(serializePrompt),
+      pagination: { limit, offset, hasMore },
+    });
   },
 );

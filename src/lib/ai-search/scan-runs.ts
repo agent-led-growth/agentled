@@ -200,6 +200,7 @@ export async function listDueBrands(
 export async function listCompletedRuns(
   brandId: string,
   limit = 12,
+  offset = 0,
 ): Promise<{ id: string; completed_at: string }[]> {
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -208,7 +209,7 @@ export async function listCompletedRuns(
     .eq("brand_id", brandId)
     .eq("status", "completed")
     .order("completed_at", { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
   if (error) throw error;
   return ((data ?? []) as { id: string; completed_at: string }[]).map((r) => ({
     id: r.id,
@@ -217,14 +218,18 @@ export async function listCompletedRuns(
 }
 
 /** A brand's runs, newest first — the history the dashboard trends read. */
-export async function listRunsForBrand(brandId: string, limit = 90): Promise<ScanRun[]> {
+export async function listRunsForBrand(
+  brandId: string,
+  limit = 90,
+  offset = 0,
+): Promise<ScanRun[]> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("scan_runs")
     .select("*")
     .eq("brand_id", brandId)
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
   if (error) throw error;
   return (data ?? []) as ScanRun[];
 }

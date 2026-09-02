@@ -353,8 +353,16 @@ export async function getBrandsForUser(authUserId: string): Promise<Brand[]> {
   return getBrandsForUserId(userId);
 }
 
-/** Every brand a user belongs to, keyed by the app-owned `public.users` id. */
-export async function getBrandsForUserId(userId: string): Promise<Brand[]> {
+/**
+ * Every brand a user belongs to, keyed by the app-owned `public.users` id,
+ * newest first. Pass `limit`/`offset` to paginate; omit `limit` for all brands
+ * (the internal/UI callers rely on the all-brands default).
+ */
+export async function getBrandsForUserId(
+  userId: string,
+  limit?: number,
+  offset = 0,
+): Promise<Brand[]> {
   const admin = createAdminClient();
   const { data: memberships, error } = await admin
     .from("brand_users")
@@ -365,11 +373,14 @@ export async function getBrandsForUserId(userId: string): Promise<Brand[]> {
   const ids = (memberships ?? []).map((m) => (m as { brand_id: string }).brand_id);
   if (ids.length === 0) return [];
 
-  const { data: brands, error: brandsError } = await admin
+  const base = admin
     .from("brands")
     .select("*")
     .in("id", ids)
     .order("created_at", { ascending: false });
+  const { data: brands, error: brandsError } = await (limit === undefined
+    ? base
+    : base.range(offset, offset + limit - 1));
   if (brandsError) throw brandsError;
   return (brands ?? []) as Brand[];
 }
