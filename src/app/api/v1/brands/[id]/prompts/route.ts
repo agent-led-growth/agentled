@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 
-import { assertBrandMember, listPrompts } from "@/lib/ai-search";
+import { assertBrandMember, createPrompt, listPrompts, setPromptActive } from "@/lib/ai-search";
 import { pageResult, parsePagination } from "@/lib/api/pagination";
-import { badRequest, notFound } from "@/lib/api/respond";
+import { apiError, badRequest, notFound } from "@/lib/api/respond";
 import { isUuid, withApiKey } from "@/lib/api/route";
 import { serializePrompt } from "@/lib/api/serialize";
+import { promptUsage } from "@/lib/api/usage";
+
+/** Longest a monitored question may be (matches the app editor). */
+const MAX_PROMPT_LEN = 300;
 
 /** Parse the `active` filter: true/false (case-insensitive), absent, or invalid. */
 function parseActive(v: string | null): boolean | undefined | "invalid" {
@@ -36,5 +40,37 @@ export const GET = withApiKey(
       prompts: items.map(serializePrompt),
       pagination: { limit, offset, hasMore },
     });
+  },
+);
+
+/**
+ * POST /api/v1/brands/{id}/prompts  { text } → add a prompt. Enforces the
+ * account-wide plan prompt limit (409 when reached).
+ */
+export const POST = withApiKey(
+  async (auth, { params }: { params: Promise<{ id: string }> }, request) => {
+    const { id } = await params;
+    if (!isUuid(id)) return notFound("Brand");
+    if (!(await assertBrandMember(auth.userId, id))) return notFound("Brand");
+
+    const body = (await request.json().catch(() => ({}))) as { text?: unknown };
+    const text = typeof body.text === "string" ? body.text.trim() : "";
+    if (!text) return badRequest("text is required.");
+    if (text.length > MAX_PROMPT_LEN)
+      return badRequest(`text must be at most ${MAX_PROMPT_LEN} characters.`);
+
+    const { used, limit } = await promptUsage(auth.userId);
+    if (used >= limit)
+      return apiError(409, "limit_reached", `Prompt limit reached (${used}/${limit}).`);
+
+    const prompt = await createPrompt(id, text);
+    // The check + insert aren't atomic; re-count and soft-roll-back if a
+    // concurrent add pushed the account over the cap, so it's never exceeded.
+    const after = await promptUsage(auth.userId);
+    if (after.used > limit) {
+      await setPromptActive(prompt.id, false);
+      return apiError(409, "limit_reached", `Prompt limit reached (${limit}/${limit}).`);
+    }
+    return NextResponse.json({ prompt: serializePrompt(prompt), usage: after }, { status: 201 });
   },
 );
