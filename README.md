@@ -18,6 +18,10 @@ cp .env.example .env.local   # fill in Supabase + OpenAI (the minimum to boot)
 pnpm dev                     # http://localhost:3000
 ```
 
+First-time database setup: run `supabase/schema.sql` against your Supabase
+project (SQL Editor, or `psql <connection-string> -f supabase/schema.sql`) to
+create the tables, RLS policies, and functions.
+
 Everything else in `.env.example` (Resend, Stripe, Jina, PostHog) is optional —
 the related feature disables itself when its keys are unset. Set `SELF_HOSTED=true`
 to run without billing.
