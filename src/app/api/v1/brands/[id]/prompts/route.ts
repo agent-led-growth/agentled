@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { assertBrandMember, createPrompt, listPrompts, setPromptActive } from "@/lib/ai-search";
 import { pageResult, parsePagination } from "@/lib/api/pagination";
-import { apiError, badRequest, notFound } from "@/lib/api/respond";
+import { badRequest, limitReached, notFound } from "@/lib/api/respond";
 import { isUuid, withApiKey } from "@/lib/api/route";
 import { serializePrompt } from "@/lib/api/serialize";
 import { promptUsage } from "@/lib/api/usage";
@@ -61,7 +61,9 @@ export const POST = withApiKey(
 
     const { used, limit } = await promptUsage(auth.userId);
     if (used >= limit)
-      return apiError(409, "limit_reached", `Prompt limit reached (${used}/${limit}).`);
+      return limitReached(
+        `You've reached your plan's prompt limit (${used}/${limit}). Upgrade to add more.`,
+      );
 
     const prompt = await createPrompt(id, text);
     // The check + insert aren't atomic; re-count and soft-roll-back if a
@@ -69,7 +71,9 @@ export const POST = withApiKey(
     const after = await promptUsage(auth.userId);
     if (after.used > limit) {
       await setPromptActive(prompt.id, false);
-      return apiError(409, "limit_reached", `Prompt limit reached (${limit}/${limit}).`);
+      return limitReached(
+        `You've reached your plan's prompt limit (${limit}/${limit}). Upgrade to add more.`,
+      );
     }
     return NextResponse.json({ prompt: serializePrompt(prompt), usage: after }, { status: 201 });
   },

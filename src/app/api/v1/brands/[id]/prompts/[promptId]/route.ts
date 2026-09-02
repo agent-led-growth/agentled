@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { assertBrandMember, getPromptForBrand, setPromptActive, updatePromptText } from "@/lib/ai-search";
-import { apiError, badRequest, notFound } from "@/lib/api/respond";
+import { badRequest, limitReached, notFound } from "@/lib/api/respond";
 import { isUuid, withApiKey } from "@/lib/api/route";
 import { serializePrompt } from "@/lib/api/serialize";
 import { promptUsage } from "@/lib/api/usage";
@@ -10,8 +10,9 @@ const MAX_PROMPT_LEN = 300;
 
 /**
  * PATCH /api/v1/brands/{id}/prompts/{promptId}  { text?, active? } → edit a
- * prompt's question and/or its active state. Reactivating (active:true) counts
- * against the account prompt limit.
+ * prompt's question and/or enable/disable it. `active:false` disables a prompt
+ * (it stops running but is kept, with its scan history); `active:true` re-enables
+ * it and counts against the account prompt limit. Prompts are never hard-deleted.
  */
 export const PATCH = withApiKey(
   async (auth, { params }: { params: Promise<{ id: string; promptId: string }> }, request) => {
@@ -33,11 +34,13 @@ export const PATCH = withApiKey(
 
     if (body.active !== undefined) {
       if (typeof body.active !== "boolean") return badRequest("active must be a boolean.");
-      // Turning a prompt back on consumes a slot — enforce the account cap.
+      // Enabling a disabled prompt consumes a slot — enforce the account cap.
       if (body.active && !prompt.active) {
         const { used, limit } = await promptUsage(auth.userId);
         if (used >= limit)
-          return apiError(409, "limit_reached", `Prompt limit reached (${used}/${limit}).`);
+          return limitReached(
+            `You've reached your plan's prompt limit (${used}/${limit}). Upgrade to add more.`,
+          );
       }
       await setPromptActive(promptId, body.active);
     }
@@ -47,18 +50,5 @@ export const PATCH = withApiKey(
 
     const updated = await getPromptForBrand(promptId, id);
     return NextResponse.json({ prompt: updated ? serializePrompt(updated) : null });
-  },
-);
-
-/** DELETE /api/v1/brands/{id}/prompts/{promptId} → soft-deactivate (history kept). */
-export const DELETE = withApiKey(
-  async (auth, { params }: { params: Promise<{ id: string; promptId: string }> }) => {
-    const { id, promptId } = await params;
-    if (!isUuid(id) || !isUuid(promptId)) return notFound("Prompt");
-    if (!(await assertBrandMember(auth.userId, id))) return notFound("Prompt");
-    if (!(await getPromptForBrand(promptId, id))) return notFound("Prompt");
-
-    await setPromptActive(promptId, false);
-    return NextResponse.json({ ok: true });
   },
 );
