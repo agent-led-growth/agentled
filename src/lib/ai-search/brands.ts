@@ -346,12 +346,16 @@ export async function getBrandOwner(
   return { userId: row.user_id, plan: planOf(embed?.plan ?? null) };
 }
 
-/** Every brand a user belongs to, newest first. */
+/** Every brand a user belongs to, newest first (by Supabase Auth user id). */
 export async function getBrandsForUser(authUserId: string): Promise<Brand[]> {
-  const admin = createAdminClient();
   const userId = await getUserIdByAuthId(authUserId);
   if (!userId) return [];
+  return getBrandsForUserId(userId);
+}
 
+/** Every brand a user belongs to, keyed by the app-owned `public.users` id. */
+export async function getBrandsForUserId(userId: string): Promise<Brand[]> {
+  const admin = createAdminClient();
   const { data: memberships, error } = await admin
     .from("brand_users")
     .select("brand_id")
@@ -368,6 +372,40 @@ export async function getBrandsForUser(authUserId: string): Promise<Brand[]> {
     .order("created_at", { ascending: false });
   if (brandsError) throw brandsError;
   return (brands ?? []) as Brand[];
+}
+
+/**
+ * Whether `userId` (app-owned users id) is a member of `brandId`. The public API
+ * uses the service-role client, which bypasses RLS, so every brand-scoped API
+ * request MUST gate on this in code — it is the account-isolation guard.
+ */
+export async function isBrandMember(userId: string, brandId: string): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("brand_users")
+    .select("brand_id")
+    .eq("user_id", userId)
+    .eq("brand_id", brandId)
+    .maybeSingle();
+  if (error) throw error;
+  return Boolean(data);
+}
+
+/** The account plan for an app-owned `public.users` id, fail-closed to `free`. */
+export async function getPlanForUserId(userId: string): Promise<Plan> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("users")
+      .select("plan")
+      .eq("id", userId)
+      .maybeSingle();
+    if (error) throw error;
+    return planOf((data as { plan: string | null } | null)?.plan);
+  } catch (err) {
+    console.error("getPlanForUserId: plan lookup failed, defaulting to free", err);
+    return "free";
+  }
 }
 
 /** The user's active brand (latest), or null. Replaces the old hasScanned path. */

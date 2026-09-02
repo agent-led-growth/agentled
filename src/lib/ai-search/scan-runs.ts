@@ -228,3 +228,15 @@ export async function listRunsForBrand(brandId: string, limit = 90): Promise<Sca
   if (error) throw error;
   return (data ?? []) as ScanRun[];
 }
+
+/** A single run by id, or null. Callers must verify the caller owns its brand. */
+export async function getRunById(runId: string): Promise<ScanRun | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("scan_runs")
+    .select("*")
+    .eq("id", runId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as ScanRun | null) ?? null;
+}
