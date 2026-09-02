@@ -808,6 +808,32 @@ alter table public.brands
 commit;
 
 
+-- ===== 0018_api_keys.sql =====
+-- Account API keys for the public API. Plaintext shown once at creation; only the
+-- SHA-256 hash + a short display prefix are stored. RLS on, no policies (like
+-- subscribers) — server-only access via the service-role client.
+begin;
+
+create table if not exists public.api_keys (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.users (id) on delete cascade,
+  label text not null,
+  key_hash text not null unique,
+  key_prefix text not null,
+  last_used_at timestamptz,
+  created_at timestamptz not null default now(),
+  revoked_at timestamptz
+);
+
+create index if not exists api_keys_user_id_idx on public.api_keys (user_id);
+
+alter table public.api_keys enable row level security;
+
+grant all on public.api_keys to service_role;
+
+commit;
+
+
 -- ===== rls_auto_enable — present in the live DB, not in the migrations =====
 -- Belt-and-suspenders security: an event trigger that auto-enables Row Level
 -- Security on any table subsequently created in `public`, so a new table can
