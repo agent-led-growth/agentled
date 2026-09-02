@@ -1,23 +1,18 @@
 import { NextResponse } from "next/server";
 
-import { isBrandMember, listPrompts } from "@/lib/ai-search";
-import { requireApiKey } from "@/lib/api-keys/auth";
-import { notFound, serverError, unauthorized } from "@/lib/api/respond";
+import { getBrandForMember, listPrompts } from "@/lib/ai-search";
+import { notFound } from "@/lib/api/respond";
+import { isUuid, withApiKey } from "@/lib/api/route";
 import { serializePrompt } from "@/lib/api/serialize";
 
 /** GET /api/v1/brands/{id}/prompts → the brand's prompts (questions). */
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const ctx = await requireApiKey(request);
-    if (!ctx) return unauthorized();
-
+export const GET = withApiKey(
+  async (auth, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
-    if (!(await isBrandMember(ctx.userId, id))) return notFound("Brand");
+    if (!isUuid(id)) return notFound("Brand");
+    if (!(await getBrandForMember(auth.userId, id))) return notFound("Brand");
 
     const prompts = await listPrompts(id);
     return NextResponse.json({ prompts: prompts.map(serializePrompt) });
-  } catch (err) {
-    console.error("GET /api/v1/brands/[id]/prompts", err);
-    return serverError();
-  }
-}
+  },
+);

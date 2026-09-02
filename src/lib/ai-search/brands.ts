@@ -375,20 +375,22 @@ export async function getBrandsForUserId(userId: string): Promise<Brand[]> {
 }
 
 /**
- * Whether `userId` (app-owned users id) is a member of `brandId`. The public API
- * uses the service-role client, which bypasses RLS, so every brand-scoped API
- * request MUST gate on this in code — it is the account-isolation guard.
+ * The brand `brandId` IF `userId` (app-owned users id) is a member of it, else
+ * null. This is the public API's account-isolation guard: the service-role client
+ * bypasses RLS, so every brand-scoped request must resolve the brand THROUGH
+ * membership. One query (inner join on brand_users) both authorizes and returns
+ * the brand, so a route can never fetch a brand it hasn't authorized.
  */
-export async function isBrandMember(userId: string, brandId: string): Promise<boolean> {
+export async function getBrandForMember(userId: string, brandId: string): Promise<Brand | null> {
   const admin = createAdminClient();
   const { data, error } = await admin
-    .from("brand_users")
-    .select("brand_id")
-    .eq("user_id", userId)
-    .eq("brand_id", brandId)
+    .from("brands")
+    .select("*, brand_users!inner(user_id)")
+    .eq("id", brandId)
+    .eq("brand_users.user_id", userId)
     .maybeSingle();
   if (error) throw error;
-  return Boolean(data);
+  return (data as Brand | null) ?? null;
 }
 
 /** The account plan for an app-owned `public.users` id, fail-closed to `free`. */

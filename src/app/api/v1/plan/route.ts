@@ -1,20 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { getPlanForUserId } from "@/lib/ai-search";
-import { requireApiKey } from "@/lib/api-keys/auth";
-import { serverError, unauthorized } from "@/lib/api/respond";
+import { withApiKey } from "@/lib/api/route";
 import { planFeatures } from "@/lib/plan";
 
 /** GET /api/v1/plan → the account's plan and its limits. */
-export async function GET(request: Request) {
-  try {
-    const ctx = await requireApiKey(request);
-    if (!ctx) return unauthorized();
-
-    const plan = await getPlanForUserId(ctx.userId);
-    return NextResponse.json({ plan, features: planFeatures(plan) });
-  } catch (err) {
-    console.error("GET /api/v1/plan", err);
-    return serverError();
-  }
-}
+export const GET = withApiKey(async (auth) => {
+  const plan = await getPlanForUserId(auth.userId);
+  return NextResponse.json({ plan, features: planFeatures(plan) });
+});
