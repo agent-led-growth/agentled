@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 
 import { env } from "@/lib/env";
 import { isInternalRequest } from "@/lib/internal-auth";
-import { listDueBrands } from "@/lib/ai-search";
+import {
+  brandIdsWithActivePrompts,
+  brandIdsWithSelectedTopics,
+  listDueBrands,
+} from "@/lib/ai-search";
 import { isDaily } from "@/lib/plan";
 import { enqueueScan } from "@/lib/scan-queue";
 
@@ -32,9 +36,19 @@ export async function POST(request: Request) {
   // Self-hosted instances aren't on our commercial tiers, so every active brand
   // scans daily; the hosted product keeps the plan gate.
   const selfHosted = env.selfHosted();
-  const due = candidates
-    .filter((c) => selfHosted || isDaily(c.plan))
-    .slice(0, MAX_PER_TICK);
+  const eligible = candidates.filter((c) => selfHosted || isDaily(c.plan));
+
+  // Skip brands with nothing to scan: no active prompts AND no selected topics.
+  // A scan there is a no-op (runScan skips), and API-created brands have neither.
+  // Brands with prompts OR topics (which generate prompts at scan) are untouched.
+  // Filter before the per-tick cap so no-op brands can't crowd out real ones.
+  const ids = eligible.map((c) => c.brandId);
+  const [withPrompts, withTopics] = await Promise.all([
+    brandIdsWithActivePrompts(ids),
+    brandIdsWithSelectedTopics(ids),
+  ]);
+  const scannable = new Set([...withPrompts, ...withTopics]);
+  const due = eligible.filter((c) => scannable.has(c.brandId)).slice(0, MAX_PER_TICK);
 
   let enqueued = 0;
   for (const c of due) {

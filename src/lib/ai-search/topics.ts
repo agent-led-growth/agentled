@@ -112,3 +112,16 @@ export async function setSelectedTopics(
 export async function listSelectedTopics(brandId: string): Promise<Topic[]> {
   return (await listTopics(brandId)).filter((t) => t.selected);
 }
+
+/** Of `brandIds`, the subset that has at least one selected topic (one query). */
+export async function brandIdsWithSelectedTopics(brandIds: string[]): Promise<string[]> {
+  if (brandIds.length === 0) return [];
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("topics")
+    .select("brand_id")
+    .in("brand_id", brandIds)
+    .eq("selected", true);
+  if (error) throw error;
+  return [...new Set((data ?? []).map((r) => (r as { brand_id: string }).brand_id))];
+}
