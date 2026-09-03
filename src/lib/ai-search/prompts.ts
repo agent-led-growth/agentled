@@ -68,19 +68,6 @@ export async function getPromptForBrand(promptId: string, brandId: string): Prom
   return prompt && prompt.brand_id === brandId ? prompt : null;
 }
 
-/** Of `brandIds`, the subset that has at least one active prompt (one query). */
-export async function brandIdsWithActivePrompts(brandIds: string[]): Promise<string[]> {
-  if (brandIds.length === 0) return [];
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("prompts")
-    .select("brand_id")
-    .in("brand_id", brandIds)
-    .eq("active", true);
-  if (error) throw error;
-  return [...new Set((data ?? []).map((r) => (r as { brand_id: string }).brand_id))];
-}
-
 /** Soft on/off — keeps scan history intact (the FK forbids hard-deleting). */
 export async function setPromptActive(
   promptId: string,

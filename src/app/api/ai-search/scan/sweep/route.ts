@@ -2,11 +2,7 @@ import { NextResponse } from "next/server";
 
 import { env } from "@/lib/env";
 import { isInternalRequest } from "@/lib/internal-auth";
-import {
-  brandIdsWithActivePrompts,
-  brandIdsWithSelectedTopics,
-  listDueBrands,
-} from "@/lib/ai-search";
+import { brandIdsFlagged, listDueBrands } from "@/lib/ai-search";
 import { isDaily } from "@/lib/plan";
 import { enqueueScan } from "@/lib/scan-queue";
 
@@ -44,11 +40,13 @@ export async function POST(request: Request) {
   // Filter before the per-tick cap so no-op brands can't crowd out real ones.
   const ids = eligible.map((c) => c.brandId);
   const [withPrompts, withTopics] = await Promise.all([
-    brandIdsWithActivePrompts(ids),
-    brandIdsWithSelectedTopics(ids),
+    brandIdsFlagged("prompts", "active", ids),
+    brandIdsFlagged("topics", "selected", ids),
   ]);
   const scannable = new Set([...withPrompts, ...withTopics]);
-  const due = eligible.filter((c) => scannable.has(c.brandId)).slice(0, MAX_PER_TICK);
+  const scannableEligible = eligible.filter((c) => scannable.has(c.brandId));
+  const skipped = eligible.length - scannableEligible.length; // no prompts and no topics
+  const due = scannableEligible.slice(0, MAX_PER_TICK);
 
   let enqueued = 0;
   for (const c of due) {
@@ -60,5 +58,11 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, candidates: candidates.length, enqueued });
+  return NextResponse.json({
+    ok: true,
+    candidates: candidates.length,
+    eligible: eligible.length,
+    skipped,
+    enqueued,
+  });
 }

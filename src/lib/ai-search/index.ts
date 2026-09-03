@@ -6,6 +6,7 @@
 export * from "./types";
 export * from "./domain";
 export * from "./brands";
+export * from "./brand-flags";
 export * from "./topics";
 export * from "./prompts";
 export * from "./scan-runs";
