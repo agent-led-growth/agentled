@@ -47,22 +47,24 @@ export const POST = withApiKey(async (auth, _ctx, request) => {
       ? body.about.trim().slice(0, 5000)
       : undefined;
 
-  // Reuse an existing brand for this domain; only a genuinely new brand counts
-  // against the plan's brand limit.
+  // Idempotent: if the account already has a brand for this domain, return it
+  // UNCHANGED — no re-enrichment (which would re-spend a model call and overwrite
+  // name/description/logo) and it doesn't count against the brand limit.
   const existing = await getMemberBrandByDomain(auth.userId, website);
-  if (!existing) {
-    const [count, plan] = await Promise.all([
-      getBrandsForUserId(auth.userId).then((b) => b.length),
-      getPlanForUserId(auth.userId),
-    ]);
-    const limit = brandLimit(plan);
-    if (count >= limit)
-      return limitReached(
-        `You've reached your plan's brand limit (${count}/${limit}). Upgrade to add more brands.`,
-      );
-  }
+  if (existing) return NextResponse.json({ brand: serializeBrand(existing) });
 
-  const brand = existing ?? (await createActiveBrandForUser(website, auth.userId));
+  // A genuinely new brand → enforce the plan's brand limit.
+  const [count, plan] = await Promise.all([
+    getBrandsForUserId(auth.userId).then((b) => b.length),
+    getPlanForUserId(auth.userId),
+  ]);
+  const limit = brandLimit(plan);
+  if (count >= limit)
+    return limitReached(
+      `You've reached your plan's brand limit (${count}/${limit}). Upgrade to add more brands.`,
+    );
+
+  const brand = await createActiveBrandForUser(website, auth.userId);
 
   // Enrichment is best-effort (name/description/logo): a failure leaves a
   // domain-only brand rather than failing the create. Topics are deliberately NOT
@@ -81,5 +83,5 @@ export const POST = withApiKey(async (auth, _ctx, request) => {
   }
 
   const fresh = (await getBrandById(brand.id)) ?? brand;
-  return NextResponse.json({ brand: serializeBrand(fresh) }, { status: existing ? 200 : 201 });
+  return NextResponse.json({ brand: serializeBrand(fresh) }, { status: 201 });
 });
