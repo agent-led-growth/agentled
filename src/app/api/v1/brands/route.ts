@@ -8,7 +8,6 @@ import {
   getMemberBrandByDomain,
   getPlanForUserId,
   isValidWebsite,
-  resetSuggestedTopics,
   updateBrandEnrichment,
 } from "@/lib/ai-search";
 import { pageResult, parsePagination } from "@/lib/api/pagination";
@@ -65,9 +64,11 @@ export const POST = withApiKey(async (auth, _ctx, request) => {
 
   const brand = existing ?? (await createActiveBrandForUser(website, auth.userId));
 
-  // Enrichment is best-effort: a failure leaves a domain-only brand rather than
-  // failing the create. Topics are stored (they seed prompt generation on a
-  // future scan) but not exposed via the API.
+  // Enrichment is best-effort (name/description/logo): a failure leaves a
+  // domain-only brand rather than failing the create. Topics are deliberately NOT
+  // stored — an API brand has no prompts and no topic auto-detection; prompts are
+  // added explicitly via POST /brands/{id}/prompts, and with no prompts a scan is
+  // a no-op (runScan skips).
   try {
     const e = await enrichBrand(brand.domain, about);
     await updateBrandEnrichment(brand.id, {
@@ -75,7 +76,6 @@ export const POST = withApiKey(async (auth, _ctx, request) => {
       description: e.description,
       logoUrl: e.logoUrl,
     });
-    await resetSuggestedTopics(brand.id, e.topics);
   } catch (err) {
     console.error("POST /api/v1/brands: enrichment failed", err);
   }
