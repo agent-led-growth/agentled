@@ -8,12 +8,10 @@
 export const DEFAULT_LIMIT = 50;
 export const MAX_LIMIT = 200;
 
-export type Pagination = { limit: number; offset: number };
-
 /**
  * Clamp a raw `limit` (query string or JSON number) to 1..MAX_LIMIT, falling back
- * to `defaultLimit` when absent/empty/non-numeric. Shared by `parsePagination`
- * (REST) and the MCP tools so both page identically.
+ * to `defaultLimit` when absent/empty/non-numeric. Used by the API services so
+ * every list endpoint pages identically across REST and MCP.
  */
 export function clampLimit(raw: unknown, defaultLimit = DEFAULT_LIMIT): number {
   const n = typeof raw === "number" ? raw : Number(raw);
@@ -26,11 +24,6 @@ export function clampLimit(raw: unknown, defaultLimit = DEFAULT_LIMIT): number {
 export function clampOffset(raw: unknown): number {
   const n = typeof raw === "number" ? raw : Number(raw);
   return raw != null && raw !== "" && Number.isFinite(n) ? Math.max(Math.trunc(n), 0) : 0;
-}
-
-export function parsePagination(request: Request, defaultLimit = DEFAULT_LIMIT): Pagination {
-  const sp = new URL(request.url).searchParams;
-  return { limit: clampLimit(sp.get("limit"), defaultLimit), offset: clampOffset(sp.get("offset")) };
 }
 
 /**

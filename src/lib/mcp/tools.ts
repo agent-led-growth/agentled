@@ -1,38 +1,32 @@
 import "server-only";
 
-import {
-  assertBrandMember,
-  getBrandForMember,
-  getBrandMetrics,
-  getBrandsForUserId,
-  getPlanForUserId,
-  getPromptAnswers,
-  getPromptForBrand,
-  getRunById,
-  listPrompts,
-  listRunsForBrand,
-  MAX_PROMPT_TEXT_LEN,
-} from "@/lib/ai-search";
-import { clampLimit, clampOffset, DEFAULT_LIMIT, MAX_LIMIT, pageResult } from "@/lib/api/pagination";
-import { isUuid } from "@/lib/api/route";
+import { MAX_PROMPT_TEXT_LEN } from "@/lib/ai-search";
+import { MAX_LIMIT } from "@/lib/api/pagination";
 import { serializeAnswer, serializeBrand, serializePrompt, serializeScan } from "@/lib/api/serialize";
 import {
   addPromptForUser,
   createBrandForUser,
+  getBrandForUser,
+  getMetricsForBrand,
+  getScanForUser,
+  listAnswersForPrompt,
+  listBrandsForUser,
+  listPromptsForBrand,
+  listScansForBrand,
+  planSummary,
+  resolveCities,
   setBrandLocationForUser,
   updatePromptForUser,
   type ServiceResult,
 } from "@/lib/api/services";
 import { env } from "@/lib/env";
-import { citiesForCountry } from "@/lib/geo/cities";
-import { COUNTRIES, countryName, isValidCountry } from "@/lib/geo/countries";
-import { planFeatures } from "@/lib/plan";
+import { COUNTRIES } from "@/lib/geo/countries";
 
 /**
- * The MCP tool surface. Writes delegate to the shared services in
- * `@/lib/api/services` (the same functions the `/api/v1` routes call), so MCP and
- * REST can't drift; reads call the `ai-search` lib functions directly, mirroring
- * the read routes' guard order and `serialize*` output.
+ * The MCP tool surface. Every tool is a thin adapter over the shared services in
+ * `@/lib/api/services` — the SAME functions the `/api/v1` routes call — so MCP and
+ * REST can't drift. Handlers just parse args, call a service, map a failure to a
+ * ToolError, and serialize the result.
  */
 
 /** A domain failure surfaced to the agent as an `isError` tool result. Mirrors `respond.ts`. */
@@ -49,9 +43,6 @@ export class ToolError extends Error {
 const badRequest = (message: string): never => {
   throw new ToolError("bad_request", message);
 };
-const notFound = (what = "Resource"): never => {
-  throw new ToolError("not_found", `${what} not found.`);
-};
 
 /** Unwrap a service result, turning a failure into a ToolError (with an upgrade
  * hint for limit errors, matching the REST `upgradeUrl`). */
@@ -65,14 +56,7 @@ function unwrap<T>(result: ServiceResult<T>): T {
 }
 
 type Args = Record<string, unknown>;
-const asString = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
-
-/** A path id that must be a UUID this account can see; else `not_found`. */
-function requireUuid(v: unknown, what: string): string {
-  const id = asString(v) ?? "";
-  if (!isUuid(id)) return notFound(what);
-  return id;
-}
+const asString = (v: unknown): string => (typeof v === "string" ? v : "");
 
 export interface McpTool {
   name: string;
@@ -91,21 +75,15 @@ export const TOOLS: McpTool[] = [
     name: "get_plan",
     description: "Get the account's plan and its limits (max brands, max active prompts, scan frequency, models).",
     inputSchema: { type: "object", properties: {} },
-    handler: async (userId) => {
-      const plan = await getPlanForUserId(userId);
-      return { plan, features: planFeatures(plan) };
-    },
+    handler: (userId) => planSummary(userId),
   },
   {
     name: "list_brands",
     description: "List the account's brands, newest first.",
     inputSchema: { type: "object", properties: { ...paginationProps } },
     handler: async (userId, args) => {
-      const limit = clampLimit(args.limit, DEFAULT_LIMIT);
-      const offset = clampOffset(args.offset);
-      const rows = await getBrandsForUserId(userId, limit + 1, offset);
-      const { items, hasMore } = pageResult(rows, limit);
-      return { brands: items.map(serializeBrand), pagination: { limit, offset, hasMore } };
+      const { items, pagination } = await listBrandsForUser(userId, { limit: args.limit, offset: args.offset });
+      return { brands: items.map(serializeBrand), pagination };
     },
   },
   {
@@ -134,9 +112,7 @@ export const TOOLS: McpTool[] = [
       required: ["brandId"],
     },
     handler: async (userId, args) => {
-      const id = requireUuid(args.brandId, "Brand");
-      const brand = await getBrandForMember(userId, id);
-      if (!brand) return notFound("Brand");
+      const { brand } = unwrap(await getBrandForUser(userId, asString(args.brandId)));
       return { brand: serializeBrand(brand) };
     },
   },
@@ -156,10 +132,10 @@ export const TOOLS: McpTool[] = [
     },
     handler: async (userId, args) => {
       const { brand } = unwrap(
-        await setBrandLocationForUser(userId, asString(args.brandId) ?? "", {
-          mode: asString(args.mode) ?? null,
-          country: asString(args.country) ?? null,
-          city: asString(args.city) ?? null,
+        await setBrandLocationForUser(userId, asString(args.brandId), {
+          mode: asString(args.mode) || null,
+          country: asString(args.country) || null,
+          city: asString(args.city) || null,
         }),
       );
       return { brand: brand ? serializeBrand(brand) : null };
@@ -179,18 +155,15 @@ export const TOOLS: McpTool[] = [
       required: ["brandId"],
     },
     handler: async (userId, args) => {
-      const id = requireUuid(args.brandId, "Brand");
-      if (!(await assertBrandMember(userId, id))) return notFound("Brand");
       let active: boolean | undefined;
       if (args.active !== undefined) {
         if (typeof args.active !== "boolean") return badRequest("active must be a boolean.");
         active = args.active;
       }
-      const limit = clampLimit(args.limit, DEFAULT_LIMIT);
-      const offset = clampOffset(args.offset);
-      const rows = await listPrompts(id, { active, limit: limit + 1, offset });
-      const { items, hasMore } = pageResult(rows, limit);
-      return { prompts: items.map(serializePrompt), pagination: { limit, offset, hasMore } };
+      const { items, pagination } = unwrap(
+        await listPromptsForBrand(userId, asString(args.brandId), { active, limit: args.limit, offset: args.offset }),
+      );
+      return { prompts: items.map(serializePrompt), pagination };
     },
   },
   {
@@ -206,9 +179,7 @@ export const TOOLS: McpTool[] = [
       required: ["brandId", "text"],
     },
     handler: async (userId, args) => {
-      const { prompt, usage } = unwrap(
-        await addPromptForUser(userId, asString(args.brandId) ?? "", args.text),
-      );
+      const { prompt, usage } = unwrap(await addPromptForUser(userId, asString(args.brandId), args.text));
       return { prompt: serializePrompt(prompt), usage };
     },
   },
@@ -228,7 +199,7 @@ export const TOOLS: McpTool[] = [
     },
     handler: async (userId, args) => {
       const { prompt } = unwrap(
-        await updatePromptForUser(userId, asString(args.brandId) ?? "", asString(args.promptId) ?? "", {
+        await updatePromptForUser(userId, asString(args.brandId), asString(args.promptId), {
           text: args.text,
           active: args.active,
         }),
@@ -250,15 +221,13 @@ export const TOOLS: McpTool[] = [
       required: ["brandId", "promptId"],
     },
     handler: async (userId, args) => {
-      const id = requireUuid(args.brandId, "Prompt");
-      const promptId = requireUuid(args.promptId, "Prompt");
-      if (!(await assertBrandMember(userId, id))) return notFound("Prompt");
-      if (!(await getPromptForBrand(promptId, id))) return notFound("Prompt");
-      const limit = clampLimit(args.limit, DEFAULT_LIMIT);
-      const offset = clampOffset(args.offset);
-      const rows = await getPromptAnswers(id, promptId, limit + 1, offset);
-      const { items, hasMore } = pageResult(rows, limit);
-      return { answers: items.map(serializeAnswer), pagination: { limit, offset, hasMore } };
+      const { items, pagination } = unwrap(
+        await listAnswersForPrompt(userId, asString(args.brandId), asString(args.promptId), {
+          limit: args.limit,
+          offset: args.offset,
+        }),
+      );
+      return { answers: items.map(serializeAnswer), pagination };
     },
   },
   {
@@ -273,16 +242,8 @@ export const TOOLS: McpTool[] = [
       },
       required: ["brandId"],
     },
-    handler: async (userId, args) => {
-      const id = requireUuid(args.brandId, "Brand");
-      if (!(await assertBrandMember(userId, id))) return notFound("Brand");
-      const n = typeof args.days === "number" ? args.days : Number(args.days);
-      const days =
-        args.days != null && Number.isFinite(n) ? Math.min(Math.max(Math.trunc(n), 1), 365) : 30;
-      const sinceIso = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-      const metrics = await getBrandMetrics(id, sinceIso);
-      return { days, metrics };
-    },
+    handler: (userId, args) =>
+      getMetricsForBrand(userId, asString(args.brandId), args.days).then(unwrap),
   },
   {
     name: "list_scans",
@@ -293,13 +254,10 @@ export const TOOLS: McpTool[] = [
       required: ["brandId"],
     },
     handler: async (userId, args) => {
-      const id = requireUuid(args.brandId, "Brand");
-      if (!(await assertBrandMember(userId, id))) return notFound("Brand");
-      const limit = clampLimit(args.limit, 90);
-      const offset = clampOffset(args.offset);
-      const rows = await listRunsForBrand(id, limit + 1, offset);
-      const { items, hasMore } = pageResult(rows, limit);
-      return { scans: items.map(serializeScan), pagination: { limit, offset, hasMore } };
+      const { items, pagination } = unwrap(
+        await listScansForBrand(userId, asString(args.brandId), { limit: args.limit, offset: args.offset }),
+      );
+      return { scans: items.map(serializeScan), pagination };
     },
   },
   {
@@ -311,10 +269,8 @@ export const TOOLS: McpTool[] = [
       required: ["runId"],
     },
     handler: async (userId, args) => {
-      const runId = requireUuid(args.runId, "Scan");
-      const run = await getRunById(runId);
-      if (!run || !(await assertBrandMember(userId, run.brand_id))) return notFound("Scan");
-      return { scan: serializeScan(run) };
+      const { scan } = unwrap(await getScanForUser(userId, asString(args.runId)));
+      return { scan: serializeScan(scan) };
     },
   },
   {
@@ -334,11 +290,7 @@ export const TOOLS: McpTool[] = [
       },
       required: ["country"],
     },
-    handler: async (_userId, args) => {
-      const code = (asString(args.country) ?? "").toUpperCase();
-      if (!isValidCountry(code)) return notFound("Country");
-      return { country: { code, name: countryName(code) ?? code }, cities: citiesForCountry(code) };
-    },
+    handler: async (_userId, args) => unwrap(resolveCities(args.country)),
   },
 ];
 

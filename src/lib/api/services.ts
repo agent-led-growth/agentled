@@ -8,43 +8,68 @@ import {
   enrichBrand,
   getBrandById,
   getBrandForMember,
+  getBrandMetrics,
   getBrandsForUserId,
   getMemberBrandByDomain,
   getPlanForUserId,
+  getPromptAnswers,
   getPromptForBrand,
+  getRunById,
   isValidWebsite,
+  listPrompts,
+  listRunsForBrand,
   MAX_PROMPT_TEXT_LEN,
   setPromptActive,
   updateBrandEnrichment,
   updateBrandLocation,
   updatePromptText,
   type Brand,
+  type BrandMetrics,
   type Prompt,
+  type PromptAnswer,
+  type ScanRun,
 } from "@/lib/ai-search";
+import { clampLimit, clampOffset, pageResult } from "@/lib/api/pagination";
 import { isUuid } from "@/lib/api/route";
 import { promptUsage } from "@/lib/api/usage";
+import { citiesForCountry } from "@/lib/geo/cities";
+import { countryName, isValidCountry } from "@/lib/geo/countries";
 import { normalizeBrandLocation, type LocationInput } from "@/lib/geo/location";
-import { brandLimit } from "@/lib/plan";
+import { brandLimit, planFeatures, type PlanFeatures } from "@/lib/plan";
 
 /**
- * Write operations for the account: create brand, set location, add/update
- * prompt. Each validates its input, enforces account membership + plan limits,
- * performs the write, and returns a `ServiceResult` — the SINGLE source of truth
- * shared by the REST routes (`src/app/api/v1/**`) and the MCP tools
- * (`src/lib/mcp/tools.ts`), so the two surfaces can't drift. Callers map the
- * result to their own error shape (HTTP status vs JSON-RPC tool error) and
- * serialize the returned domain object themselves.
+ * Account-scoped operations for brands, prompts and scan data — the SINGLE source
+ * of truth shared by the REST routes (`src/app/api/v1/**`) and the MCP tools
+ * (`src/lib/mcp/tools.ts`), so the two surfaces can't drift. Each does its own
+ * validation, membership + plan checks, pagination and (for reads) fetch, then
+ * returns a `ServiceResult` (or plain value when it can't fail with a domain
+ * error). Callers map the result to their own error shape (HTTP status vs
+ * JSON-RPC tool error) and serialize the returned domain objects themselves.
  */
 
 export type ServiceErrorCode = "bad_request" | "not_found" | "limit_reached";
 export type ServiceError = { code: ServiceErrorCode; message: string };
 export type ServiceResult<T> = { ok: true; data: T } | { ok: false; error: ServiceError };
 
+/** A page of raw domain rows plus the pagination envelope the API returns. */
+export type Page<T> = { items: T[]; pagination: { limit: number; offset: number; hasMore: boolean } };
+
+/** Raw (unclamped) pagination inputs — a query string or a JSON number. */
+export type PageInput = { limit?: unknown; offset?: unknown };
+
 const ok = <T>(data: T): ServiceResult<T> => ({ ok: true, data });
 const fail = (code: ServiceErrorCode, message: string): ServiceResult<never> => ({
   ok: false,
   error: { code, message },
 });
+
+/** Fetch one extra row (limit + 1) and split into a page + hasMore. */
+function page<T>(rows: T[], limit: number, offset: number): Page<T> {
+  const { items, hasMore } = pageResult(rows, limit);
+  return { items, pagination: { limit, offset, hasMore } };
+}
+
+// ─────────────────────────────── Writes ───────────────────────────────
 
 /**
  * Create a brand from a website and enrich it. Idempotent per account+domain:
@@ -106,19 +131,19 @@ export async function setBrandLocationForUser(
   if (!isUuid(brandId)) return fail("not_found", "Brand not found.");
   if (!(await assertBrandMember(userId, brandId))) return fail("not_found", "Brand not found.");
 
-  if (location === undefined) return fail("bad_request", "Provide 'location'.");
+  if (location === undefined) return fail("bad_request", "Provide a location.");
   if (location === null || typeof location !== "object" || Array.isArray(location))
     return fail("bad_request", "location must be an object.");
   const input = location as LocationInput;
   const mode = input.mode ?? undefined;
   // Require an explicit mode so a partial object can't silently reset scope.
   if (mode !== "worldwide" && mode !== "country" && mode !== "city")
-    return fail("bad_request", "location.mode is required: 'worldwide', 'country', or 'city'.");
+    return fail("bad_request", "mode is required: 'worldwide', 'country', or 'city'.");
   const normalized = normalizeBrandLocation(input);
   if ((mode === "country" || mode === "city") && normalized.mode === "worldwide")
-    return fail("bad_request", "location.country is not a valid ISO 3166-1 alpha-2 code.");
+    return fail("bad_request", "country is not a valid ISO 3166-1 alpha-2 code.");
   if (mode === "city" && normalized.mode === "country")
-    return fail("bad_request", "location.city is not a recognized city for that country.");
+    return fail("bad_request", "city is not a recognized city for that country.");
 
   await updateBrandLocation(brandId, input);
   const brand = await getBrandForMember(userId, brandId);
@@ -207,4 +232,113 @@ export async function updatePromptForUser(
     updated_at: new Date().toISOString(),
   };
   return ok({ prompt: result });
+}
+
+// ─────────────────────────────── Reads ───────────────────────────────
+
+/** The account's plan and the capability limits it grants. */
+export async function planSummary(userId: string): Promise<{ plan: string; features: PlanFeatures }> {
+  const plan = await getPlanForUserId(userId);
+  return { plan, features: planFeatures(plan) };
+}
+
+/** The account's brands, newest first. */
+export async function listBrandsForUser(userId: string, opts: PageInput): Promise<Page<Brand>> {
+  const limit = clampLimit(opts.limit);
+  const offset = clampOffset(opts.offset);
+  const rows = await getBrandsForUserId(userId, limit + 1, offset);
+  return page(rows, limit, offset);
+}
+
+/** One brand the account belongs to. */
+export async function getBrandForUser(
+  userId: string,
+  brandId: string,
+): Promise<ServiceResult<{ brand: Brand }>> {
+  if (!isUuid(brandId)) return fail("not_found", "Brand not found.");
+  const brand = await getBrandForMember(userId, brandId);
+  if (!brand) return fail("not_found", "Brand not found.");
+  return ok({ brand });
+}
+
+/** A brand's prompts. `active` (already parsed to a boolean) filters by state. */
+export async function listPromptsForBrand(
+  userId: string,
+  brandId: string,
+  opts: PageInput & { active?: boolean },
+): Promise<ServiceResult<Page<Prompt>>> {
+  if (!isUuid(brandId)) return fail("not_found", "Brand not found.");
+  if (!(await assertBrandMember(userId, brandId))) return fail("not_found", "Brand not found.");
+  const limit = clampLimit(opts.limit);
+  const offset = clampOffset(opts.offset);
+  const rows = await listPrompts(brandId, { active: opts.active, limit: limit + 1, offset });
+  return ok(page(rows, limit, offset));
+}
+
+/** Per-run answer history for one prompt. Pages over completed runs. */
+export async function listAnswersForPrompt(
+  userId: string,
+  brandId: string,
+  promptId: string,
+  opts: PageInput,
+): Promise<ServiceResult<Page<PromptAnswer>>> {
+  if (!isUuid(brandId) || !isUuid(promptId)) return fail("not_found", "Prompt not found.");
+  if (!(await assertBrandMember(userId, brandId))) return fail("not_found", "Prompt not found.");
+  if (!(await getPromptForBrand(promptId, brandId))) return fail("not_found", "Prompt not found.");
+  const limit = clampLimit(opts.limit);
+  const offset = clampOffset(opts.offset);
+  const rows = await getPromptAnswers(brandId, promptId, limit + 1, offset);
+  return ok(page(rows, limit, offset));
+}
+
+/** A brand's AI-visibility metrics over a trailing window. `days` defaults to 30, clamped 1..365. */
+export async function getMetricsForBrand(
+  userId: string,
+  brandId: string,
+  rawDays: unknown,
+): Promise<ServiceResult<{ days: number; metrics: BrandMetrics }>> {
+  if (!isUuid(brandId)) return fail("not_found", "Brand not found.");
+  if (!(await assertBrandMember(userId, brandId))) return fail("not_found", "Brand not found.");
+  const n = typeof rawDays === "number" ? rawDays : Number(rawDays);
+  const days =
+    rawDays != null && rawDays !== "" && Number.isFinite(n)
+      ? Math.min(Math.max(Math.trunc(n), 1), 365)
+      : 30;
+  const sinceIso = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  const metrics = await getBrandMetrics(brandId, sinceIso);
+  return ok({ days, metrics });
+}
+
+/** A brand's scan runs, newest first (default page size 90). */
+export async function listScansForBrand(
+  userId: string,
+  brandId: string,
+  opts: PageInput,
+): Promise<ServiceResult<Page<ScanRun>>> {
+  if (!isUuid(brandId)) return fail("not_found", "Brand not found.");
+  if (!(await assertBrandMember(userId, brandId))) return fail("not_found", "Brand not found.");
+  const limit = clampLimit(opts.limit, 90);
+  const offset = clampOffset(opts.offset);
+  const rows = await listRunsForBrand(brandId, limit + 1, offset);
+  return ok(page(rows, limit, offset));
+}
+
+/** One scan run the account owns. 404 for "no such run" and "not yours" alike. */
+export async function getScanForUser(
+  userId: string,
+  runId: string,
+): Promise<ServiceResult<{ scan: ScanRun }>> {
+  if (!isUuid(runId)) return fail("not_found", "Scan not found.");
+  const run = await getRunById(runId);
+  if (!run || !(await assertBrandMember(userId, run.brand_id))) return fail("not_found", "Scan not found.");
+  return ok({ scan: run });
+}
+
+/** Cities selectable as a brand's `location.city` for a country. `rawCountry` is untrusted. */
+export function resolveCities(
+  rawCountry: unknown,
+): ServiceResult<{ country: { code: string; name: string }; cities: readonly string[] }> {
+  const code = (typeof rawCountry === "string" ? rawCountry : "").toUpperCase();
+  if (!isValidCountry(code)) return fail("not_found", "Country not found.");
+  return ok({ country: { code, name: countryName(code) ?? code }, cities: citiesForCountry(code) });
 }

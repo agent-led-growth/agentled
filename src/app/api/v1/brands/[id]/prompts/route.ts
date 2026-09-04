@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { assertBrandMember, listPrompts } from "@/lib/ai-search";
-import { pageResult, parsePagination } from "@/lib/api/pagination";
-import { badRequest, notFound, serviceError } from "@/lib/api/respond";
-import { isUuid, withApiKey } from "@/lib/api/route";
+import { badRequest, serviceError } from "@/lib/api/respond";
+import { withApiKey } from "@/lib/api/route";
 import { serializePrompt } from "@/lib/api/serialize";
-import { addPromptForUser } from "@/lib/api/services";
+import { addPromptForUser, listPromptsForBrand } from "@/lib/api/services";
 
 /** Parse the `active` filter: true/false (case-insensitive), absent, or invalid. */
 function parseActive(v: string | null): boolean | undefined | "invalid" {
@@ -24,18 +22,19 @@ function parseActive(v: string | null): boolean | undefined | "invalid" {
 export const GET = withApiKey(
   async (auth, { params }: { params: Promise<{ id: string }> }, request) => {
     const { id } = await params;
-    if (!isUuid(id)) return notFound("Brand");
-    if (!(await assertBrandMember(auth.userId, id))) return notFound("Brand");
-
-    const active = parseActive(new URL(request.url).searchParams.get("active"));
+    const sp = new URL(request.url).searchParams;
+    const active = parseActive(sp.get("active"));
     if (active === "invalid") return badRequest("active must be 'true' or 'false'.");
 
-    const { limit, offset } = parsePagination(request);
-    const rows = await listPrompts(id, { active, limit: limit + 1, offset });
-    const { items, hasMore } = pageResult(rows, limit);
+    const result = await listPromptsForBrand(auth.userId, id, {
+      active,
+      limit: sp.get("limit"),
+      offset: sp.get("offset"),
+    });
+    if (!result.ok) return serviceError(result.error);
     return NextResponse.json({
-      prompts: items.map(serializePrompt),
-      pagination: { limit, offset, hasMore },
+      prompts: result.data.items.map(serializePrompt),
+      pagination: result.data.pagination,
     });
   },
 );

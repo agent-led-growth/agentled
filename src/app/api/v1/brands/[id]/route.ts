@@ -1,20 +1,17 @@
 import { NextResponse } from "next/server";
 
-import { getBrandForMember } from "@/lib/ai-search";
-import { notFound, serviceError } from "@/lib/api/respond";
-import { isUuid, withApiKey } from "@/lib/api/route";
+import { serviceError } from "@/lib/api/respond";
+import { withApiKey } from "@/lib/api/route";
 import { serializeBrand } from "@/lib/api/serialize";
-import { setBrandLocationForUser } from "@/lib/api/services";
+import { getBrandForUser, setBrandLocationForUser } from "@/lib/api/services";
 
 /** GET /api/v1/brands/{id} → one brand the account belongs to. */
 export const GET = withApiKey(
   async (auth, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params;
-    if (!isUuid(id)) return notFound("Brand");
-
-    const brand = await getBrandForMember(auth.userId, id);
-    if (!brand) return notFound("Brand");
-    return NextResponse.json({ brand: serializeBrand(brand) });
+    const result = await getBrandForUser(auth.userId, id);
+    if (!result.ok) return serviceError(result.error);
+    return NextResponse.json({ brand: serializeBrand(result.data.brand) });
   },
 );
 
