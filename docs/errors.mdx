@@ -1,0 +1,70 @@
+---
+title: Errors & pagination
+description: The error shape, status codes, and how to page through lists.
+---
+
+## Error shape
+
+Every error returns the same JSON, so you can branch on the stable
+`error.code` rather than parsing prose:
+
+```json
+{ "error": { "code": "bad_request", "message": "text must be at most 300 characters." } }
+```
+
+| Status | `code` | When |
+| --- | --- | --- |
+| `400` | `bad_request` | The body or a parameter was invalid. `message` says what. |
+| `401` | `unauthorized` | Missing, malformed, or revoked API key. |
+| `404` | `not_found` | The resource doesn't exist **or** your account can't see it. |
+| `409` | `limit_reached` | A plan limit was hit. Also carries `upgradeUrl`. |
+| `500` | `server_error` | Something went wrong — retry. |
+
+<Note>
+  `404` is returned both for "no such resource" and "not yours" — the API never
+  reveals whether a brand, prompt, or scan exists in another account.
+</Note>
+
+### Limit reached
+
+`409` responses include a third field pointing at where to upgrade:
+
+```json
+{
+  "error": {
+    "code": "limit_reached",
+    "message": "You've reached your plan's prompt limit (50/50). Upgrade to add more.",
+    "upgradeUrl": "https://agentled.co/ai-search/pricing"
+  }
+}
+```
+
+## Pagination
+
+List endpoints (`brands`, `prompts`, `answers`, `scans`) use offset pagination:
+
+- `limit` — page size, **1–200**. Defaults to 50 (90 for `scans`). Invalid values
+  fall back to the default rather than erroring.
+- `offset` — rows to skip, 0 or more.
+
+Every list response includes a `pagination` object:
+
+```json
+{
+  "prompts": [ "…" ],
+  "pagination": { "limit": 50, "offset": 0, "hasMore": true }
+}
+```
+
+Page by advancing `offset` until `hasMore` is `false`:
+
+```bash
+curl "https://agentled.co/api/v1/brands/BRAND_ID/prompts?limit=50&offset=50" \
+  -H "Authorization: Bearer $AGL_KEY"
+```
+
+<Note>
+  The answers list pages over **scan runs**, not answers — a run where the prompt
+  had no answer is skipped, so a page can hold fewer than `limit` answers even
+  when `hasMore` is `true`. Keep paging until `hasMore` is `false`.
+</Note>

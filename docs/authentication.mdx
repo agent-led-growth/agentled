@@ -1,0 +1,47 @@
+---
+title: Authentication
+description: Create an API key and send it with every request.
+---
+
+Every request is authenticated with an **API key** sent as a Bearer token.
+
+## Get a key
+
+1. Sign in at [agentled.co](https://agentled.co).
+2. Open the **Account** tab.
+3. Under **API keys**, create a key and give it a label.
+4. Copy the key — it starts with `agl_live_` and is shown **once**. Store it
+   somewhere safe.
+
+<Warning>
+  The key is shown only at creation time. If you lose it, revoke it and create a
+  new one. Revoking takes effect immediately.
+</Warning>
+
+## Send it
+
+Add an `Authorization` header to every request:
+
+```bash
+curl https://agentled.co/api/v1/plan \
+  -H "Authorization: Bearer agl_live_your_key_here"
+```
+
+A missing, malformed, or revoked key returns `401`:
+
+```json
+{ "error": { "code": "unauthorized", "message": "Missing or invalid API key." } }
+```
+
+## Keep keys secret
+
+- Keys grant full access to your account's brands and prompts — treat them like
+  passwords.
+- Use them **server-side only**. Never ship a key in a browser, mobile app, or
+  public repo.
+- Rotate by creating a new key and revoking the old one.
+
+<Note>
+  A key is tied to your account, not a single brand. It can read and manage
+  **every** brand your account belongs to, up to your plan's limits.
+</Note>
