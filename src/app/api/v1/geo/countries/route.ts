@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { withApiKey } from "@/lib/api/route";
-import { COUNTRIES } from "@/lib/geo/countries";
+import { listCountries } from "@/lib/api/services";
 
 /**
  * GET /api/v1/geo/countries → every country a brand can be scoped to, as
@@ -9,8 +9,7 @@ import { COUNTRIES } from "@/lib/geo/countries";
  * `location.country` on PATCH /brands/{id}. Static reference data.
  */
 export const GET = withApiKey(async () => {
-  return NextResponse.json(
-    { countries: COUNTRIES },
-    { headers: { "cache-control": "public, max-age=86400" } },
-  );
+  return NextResponse.json(listCountries(), {
+    headers: { "cache-control": "public, max-age=86400" },
+  });
 });

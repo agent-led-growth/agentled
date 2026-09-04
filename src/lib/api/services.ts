@@ -33,7 +33,7 @@ import { clampLimit, clampOffset, pageResult } from "@/lib/api/pagination";
 import { isUuid } from "@/lib/api/route";
 import { promptUsage } from "@/lib/api/usage";
 import { citiesForCountry } from "@/lib/geo/cities";
-import { countryName, isValidCountry } from "@/lib/geo/countries";
+import { COUNTRIES, countryName, isValidCountry } from "@/lib/geo/countries";
 import { normalizeBrandLocation, type LocationInput } from "@/lib/geo/location";
 import { brandLimit, planFeatures, type PlanFeatures } from "@/lib/plan";
 
@@ -261,17 +261,33 @@ export async function getBrandForUser(
   return ok({ brand });
 }
 
-/** A brand's prompts. `active` (already parsed to a boolean) filters by state. */
+/**
+ * A brand's prompts. `active` filters by state — accepts a boolean or the strings
+ * "true"/"false" (so both the JSON MCP arg and the REST query string work), and
+ * is parsed AFTER the membership check so an unknown brand is 404, not 400.
+ */
 export async function listPromptsForBrand(
   userId: string,
   brandId: string,
-  opts: PageInput & { active?: boolean },
+  opts: PageInput & { active?: unknown },
 ): Promise<ServiceResult<Page<Prompt>>> {
   if (!isUuid(brandId)) return fail("not_found", "Brand not found.");
   if (!(await assertBrandMember(userId, brandId))) return fail("not_found", "Brand not found.");
+
+  let active: boolean | undefined;
+  if (opts.active != null) {
+    if (typeof opts.active === "boolean") active = opts.active;
+    else {
+      const s = String(opts.active).toLowerCase();
+      if (s === "true") active = true;
+      else if (s === "false") active = false;
+      else return fail("bad_request", "active must be 'true' or 'false'.");
+    }
+  }
+
   const limit = clampLimit(opts.limit);
   const offset = clampOffset(opts.offset);
-  const rows = await listPrompts(brandId, { active: opts.active, limit: limit + 1, offset });
+  const rows = await listPrompts(brandId, { active, limit: limit + 1, offset });
   return ok(page(rows, limit, offset));
 }
 
@@ -332,6 +348,11 @@ export async function getScanForUser(
   const run = await getRunById(runId);
   if (!run || !(await assertBrandMember(userId, run.brand_id))) return fail("not_found", "Scan not found.");
   return ok({ scan: run });
+}
+
+/** Every country a brand can be scoped to (each `code` is a valid location country). */
+export function listCountries(): { countries: typeof COUNTRIES } {
+  return { countries: COUNTRIES };
 }
 
 /** Cities selectable as a brand's `location.city` for a country. `rawCountry` is untrusted. */

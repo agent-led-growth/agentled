@@ -11,6 +11,7 @@ import {
   getScanForUser,
   listAnswersForPrompt,
   listBrandsForUser,
+  listCountries,
   listPromptsForBrand,
   listScansForBrand,
   planSummary,
@@ -20,7 +21,6 @@ import {
   type ServiceResult,
 } from "@/lib/api/services";
 import { env } from "@/lib/env";
-import { COUNTRIES } from "@/lib/geo/countries";
 
 /**
  * The MCP tool surface. Every tool is a thin adapter over the shared services in
@@ -39,10 +39,6 @@ export class ToolError extends Error {
     this.name = "ToolError";
   }
 }
-
-const badRequest = (message: string): never => {
-  throw new ToolError("bad_request", message);
-};
 
 /** Unwrap a service result, turning a failure into a ToolError (with an upgrade
  * hint for limit errors, matching the REST `upgradeUrl`). */
@@ -155,13 +151,12 @@ export const TOOLS: McpTool[] = [
       required: ["brandId"],
     },
     handler: async (userId, args) => {
-      let active: boolean | undefined;
-      if (args.active !== undefined) {
-        if (typeof args.active !== "boolean") return badRequest("active must be a boolean.");
-        active = args.active;
-      }
       const { items, pagination } = unwrap(
-        await listPromptsForBrand(userId, asString(args.brandId), { active, limit: args.limit, offset: args.offset }),
+        await listPromptsForBrand(userId, asString(args.brandId), {
+          active: args.active,
+          limit: args.limit,
+          offset: args.offset,
+        }),
       );
       return { prompts: items.map(serializePrompt), pagination };
     },
@@ -277,7 +272,7 @@ export const TOOLS: McpTool[] = [
     name: "list_countries",
     description: "List every country a brand can be scoped to (code is the value for set_brand_location).",
     inputSchema: { type: "object", properties: {} },
-    handler: async () => ({ countries: COUNTRIES }),
+    handler: async () => listCountries(),
   },
   {
     name: "list_cities",
