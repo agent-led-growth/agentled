@@ -2,48 +2,40 @@ import "server-only";
 
 import {
   assertBrandMember,
-  countActivePrompts,
-  createActiveBrandForUser,
-  createPrompt,
-  enrichBrand,
-  getBrandById,
   getBrandForMember,
   getBrandMetrics,
   getBrandsForUserId,
-  getMemberBrandByDomain,
   getPlanForUserId,
   getPromptAnswers,
   getPromptForBrand,
   getRunById,
-  isValidWebsite,
   listPrompts,
   listRunsForBrand,
   MAX_PROMPT_TEXT_LEN,
-  setPromptActive,
-  updateBrandEnrichment,
-  updateBrandLocation,
-  updatePromptText,
 } from "@/lib/ai-search";
-import { DEFAULT_LIMIT, MAX_LIMIT, pageResult } from "@/lib/api/pagination";
+import { clampLimit, clampOffset, DEFAULT_LIMIT, MAX_LIMIT, pageResult } from "@/lib/api/pagination";
 import { isUuid } from "@/lib/api/route";
 import { serializeAnswer, serializeBrand, serializePrompt, serializeScan } from "@/lib/api/serialize";
-import { promptUsage } from "@/lib/api/usage";
+import {
+  addPromptForUser,
+  createBrandForUser,
+  setBrandLocationForUser,
+  updatePromptForUser,
+  type ServiceResult,
+} from "@/lib/api/services";
 import { env } from "@/lib/env";
 import { citiesForCountry } from "@/lib/geo/cities";
 import { COUNTRIES, countryName, isValidCountry } from "@/lib/geo/countries";
-import { normalizeBrandLocation, type LocationInput } from "@/lib/geo/location";
-import { brandLimit, planFeatures } from "@/lib/plan";
+import { planFeatures } from "@/lib/plan";
 
 /**
- * The MCP tool surface. Each tool is a thin wrapper over the SAME `ai-search` lib
- * functions the `/api/v1` route handlers call, replicating their guard order
- * (isUuid → assertBrandMember → plan-limit check) and their `serialize*` output so
- * the MCP tools and the REST API stay in lockstep. Keep any change here mirrored
- * with the corresponding `src/app/api/v1/**` route.
+ * The MCP tool surface. Writes delegate to the shared services in
+ * `@/lib/api/services` (the same functions the `/api/v1` routes call), so MCP and
+ * REST can't drift; reads call the `ai-search` lib functions directly, mirroring
+ * the read routes' guard order and `serialize*` output.
  */
 
-/** A domain-level failure (bad input / not found / limit) surfaced to the agent as
- * an `isError` tool result, not a JSON-RPC protocol error. Mirrors `respond.ts`. */
+/** A domain failure surfaced to the agent as an `isError` tool result. Mirrors `respond.ts`. */
 export class ToolError extends Error {
   constructor(
     public readonly code: "bad_request" | "not_found" | "limit_reached",
@@ -60,24 +52,22 @@ const badRequest = (message: string): never => {
 const notFound = (what = "Resource"): never => {
   throw new ToolError("not_found", `${what} not found.`);
 };
-const limitReached = (message: string): never => {
-  throw new ToolError("limit_reached", `${message} Upgrade at ${env.siteUrl()}/ai-search/pricing`);
-};
 
-// ── arg + pagination helpers (args arrive as parsed JSON) ──
+/** Unwrap a service result, turning a failure into a ToolError (with an upgrade
+ * hint for limit errors, matching the REST `upgradeUrl`). */
+function unwrap<T>(result: ServiceResult<T>): T {
+  if (result.ok) return result.data;
+  const { code, message } = result.error;
+  throw new ToolError(
+    code,
+    code === "limit_reached" ? `${message} Upgrade at ${env.siteUrl()}/ai-search/pricing` : message,
+  );
+}
+
 type Args = Record<string, unknown>;
 const asString = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
 
-function clampLimit(v: unknown, def: number): number {
-  const n = typeof v === "number" ? v : Number(v);
-  return v != null && Number.isFinite(n) ? Math.min(Math.max(Math.trunc(n), 1), MAX_LIMIT) : def;
-}
-function clampOffset(v: unknown): number {
-  const n = typeof v === "number" ? v : Number(v);
-  return v != null && Number.isFinite(n) ? Math.max(Math.trunc(n), 0) : 0;
-}
-
-/** A brand id that must be a UUID this account belongs to; else `not_found`. */
+/** A path id that must be a UUID this account can see; else `not_found`. */
 function requireUuid(v: unknown, what: string): string {
   const id = asString(v) ?? "";
   if (!isUuid(id)) return notFound(what);
@@ -131,44 +121,8 @@ export const TOOLS: McpTool[] = [
       required: ["website"],
     },
     handler: async (userId, args) => {
-      const website =
-        typeof args.website === "string" && args.website.trim()
-          ? args.website.trim().slice(0, 2048)
-          : "";
-      if (!website) return badRequest("website is required.");
-      if (!isValidWebsite(website))
-        return badRequest("website must be a valid domain, like example.com.");
-      const about =
-        typeof args.about === "string" && args.about.trim()
-          ? args.about.trim().slice(0, 5000)
-          : undefined;
-
-      const existing = await getMemberBrandByDomain(userId, website);
-      if (existing) return { brand: serializeBrand(existing) };
-
-      const [count, plan] = await Promise.all([
-        getBrandsForUserId(userId).then((b) => b.length),
-        getPlanForUserId(userId),
-      ]);
-      const limit = brandLimit(plan);
-      if (count >= limit)
-        return limitReached(
-          `You've reached your plan's brand limit (${count}/${limit}). Upgrade to add more brands.`,
-        );
-
-      const brand = await createActiveBrandForUser(website, userId);
-      try {
-        const e = await enrichBrand(brand.domain, about);
-        await updateBrandEnrichment(brand.id, {
-          name: e.name,
-          description: e.description,
-          logoUrl: e.logoUrl,
-        });
-      } catch (err) {
-        console.error("mcp create_brand: enrichment failed", err);
-      }
-      const fresh = (await getBrandById(brand.id)) ?? brand;
-      return { brand: serializeBrand(fresh) };
+      const { brand } = unwrap(await createBrandForUser(userId, { website: args.website, about: args.about }));
+      return { brand: serializeBrand(brand) };
     },
   },
   {
@@ -201,25 +155,13 @@ export const TOOLS: McpTool[] = [
       required: ["brandId", "mode"],
     },
     handler: async (userId, args) => {
-      const id = requireUuid(args.brandId, "Brand");
-      if (!(await assertBrandMember(userId, id))) return notFound("Brand");
-
-      const mode = asString(args.mode);
-      if (mode !== "worldwide" && mode !== "country" && mode !== "city")
-        return badRequest("mode is required: 'worldwide', 'country', or 'city'.");
-      const input: LocationInput = {
-        mode,
-        country: asString(args.country) ?? null,
-        city: asString(args.city) ?? null,
-      };
-      const normalized = normalizeBrandLocation(input);
-      if ((mode === "country" || mode === "city") && normalized.mode === "worldwide")
-        return badRequest("country is not a valid ISO 3166-1 alpha-2 code.");
-      if (mode === "city" && normalized.mode === "country")
-        return badRequest("city is not a recognized city for that country.");
-
-      await updateBrandLocation(id, input);
-      const brand = await getBrandForMember(userId, id);
+      const { brand } = unwrap(
+        await setBrandLocationForUser(userId, asString(args.brandId) ?? "", {
+          mode: asString(args.mode) ?? null,
+          country: asString(args.country) ?? null,
+          city: asString(args.city) ?? null,
+        }),
+      );
       return { brand: brand ? serializeBrand(brand) : null };
     },
   },
@@ -239,7 +181,11 @@ export const TOOLS: McpTool[] = [
     handler: async (userId, args) => {
       const id = requireUuid(args.brandId, "Brand");
       if (!(await assertBrandMember(userId, id))) return notFound("Brand");
-      const active = typeof args.active === "boolean" ? args.active : undefined;
+      let active: boolean | undefined;
+      if (args.active !== undefined) {
+        if (typeof args.active !== "boolean") return badRequest("active must be a boolean.");
+        active = args.active;
+      }
       const limit = clampLimit(args.limit, DEFAULT_LIMIT);
       const offset = clampOffset(args.offset);
       const rows = await listPrompts(id, { active, limit: limit + 1, offset });
@@ -260,27 +206,10 @@ export const TOOLS: McpTool[] = [
       required: ["brandId", "text"],
     },
     handler: async (userId, args) => {
-      const id = requireUuid(args.brandId, "Brand");
-      if (!(await assertBrandMember(userId, id))) return notFound("Brand");
-      const text = typeof args.text === "string" ? args.text.trim() : "";
-      if (!text) return badRequest("text is required.");
-      if (text.length > MAX_PROMPT_TEXT_LEN)
-        return badRequest(`text must be at most ${MAX_PROMPT_TEXT_LEN} characters.`);
-
-      const { used, limit, brandIds } = await promptUsage(userId);
-      if (used >= limit)
-        return limitReached(
-          `You've reached your plan's prompt limit (${used}/${limit}). Upgrade to add more.`,
-        );
-      const prompt = await createPrompt(id, text);
-      const after = brandIds.length ? await countActivePrompts(brandIds) : 0;
-      if (after > limit) {
-        await setPromptActive(prompt.id, false);
-        return limitReached(
-          `You've reached your plan's prompt limit (${limit}/${limit}). Upgrade to add more.`,
-        );
-      }
-      return { prompt: serializePrompt(prompt), usage: { used: after, limit } };
+      const { prompt, usage } = unwrap(
+        await addPromptForUser(userId, asString(args.brandId) ?? "", args.text),
+      );
+      return { prompt: serializePrompt(prompt), usage };
     },
   },
   {
@@ -298,46 +227,13 @@ export const TOOLS: McpTool[] = [
       required: ["brandId", "promptId"],
     },
     handler: async (userId, args) => {
-      const id = requireUuid(args.brandId, "Prompt");
-      const promptId = requireUuid(args.promptId, "Prompt");
-      if (!(await assertBrandMember(userId, id))) return notFound("Prompt");
-      const prompt = await getPromptForBrand(promptId, id);
-      if (!prompt) return notFound("Prompt");
-
-      const hasText = args.text !== undefined;
-      const hasActive = args.active !== undefined;
-      if (!hasText && !hasActive) return badRequest("Provide 'text' and/or 'active'.");
-
-      let newText: string | undefined;
-      if (hasText) {
-        const t = typeof args.text === "string" ? args.text.trim() : "";
-        if (!t) return badRequest("text must be a non-empty string.");
-        if (t.length > MAX_PROMPT_TEXT_LEN)
-          return badRequest(`text must be at most ${MAX_PROMPT_TEXT_LEN} characters.`);
-        newText = t;
-      }
-      let newActive: boolean | undefined;
-      if (hasActive) {
-        if (typeof args.active !== "boolean") return badRequest("active must be a boolean.");
-        newActive = args.active;
-        if (newActive && !prompt.active) {
-          const { used, limit } = await promptUsage(userId);
-          if (used >= limit)
-            return limitReached(
-              `You've reached your plan's prompt limit (${used}/${limit}). Upgrade to add more.`,
-            );
-        }
-      }
-
-      if (newText !== undefined) await updatePromptText(promptId, newText);
-      if (newActive !== undefined) await setPromptActive(promptId, newActive);
-      const result = {
-        ...prompt,
-        text: newText ?? prompt.text,
-        active: newActive ?? prompt.active,
-        updated_at: new Date().toISOString(),
-      };
-      return { prompt: serializePrompt(result) };
+      const { prompt } = unwrap(
+        await updatePromptForUser(userId, asString(args.brandId) ?? "", asString(args.promptId) ?? "", {
+          text: args.text,
+          active: args.active,
+        }),
+      );
+      return { prompt: serializePrompt(prompt) };
     },
   },
   {

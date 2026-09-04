@@ -92,10 +92,7 @@ export async function dispatch(message: unknown, userId: string): Promise<object
           : {};
       try {
         const result = await tool.handler(userId, args);
-        return ok(id, {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-          structuredContent: result,
-        });
+        return ok(id, { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] });
       } catch (e) {
         // Domain failures come back as an isError tool RESULT (still a JSON-RPC
         // success), so the agent can read and act on them.

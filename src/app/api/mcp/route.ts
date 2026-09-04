@@ -26,29 +26,38 @@ function unauthorized() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireApiKey(request);
-  if (!auth) return unauthorized();
-
-  let body: unknown;
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(parseError(), { headers: CORS });
-  }
+    const auth = await requireApiKey(request);
+    if (!auth) return unauthorized();
 
-  // JSON-RPC batching was removed in the 2025-06-18 spec; still accept an array
-  // for older clients. All-notifications → 202 with no body.
-  if (Array.isArray(body)) {
-    const responses = (await Promise.all(body.map((m) => dispatch(m, auth.userId)))).filter(
-      (r): r is object => r !== null,
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(parseError(), { headers: CORS });
+    }
+
+    // JSON-RPC batching was removed in the 2025-06-18 spec; still accept an array
+    // for older clients. All-notifications → 202 with no body.
+    if (Array.isArray(body)) {
+      const responses = (await Promise.all(body.map((m) => dispatch(m, auth.userId)))).filter(
+        (r): r is object => r !== null,
+      );
+      if (responses.length === 0) return new NextResponse(null, { status: 202, headers: CORS });
+      return NextResponse.json(responses, { headers: CORS });
+    }
+
+    const response = await dispatch(body, auth.userId);
+    if (response === null) return new NextResponse(null, { status: 202, headers: CORS });
+    return NextResponse.json(response, { headers: CORS });
+  } catch (err) {
+    // A thrown auth/DB error must return a clean JSON-RPC error, not a framework 500.
+    console.error("mcp route:", err);
+    return NextResponse.json(
+      { jsonrpc: "2.0", id: null, error: { code: -32603, message: "Internal error." } },
+      { status: 500, headers: CORS },
     );
-    if (responses.length === 0) return new NextResponse(null, { status: 202, headers: CORS });
-    return NextResponse.json(responses, { headers: CORS });
   }
-
-  const response = await dispatch(body, auth.userId);
-  if (response === null) return new NextResponse(null, { status: 202, headers: CORS });
-  return NextResponse.json(response, { headers: CORS });
 }
 
 export function OPTIONS() {
