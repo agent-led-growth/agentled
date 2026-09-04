@@ -40,3 +40,19 @@ export function limitReached(message: string) {
 
 export const serverError = () =>
   apiError(500, "server_error", "Something went wrong. Please try again.");
+
+/**
+ * Map a `ServiceResult` failure (from `src/lib/api/services.ts`) to its HTTP
+ * response, so every route renders a service error the same way. Typed
+ * structurally to avoid importing the services module (no cycle).
+ */
+export function serviceError(e: { code: "bad_request" | "not_found" | "limit_reached"; message: string }) {
+  switch (e.code) {
+    case "not_found":
+      return apiError(404, "not_found", e.message);
+    case "limit_reached":
+      return limitReached(e.message);
+    default:
+      return badRequest(e.message);
+  }
+}

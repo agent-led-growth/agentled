@@ -15,7 +15,7 @@
         "groups": [
           {
             "group": "Getting started",
-            "pages": ["introduction", "authentication", "quickstart"]
+            "pages": ["introduction", "authentication", "quickstart", "mcp"]
           },
           {
             "group": "Concepts",

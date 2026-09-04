@@ -1,24 +1,23 @@
 import { NextResponse } from "next/server";
 
-import { assertBrandMember, listRunsForBrand } from "@/lib/ai-search";
-import { pageResult, parsePagination } from "@/lib/api/pagination";
-import { notFound } from "@/lib/api/respond";
-import { isUuid, withApiKey } from "@/lib/api/route";
+import { serviceError } from "@/lib/api/respond";
+import { withApiKey } from "@/lib/api/route";
 import { serializeScan } from "@/lib/api/serialize";
+import { listScansForBrand } from "@/lib/api/services";
 
 /** GET /api/v1/brands/{id}/scans?limit=&offset= → the brand's scan runs, newest first. */
 export const GET = withApiKey(
   async (auth, { params }: { params: Promise<{ id: string }> }, request) => {
     const { id } = await params;
-    if (!isUuid(id)) return notFound("Brand");
-    if (!(await assertBrandMember(auth.userId, id))) return notFound("Brand");
-
-    const { limit, offset } = parsePagination(request, 90);
-    const rows = await listRunsForBrand(id, limit + 1, offset);
-    const { items, hasMore } = pageResult(rows, limit);
+    const sp = new URL(request.url).searchParams;
+    const result = await listScansForBrand(auth.userId, id, {
+      limit: sp.get("limit"),
+      offset: sp.get("offset"),
+    });
+    if (!result.ok) return serviceError(result.error);
     return NextResponse.json({
-      scans: items.map(serializeScan),
-      pagination: { limit, offset, hasMore },
+      scans: result.data.items.map(serializeScan),
+      pagination: result.data.pagination,
     });
   },
 );
