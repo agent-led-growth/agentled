@@ -1,0 +1,65 @@
+---
+title: MCP server
+description: Connect agentled to Claude, Cursor, and other AI clients over MCP.
+---
+
+agentled runs a remote **MCP** (Model Context Protocol) server, so an AI client
+like Claude Code or Cursor can configure and query your brands directly — the
+same actions as the [REST API](/introduction), exposed as tools.
+
+## Endpoint
+
+```
+https://agentled.co/api/mcp
+```
+
+- **Transport:** Streamable HTTP
+- **Auth:** the same API key as the REST API, sent as `Authorization: Bearer agl_live_…`. Get one in the Account tab (see [Authentication](/authentication)).
+
+## Connect
+
+<CodeGroup>
+
+```bash Claude Code
+claude mcp add --transport http agentled https://agentled.co/api/mcp \
+  --header "Authorization: Bearer agl_live_YOUR_KEY"
+```
+
+```json Cursor / generic client
+{
+  "mcpServers": {
+    "agentled": {
+      "url": "https://agentled.co/api/mcp",
+      "headers": { "Authorization": "Bearer agl_live_YOUR_KEY" }
+    }
+  }
+}
+```
+
+</CodeGroup>
+
+Any client that lets you set a request header works: **Claude Code, Cursor,
+Windsurf, MCP Inspector**, and custom SDK clients.
+
+<Note>
+  The claude.ai website's "custom connector" picker expects an OAuth login rather
+  than a static key, so it isn't supported yet — an OAuth layer is planned. For
+  now use a header-configurable client like the ones above.
+</Note>
+
+## Tools
+
+The server exposes the full API surface as tools:
+
+| Area | Tools |
+| --- | --- |
+| Plan | `get_plan` |
+| Brands | `list_brands`, `create_brand`, `get_brand`, `set_brand_location` |
+| Prompts | `list_prompts`, `add_prompt`, `update_prompt` |
+| Results | `list_answers`, `get_metrics`, `list_scans`, `get_scan` |
+| Geo | `list_countries`, `list_cities` |
+
+Each tool maps 1:1 to a REST endpoint and enforces the same account scoping,
+plan limits, and validation. A typical setup flow: `create_brand` →
+`add_prompt` (a brand with no active prompts is never scanned) →
+`set_brand_location` → read with `get_metrics`.
