@@ -1,0 +1,53 @@
+---
+title: Introduction
+description: The agentled API — manage brands and prompts and read AI Search results programmatically.
+---
+
+The **agentled API** gives you programmatic access to the AI Search monitor:
+create the brands you want to track, add the prompts asked about them, set the
+market each brand is measured from, and read back the results — the same data
+that powers the dashboard.
+
+It's built for both people and agents: point Claude (or any AI) at the
+[OpenAPI spec](https://agentled.co/api/v1/openapi.json) and it can configure and
+query everything below.
+
+## Base URL
+
+```
+https://agentled.co/api/v1
+```
+
+## What you can do
+
+<CardGroup cols={2}>
+  <Card title="Manage brands" icon="building">
+    Create brands, read their details, and set their measurement location.
+  </Card>
+  <Card title="Manage prompts" icon="message">
+    Add the questions asked about a brand, edit them, and enable or disable them.
+  </Card>
+  <Card title="Read results" icon="chart-line">
+    Fetch a brand's visibility metrics, its scan history, and every answer a
+    prompt received.
+  </Card>
+  <Card title="Discover values" icon="globe">
+    Look up the exact country and city values a brand's location accepts.
+  </Card>
+</CardGroup>
+
+## Conventions
+
+- **JSON everywhere.** Request and response bodies are JSON.
+- **Bearer auth.** Every request needs an `Authorization: Bearer` header — see
+  [Authentication](/authentication).
+- **Account-scoped.** A key only ever sees brands your account belongs to.
+- **Stable error codes.** Errors share one shape you can branch on — see
+  [Errors & pagination](/errors).
+- **camelCase fields.** Response fields are camelCase and additive over time.
+
+<Note>
+  The API currently monitors **ChatGPT**. Claude, Gemini, Perplexity and others
+  are coming — the shape of the data won't change, `platform` will just take new
+  values.
+</Note>

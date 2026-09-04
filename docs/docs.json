@@ -1,0 +1,44 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "agentled API",
+  "description": "Programmatic access to the agentled AI Search monitor.",
+  "colors": {
+    "primary": "#4f7a12",
+    "light": "#c8f04a",
+    "dark": "#c8f04a"
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Getting started",
+            "pages": ["introduction", "authentication", "quickstart"]
+          },
+          {
+            "group": "Concepts",
+            "pages": ["concepts", "errors"]
+          }
+        ]
+      },
+      {
+        "tab": "API reference",
+        "groups": [
+          {
+            "group": "Reference",
+            "openapi": "https://agentled.co/api/v1/openapi.json"
+          }
+        ]
+      }
+    ]
+  },
+  "navbar": {
+    "links": [{ "label": "Dashboard", "href": "https://agentled.co/ai-search" }],
+    "primary": { "type": "button", "label": "agentled.co", "href": "https://agentled.co" }
+  },
+  "footer": {
+    "socials": { "website": "https://agentled.co" }
+  }
+}

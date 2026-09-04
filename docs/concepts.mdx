@@ -1,0 +1,87 @@
+---
+title: Concepts
+description: Brands, prompts, location, and plan limits.
+---
+
+## Brands
+
+A **brand** is a website you monitor. You create one from a domain
+(`POST /brands`); its name, description, and logo are enriched automatically in
+the background. Brand creation is idempotent per account + domain — posting a
+domain you already have returns the existing brand unchanged.
+
+A brand's `status` is `active` once it's claimed by your account. Brands are not
+deleted through the API.
+
+<Note>
+  How many brands you can create is set by your plan (`features.brands` from
+  [`GET /plan`](/introduction)). Hitting it returns `409 limit_reached` with an
+  `upgradeUrl`.
+</Note>
+
+## Prompts
+
+**Prompts** are the questions asked about a brand in each scan (e.g. _"What are
+the best project management tools?"_). Each is at most 300 characters.
+
+- Add prompts with `POST /brands/{id}/prompts`.
+- Edit or toggle them with `PATCH /brands/{id}/prompts/{promptId}`.
+
+### Disable, don't delete
+
+Prompts are **never hard-deleted**. Setting `active: false` disables a prompt but
+keeps its scan history; setting `active: true` re-enables it. Only **active**
+prompts are scanned and count against your plan's prompt limit.
+
+The prompt limit is **account-wide** — the total active prompts across all your
+brands — so re-enabling a prompt can be rejected with `409 limit_reached` if
+you're at the cap.
+
+<Warning>
+  A brand with **no active prompts is never scanned**. Newly created brands have
+  no prompts, so add at least one to get results.
+</Warning>
+
+## Location
+
+A brand's **location** is the market its AI answers are measured from. It maps
+directly to how the underlying AI web search is geolocated.
+
+`location.mode` is one of:
+
+| mode | meaning | required fields |
+| --- | --- | --- |
+| `worldwide` | No geographic scope (the default). | — |
+| `country` | Measured from a country. | `country` |
+| `city` | Measured from a city. | `country`, `city` |
+
+Set it with `PATCH /brands/{id}` — e.g. `{ "location": { "mode": "worldwide" } }`
+to clear scope.
+
+### Use the Geo endpoints for valid values
+
+To avoid typos, don't guess country or city names — look them up:
+
+- `GET /geo/countries` → every valid `country` code (ISO 3166-1 alpha-2, e.g.
+  `US`, `GB`, `ES`).
+- `GET /geo/countries/{code}/cities` → the valid `city` names for that country
+  (major cities, population ≥ 100k). An empty list means only country-level
+  scope is available there.
+
+`country` is case-insensitive; `city` must match a value from the list (it's
+canonicalized to the dataset's spelling). Invalid values return
+`400 bad_request`.
+
+## Plans & limits
+
+[`GET /plan`](/introduction) returns your plan and its `features`:
+
+- `brands` — max brands.
+- `prompts` — max **active** prompts across all brands.
+- `frequency` — `one-time` (free) or `daily` (paid). Daily scanning is what keeps
+  metrics fresh.
+- `models` — the AI platforms scanned (`chatgpt` today).
+
+Any request that would exceed a limit returns `409 limit_reached` with an
+`upgradeUrl` pointing at the pricing page — so an agent can route the user to
+upgrade instead of just failing.

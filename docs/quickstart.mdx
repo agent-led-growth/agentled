@@ -1,0 +1,116 @@
+---
+title: Quickstart
+description: Create a brand, add a prompt, and read its results in a few calls.
+---
+
+This walks through the full loop: create a brand, add a prompt, optionally set a
+location, and read results. Every call needs your
+[API key](/authentication) — set it once:
+
+```bash
+export AGL_KEY="agl_live_your_key_here"
+```
+
+## 1. Check your plan
+
+Your plan sets how many brands and prompts you can have, and whether brands are
+scanned daily.
+
+```bash
+curl https://agentled.co/api/v1/plan \
+  -H "Authorization: Bearer $AGL_KEY"
+```
+
+```json
+{
+  "plan": "pro",
+  "features": { "brands": 1, "prompts": 50, "frequency": "daily", "models": ["chatgpt"] }
+}
+```
+
+## 2. Create a brand
+
+Pass a website. The name, description, and logo are enriched automatically.
+
+```bash
+curl -X POST https://agentled.co/api/v1/brands \
+  -H "Authorization: Bearer $AGL_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "website": "example.com" }'
+```
+
+```json
+{ "brand": { "id": "b1a7…", "domain": "example.com", "name": "Example", "status": "active", "location": { "mode": "worldwide", "country": null, "city": null, "label": null }, "…": "…" } }
+```
+
+Save the brand `id` — the next calls use it. Creating the same domain again just
+returns the existing brand (it won't duplicate or re-enrich).
+
+<Warning>
+  A new brand has **no prompts**, and a brand with no active prompts is **never
+  scanned**. Add at least one prompt in the next step.
+</Warning>
+
+## 3. Add a prompt
+
+Prompts are the questions asked about the brand each scan.
+
+```bash
+curl -X POST https://agentled.co/api/v1/brands/BRAND_ID/prompts \
+  -H "Authorization: Bearer $AGL_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "text": "What are the best example tools?" }'
+```
+
+```json
+{ "prompt": { "id": "p3c9…", "text": "What are the best example tools?", "active": true, "…": "…" }, "usage": { "used": 1, "limit": 50 } }
+```
+
+## 4. (Optional) Set a location
+
+By default a brand is measured worldwide. To measure a specific market, discover
+valid values and set them. See [Concepts → Location](/concepts#location).
+
+```bash
+# Discover valid values
+curl https://agentled.co/api/v1/geo/countries -H "Authorization: Bearer $AGL_KEY"
+curl https://agentled.co/api/v1/geo/countries/US/cities -H "Authorization: Bearer $AGL_KEY"
+
+# Set the brand to a city
+curl -X PATCH https://agentled.co/api/v1/brands/BRAND_ID \
+  -H "Authorization: Bearer $AGL_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "location": { "mode": "city", "country": "US", "city": "Austin" } }'
+```
+
+## 5. Wait for a scan, then read results
+
+On a paid plan the brand is scanned **daily** once it has active prompts. After a
+scan completes, read its metrics and history:
+
+```bash
+# Visibility metrics over the last 30 days
+curl "https://agentled.co/api/v1/brands/BRAND_ID/metrics?days=30" \
+  -H "Authorization: Bearer $AGL_KEY"
+
+# Scan history
+curl https://agentled.co/api/v1/brands/BRAND_ID/scans \
+  -H "Authorization: Bearer $AGL_KEY"
+
+# Every answer a prompt received
+curl https://agentled.co/api/v1/brands/BRAND_ID/prompts/PROMPT_ID/answers \
+  -H "Authorization: Bearer $AGL_KEY"
+```
+
+<Note>
+  Scans aren't triggered through the API yet. Brands are picked up by the daily
+  sweep, which runs on **paid** plans only — so a brand created via the API on a
+  free plan can be configured but won't produce results until it's on a paid
+  plan.
+</Note>
+
+## Next steps
+
+- [Concepts](/concepts) — brands, prompts, location, and plan limits in depth.
+- [Errors & pagination](/errors) — the error shape and how to page long lists.
+- [API reference](/introduction) — every endpoint, generated from the spec.
